@@ -9,6 +9,7 @@ import {
   Panel,
   ReactFlow,
   ReactFlowProvider,
+  useNodesInitialized,
   useNodesState,
   useReactFlow,
 } from '@xyflow/react'
@@ -118,6 +119,9 @@ function Editor() {
   nodesRef.current = nodes
   const fitRef = useRef(fitView)
   fitRef.current = fitView
+  // fitView funziona solo dopo che React Flow ha misurato i nodi: lo chiedo e lo eseguo appena sono pronti
+  const nodesInitialized = useNodesInitialized()
+  const fitPending = useRef(false)
 
   const load = useCallback(
     async (keepPositions) => {
@@ -140,10 +144,16 @@ function Editor() {
   useEffect(() => {
     setDirty(false)
     setSelection(null)
-    load(false).then((data) => {
-      if (data) setTimeout(() => fitRef.current({ padding: 0.25 }), 80)
-    })
+    fitPending.current = true
+    load(false)
   }, [load])
+
+  useEffect(() => {
+    if (nodesInitialized && fitPending.current) {
+      fitPending.current = false
+      fitRef.current({ padding: 0.25 })
+    }
+  }, [nodesInitialized])
 
   // Avviso se si chiude la pagina con modifiche non salvate
   useEffect(() => {
