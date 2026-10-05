@@ -1,0 +1,54 @@
+name: netmap
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"   # 5433 per non andare in conflitto con l'app inventory
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      UVICORN_EXTRA_ARGS: --reload
+      WATCHFILES_FORCE_POLLING: "true"   # serve su Windows per il reload automatico
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8001:8000"   # 8001 per non andare in conflitto con l'app inventory
+    volumes:
+      - ./backend:/app
+
+  web:
+    image: node:20-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_API_PROXY: http://api:8000
+      CHOKIDAR_USEPOLLING: "true"   # serve su Windows per il reload automatico
+    depends_on:
+      - api
+    ports:
+      - "5174:5173"   # 5174 per non andare in conflitto con un altro progetto Vite
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+
+volumes:
+  pgdata:
+  web_node_modules:

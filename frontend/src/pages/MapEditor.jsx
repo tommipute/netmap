@@ -1,0 +1,378 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import {
+  Background,
+  BackgroundVariant,
+  ConnectionMode,
+  Controls,
+  MiniMap,
+  Panel,
+  ReactFlow,
+  ReactFlowProvider,
+  useNodesState,
+  useReactFlow,
+} from '@xyflow/react'
+import { api } from '../api'
+import { Badge } from '../components/Bits'
+import CableDialog from '../components/CableDialog'
+import RefLabel from '../components/RefLabel'
+import { invalidate } from '../hooks'
+import { cableStyle } from '../map/cables'
+import DeviceNode from '../map/DeviceNode'
+import { X_GAP, Y_GAP, hierarchicalLayout } from '../map/layout'
+import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
+
+const nodeTypes = { device: DeviceNode }
+
+/** Nodi per React Flow: posizione attuale > posizione salvata > calcolata. */
+function buildFlowNodes(view, previous) {
+  const known = new Map(previous.map((n) => [n.id, n.position]))
+  const nodes = view.nodes.map((n) => {
+    const id = String(n.id)
+    const position = known.get(id) ?? (n.x !== null && n.y !== null ? { x: n.x, y: n.y } : null)
+    return { id, type: 'device', position, data: n }
+  })
+  const missing = nodes.filter((n) => !n.position)
+  if (missing.length === 0) return { nodes, changed: false }
+
+  if (missing.length === nodes.length) {
+    const layout = hierarchicalLayout(view.nodes, view.edges)
+    return { nodes: nodes.map((n) => ({ ...n, position: layout[n.id] })), changed: true }
+  }
+  // Device nuovi in una mappa già disposta: li metto in fila sotto
+  const placed = nodes.filter((n) => n.position)
+  const bottom = Math.max(...placed.map((n) => n.position.y)) + Y_GAP
+  const left = Math.min(...placed.map((n) => n.position.x))
+  let i = 0
+  return {
+    nodes: nodes.map((n) => (n.position ? n : { ...n, position: { x: left + X_GAP * i++, y: bottom } })),
+    changed: true,
+  }
+}
+
+function toFlowEdge(edge, levelOf, showLabels, selected) {
+  // Il cavo parte sempre dal device più in alto nella gerarchia
+  const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
+  const style = cableStyle(edge.type)
+  const fast = (edge.speed_mbps || 0) >= 10000
+  return {
+    id: `cable-${edge.id}`,
+    source: String(flip ? edge.target : edge.source),
+    target: String(flip ? edge.source : edge.target),
+    type: 'straight',
+    data: edge,
+    label: showLabels
+      ? flip
+        ? `${edge.target_interface} – ${edge.source_interface}`
+        : `${edge.source_interface} – ${edge.target_interface}`
+      : undefined,
+    labelBgPadding: [6, 3],
+    labelBgBorderRadius: 3,
+    className: selected ? 'cable cable--selected' : 'cable',
+    style: {
+      stroke: style.color,
+      strokeWidth: (fast ? 3.5 : 2) + (selected ? 2 : 0),
+      strokeDasharray: edge.status === 'planned' ? '7 5' : edge.status === 'decommissioning' ? '2 4' : undefined,
+    },
+  }
+}
+
+function Legend({ edges }) {
+  const types = [...new Set(edges.map((e) => e.type || ''))]
+  const planned = edges.some((e) => e.status === 'planned')
+  if (types.length === 0) return null
+  return (
+    <div className="map-legend">
+      {types.map((type) => {
+        const style = cableStyle(type || null)
+        return (
+          <span key={type || 'none'} className="map-legend__item">
+            <span className="map-legend__line" style={{ background: style.color }} />
+            {style.label}
+          </span>
+        )
+      })}
+      {planned && (
+        <span className="map-legend__item">
+          <span className="map-legend__line map-legend__line--dashed" />
+          Pianificato
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Editor() {
+  const { id } = useParams()
+  const { fitView } = useReactFlow()
+  const [view, setView] = useState(null)
+  const [error, setError] = useState(null)
+  const [nodes, setNodes, onNodesChange] = useNodesState([])
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [showLabels, setShowLabels] = useState(false)
+  const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id }
+  const [connecting, setConnecting] = useState(null) // { a, b } id device
+
+  const nodesRef = useRef(nodes)
+  nodesRef.current = nodes
+  const fitRef = useRef(fitView)
+  fitRef.current = fitView
+
+  const load = useCallback(
+    async (keepPositions) => {
+      try {
+        const data = await api.get(`/maps/${id}/view`)
+        const { nodes: built, changed } = buildFlowNodes(data, keepPositions ? nodesRef.current : [])
+        setView(data)
+        setNodes(built)
+        setError(null)
+        if (changed) setDirty(true)
+        return data
+      } catch (err) {
+        setError(err.message)
+        return null
+      }
+    },
+    [id, setNodes],
+  )
+
+  useEffect(() => {
+    setDirty(false)
+    setSelection(null)
+    load(false).then((data) => {
+      if (data) setTimeout(() => fitRef.current({ padding: 0.25 }), 80)
+    })
+  }, [load])
+
+  // Avviso se si chiude la pagina con modifiche non salvate
+  useEffect(() => {
+    if (!dirty) return undefined
+    const handler = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
+
+  const levelOf = useMemo(() => Object.fromEntries((view?.nodes || []).map((n) => [n.id, n.level])), [view])
+  const edges = useMemo(
+    () =>
+      (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id)),
+    [view, levelOf, showLabels, selection],
+  )
+
+  const savePositions = async (list) => {
+    setSaving(true)
+    try {
+      await api.put(
+        `/maps/${id}/nodes`,
+        list.map((n) => ({ device_id: Number(n.id), x: Math.round(n.position.x), y: Math.round(n.position.y) })),
+      )
+      setDirty(false)
+      return true
+    } catch (err) {
+      setError(err.message)
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const arrange = () => {
+    const layout = hierarchicalLayout(view.nodes, view.edges)
+    setNodes((current) => current.map((n) => ({ ...n, position: layout[n.id] ?? n.position })))
+    setDirty(true)
+    setTimeout(() => fitRef.current({ padding: 0.25, duration: 300 }), 50)
+  }
+
+  const addDevice = async (deviceId) => {
+    const device = view.available.find((d) => d.id === deviceId)
+    if (!device) return
+    const current = nodesRef.current
+    const bottom = current.length ? Math.max(...current.map((n) => n.position.y)) + Y_GAP : 0
+    const next = [...current, { id: String(device.id), type: 'device', position: { x: 0, y: bottom }, data: device }]
+    setNodes(next)
+    if (await savePositions(next)) await load(true)
+  }
+
+  const removeFromMap = async (deviceId) => {
+    const next = nodesRef.current.filter((n) => n.id !== String(deviceId))
+    setNodes(next)
+    setSelection(null)
+    if (await savePositions(next)) await load(true)
+  }
+
+  const deleteCable = async (cable) => {
+    if (!window.confirm('Eliminare questo cavo? Il collegamento sparirà anche dalle schede dei device.')) return
+    try {
+      await api.del(`/cables/${cable.id}`)
+      invalidate()
+      setSelection(null)
+      await load(true)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (!view) {
+    return (
+      <div className="map-page">
+        <div className="map-message">{error ? <p className="error-box">{error}</p> : <p className="muted">Caricamento mappa…</p>}</div>
+      </div>
+    )
+  }
+
+  const nameOf = Object.fromEntries(view.nodes.map((n) => [n.id, n.name]))
+  const selectedNode = selection?.kind === 'node' ? view.nodes.find((n) => n.id === selection.id) : null
+  const selectedEdge = selection?.kind === 'edge' ? view.edges.find((e) => e.id === selection.id) : null
+
+  return (
+    <div className="map-page">
+      <div className="map-toolbar">
+        <div className="map-toolbar__title">
+          <Link to="/maps" className="crumbs">Mappe</Link>
+          <h1>{view.map.name}</h1>
+          <span className="muted">
+            <RefLabel resource="sites" id={view.map.site_id} />
+            {view.map.location_id && (
+              <>
+                {', '}
+                <RefLabel resource="locations" id={view.map.location_id} />
+              </>
+            )}
+          </span>
+        </div>
+        <div className="map-toolbar__actions">
+          {!view.map.auto_include && view.available.length > 0 && (
+            <select className="input input--sm" value="" onChange={(e) => e.target.value && addDevice(Number(e.target.value))} aria-label="Aggiungi un device alla mappa">
+              <option value="">Aggiungi device…</option>
+              {view.available.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
+          <label className="check check--inline">
+            <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+            Nomi delle porte
+          </label>
+          <button type="button" className="btn btn--sm" onClick={arrange} disabled={view.nodes.length === 0}>
+            Disponi automaticamente
+          </button>
+          <button type="button" className="btn btn--sm btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
+            {saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="error-box map-error" role="alert">{error}</p>}
+
+      <div className="map-canvas">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onNodeDragStop={() => setDirty(true)}
+          onNodeClick={(_, node) => setSelection({ kind: 'node', id: Number(node.id) })}
+          onEdgeClick={(_, edge) => setSelection({ kind: 'edge', id: edge.data.id })}
+          onPaneClick={() => setSelection(null)}
+          onConnect={({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) })}
+          connectionMode={ConnectionMode.Loose}
+          deleteKeyCode={null}
+          minZoom={0.15}
+          maxZoom={2}
+          colorMode="system"
+        >
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
+          <Controls showInteractive={false} />
+          <MiniMap pannable zoomable nodeColor={(n) => n.data.color} nodeStrokeWidth={2} />
+          <Panel position="bottom-center">
+            <Legend edges={view.edges} />
+          </Panel>
+          {view.nodes.length > 0 && (
+            <Panel position="top-left" className="map-hint">
+              Trascina da un pallino di un device a quello di un altro per collegarli.
+            </Panel>
+          )}
+        </ReactFlow>
+
+        {view.nodes.length === 0 && (
+          <div className="map-message">
+            {view.map.auto_include ? (
+              <p>
+                In questa sede non ci sono ancora device. <Link to="/devices">Aggiungine uno</Link> e torna qui.
+              </p>
+            ) : (
+              <p>La mappa è vuota: scegli i device da "Aggiungi device…" in alto.</p>
+            )}
+          </div>
+        )}
+
+        {selectedNode && (
+          <aside className="map-panel" aria-label="Dettagli device">
+            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label="Chiudi dettagli">×</button>
+            <h2>{selectedNode.name}</h2>
+            <dl className="facts facts--stack">
+              <div><dt>Ruolo</dt><dd>{selectedNode.role || '—'}</dd></div>
+              <div><dt>Stato</dt><dd><Badge value={selectedNode.status} options={DEVICE_STATUS} /></dd></div>
+              <div><dt>IP di management</dt><dd className="mono">{selectedNode.primary_ip || '—'}</dd></div>
+              <div><dt>Collegamenti in mappa</dt><dd>{view.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}</dd></div>
+            </dl>
+            <div className="map-panel__actions">
+              <Link className="btn btn--sm btn--primary" to={`/devices/${selectedNode.id}`}>Apri scheda del device</Link>
+              {!view.map.auto_include && (
+                <button type="button" className="btn btn--sm btn--ghost" onClick={() => removeFromMap(selectedNode.id)}>
+                  Togli dalla mappa
+                </button>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {selectedEdge && (
+          <aside className="map-panel" aria-label="Dettagli collegamento">
+            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label="Chiudi dettagli">×</button>
+            <h2>Collegamento</h2>
+            <p className="cable-ends">
+              <Link to={`/devices/${selectedEdge.source}`}>{nameOf[selectedEdge.source]}</Link> <span className="mono">{selectedEdge.source_interface}</span>
+              <span className="cable-ends__line" style={{ background: cableStyle(selectedEdge.type).color }} aria-hidden="true" />
+              <Link to={`/devices/${selectedEdge.target}`}>{nameOf[selectedEdge.target]}</Link> <span className="mono">{selectedEdge.target_interface}</span>
+            </p>
+            <dl className="facts facts--stack">
+              <div><dt>Tipo</dt><dd>{selectedEdge.type ? labelOf(CABLE_TYPES, selectedEdge.type) : 'Non indicato'}</dd></div>
+              <div><dt>Stato</dt><dd>{labelOf(CABLE_STATUS, selectedEdge.status)}</dd></div>
+              <div><dt>Velocità porta</dt><dd>{formatSpeed(selectedEdge.speed_mbps)}</dd></div>
+            </dl>
+            <div className="map-panel__actions">
+              <button type="button" className="btn btn--sm btn--ghost btn--danger" onClick={() => deleteCable(selectedEdge)}>
+                Elimina cavo
+              </button>
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {connecting && (
+        <CableDialog
+          aDeviceId={connecting.a}
+          bDeviceId={connecting.b}
+          onClose={() => setConnecting(null)}
+          onCreated={async () => {
+            setConnecting(null)
+            await load(true)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+export default function MapEditor() {
+  return (
+    <ReactFlowProvider>
+      <Editor />
+    </ReactFlowProvider>
+  )
+}

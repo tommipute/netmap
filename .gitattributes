@@ -1,0 +1,2 @@
+# LF ovunque: su Windows un CRLF rompe gli script .sh nei container
+* text=auto eol=lf
