@@ -71,3 +71,55 @@ export function formatSpeed(mbps) {
   if (!mbps) return '—'
   return mbps >= 1000 ? `${mbps / 1000} G` : `${mbps} M`
 }
+
+// ---------- Scansione SNMP ----------
+export const SNMP_VERSIONS = [
+  { value: 'v2c', label: 'SNMP v2c (community)' },
+  { value: 'v3', label: 'SNMPv3 (utente e chiavi)' },
+]
+
+export const SNMP_AUTH = [
+  { value: 'sha', label: 'SHA' },
+  { value: 'sha256', label: 'SHA-256' },
+  { value: 'sha512', label: 'SHA-512' },
+  { value: 'md5', label: 'MD5 (vecchio)' },
+]
+
+export const SNMP_PRIV = [
+  { value: 'aes', label: 'AES-128' },
+  { value: 'aes256', label: 'AES-256' },
+  { value: 'des', label: 'DES (vecchio)' },
+]
+
+export const RUN_STATUS = [
+  { value: 'queued', label: 'In coda' },
+  { value: 'running', label: 'In corso' },
+  { value: 'done', label: 'Completata' },
+  { value: 'failed', label: 'Non riuscita' },
+]
+
+export const CHANGE_STATUS = [
+  { value: 'pending', label: 'Da approvare' },
+  { value: 'applied', label: 'Applicate' },
+  { value: 'rejected', label: 'Rifiutate' },
+  { value: 'failed', label: 'Non riuscite' },
+]
+
+export const CHANGE_ACTIONS = {
+  create: { label: 'Nuovo', tone: 'ok' },
+  update: { label: 'Modifica', tone: 'info' },
+  stale: { label: 'Non più visto', tone: 'warn' },
+}
+
+/** "2026-10-05T20:31:52Z" -> "05/10/26, 22:31" */
+export function formatDateTime(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+/** Durata tra due date: "45 s", "3 min" */
+export function formatDuration(start, end) {
+  if (!start || !end) return '—'
+  const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000))
+  return seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`
+}

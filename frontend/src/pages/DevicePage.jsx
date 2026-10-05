@@ -7,7 +7,7 @@ import CableDialog from '../components/CableDialog'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
-import { DEVICE_STATUS, INTERFACE_TYPES, SOURCES, formatSpeed, labelOf } from '../options'
+import { DEVICE_STATUS, INTERFACE_TYPES, SOURCES, formatDateTime, formatSpeed, labelOf } from '../options'
 
 function vlanText(port) {
   if (port.mode === 'access') return port.untagged_vlan ? String(port.untagged_vlan) : '—'
@@ -36,6 +36,7 @@ export default function DevicePage() {
   const navigate = useNavigate()
   const { data: device, error, reload } = useApi(`/devices/${id}`)
   const { data: ports, error: portsError, reload: reloadPorts } = useApi(`/devices/${id}/ports`)
+  const { data: pending } = useApi(`/discovery-changes?device_id=${id}&limit=1`)
   const [dialog, setDialog] = useState(null)
 
   const refresh = () => {
@@ -91,6 +92,13 @@ export default function DevicePage() {
         </div>
       </header>
 
+      {pending?.total > 0 && (
+        <p className="notice">
+          La scansione SNMP ha {pending.total === 1 ? '1 modifica' : `${pending.total} modifiche`} da approvare per questo device.{' '}
+          <Link to={`/discovery/changes?device_id=${device.id}`}>Rivedile</Link>
+        </p>
+      )}
+
       <dl className="facts">
         <div><dt>Sede</dt><dd><RefLabel resource="sites" id={device.site_id} /></dd></div>
         <div><dt>Posizione</dt><dd><RefLabel resource="locations" id={device.location_id} /></dd></div>
@@ -105,9 +113,14 @@ export default function DevicePage() {
         <div><dt>Numero di serie</dt><dd><Mono>{device.serial}</Mono></dd></div>
         <div><dt>Asset tag</dt><dd><Mono>{device.asset_tag}</Mono></dd></div>
         <div><dt>Origine dati</dt><dd>{labelOf(SOURCES, device.source)}</dd></div>
+        {device.last_seen_at && <div><dt>Ultima scansione</dt><dd>{formatDateTime(device.last_seen_at)}</dd></div>}
+        {device.sys_name && device.sys_name !== device.name && <div><dt>sysName</dt><dd><Mono>{device.sys_name}</Mono></dd></div>}
         {customEntries.map(([key, value]) => (
           <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>
         ))}
+        {device.sys_descr && (
+          <div className="facts__wide"><dt>Descrizione SNMP</dt><dd className="hint">{device.sys_descr}</dd></div>
+        )}
         {device.description && (
           <div className="facts__wide"><dt>Note</dt><dd>{device.description}</dd></div>
         )}
@@ -148,6 +161,10 @@ export default function DevicePage() {
                 {ports.map((p) => (
                   <tr key={p.id} className={p.enabled ? '' : 'is-disabled'}>
                     <td>
+                      {p.oper_status && (
+                        <span className={`oper-dot oper-dot--${p.oper_status === 'up' ? 'up' : 'down'}`}
+                          title={`Stato all'ultima scansione: ${p.oper_status === 'up' ? 'su' : 'giù'}`} />
+                      )}
                       <Mono>{p.name}</Mono>
                       {!p.enabled && <span className="tag">disabilitata</span>}
                     </td>

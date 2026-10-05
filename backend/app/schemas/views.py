@@ -85,6 +85,7 @@ class Port(BaseModel):
     remote_device_id: int | None
     remote_device: str | None
     remote_interface_id: int | None
+    remote_interface: str | None
     ips: list[PortIP]
 
 

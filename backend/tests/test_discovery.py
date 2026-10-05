@@ -52,6 +52,10 @@ def pending(client, **params):
     return client.get("/api/discovery-changes", params=params).json()["items"]
 
 
+def diff_of(change):
+    return {field: [before, after] for field, before, after in change["diff"]}
+
+
 def approve_all(client):
     ids = [c["id"] for c in pending(client)]
     result = client.post("/api/discovery-changes/approve", json={"ids": ids}).json()
@@ -160,6 +164,7 @@ def test_device_nuovi_poi_cavo_poi_niente(client, setup, session_factory):
     result = scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))
     changes = pending(client)
     assert [(c["object_type"], c["action"]) for c in changes] == [("cable", "create")], changes
+    assert result["proposed"] == 1  # visto da tutti e due gli switch, contato una volta
     assert "sw-sim-01 Te1/1/1 ↔ sw-sim-02 49" in changes[0]["summary"]
     approve_all(client)
     cable = client.get("/api/cables").json()["items"][0]
@@ -185,10 +190,10 @@ def test_device_inserito_a_mano(client, setup, session_factory):
     changes = {(c["object_type"], c["action"]): c for c in pending(client)}
     assert set(changes) == {("device", "update"), ("interface", "update")}
     port_change = changes[("interface", "update")]
-    assert port_change["diff"]["Velocità (Mbps)"] == [100, 1000]
-    assert port_change["diff"]["Descrizione"] == [None, "Uplink firewall"]
-    assert "Nome" not in port_change["diff"]  # GigabitEthernet1/0/1 = Gi1/0/1
-    assert changes[("device", "update")]["diff"]["Modello"][0] is None
+    assert diff_of(port_change)["Velocità (Mbps)"] == [100, 1000]
+    assert diff_of(port_change)["Descrizione"] == [None, "Uplink firewall"]
+    assert "Nome" not in diff_of(port_change)  # GigabitEthernet1/0/1 = Gi1/0/1
+    assert diff_of(changes[("device", "update")])["Modello"][0] is None
 
     # Le porte create dalla scansione ora esistono: alla prossima si propongono gli IP (non automatici nel job)
     scan(client, session_factory, job_id, (SW1, SW1_HOST))
@@ -238,7 +243,7 @@ def test_cavo_diverso_e_approvazione_non_piu_valida(client, setup, session_facto
     create(client, "/cables", {"a_interface_id": p1["Te1/1/1"]["id"], "b_interface_id": p2["1"]["id"]})
     scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))
     [change] = pending(client)
-    assert change["action"] == "update" and change["diff"]["Collegamento"][0] == "sw-sim-01 Te1/1/1 ↔ sw-sim-02 1"
+    assert change["action"] == "update" and diff_of(change)["Collegamento"][0] == "sw-sim-01 Te1/1/1 ↔ sw-sim-02 1"
     approve_all(client)
     cables = client.get("/api/cables").json()["items"]
     assert len(cables) == 1 and {cables[0]["a_interface_name"], cables[0]["b_interface_name"]} == {"Te1/1/1", "49"}

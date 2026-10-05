@@ -101,7 +101,7 @@ class DiscoveryChange(Base):
     key: Mapped[str] = mapped_column(String(255), index=True)
     summary: Mapped[str] = mapped_column(String(500))
     data: Mapped[dict] = mapped_column(JSONType, default=dict)  # cosa applicare, con gli id
-    diff: Mapped[dict] = mapped_column(JSONType, default=dict)  # {campo: [attuale, proposto]} da mostrare
+    diff: Mapped[list] = mapped_column(JSONType, default=list)  # [[campo, attuale, proposto], ...] da mostrare
     status: Mapped[str] = mapped_column(
         String(20), default=ChangeStatus.PENDING.value, server_default=ChangeStatus.PENDING.value, index=True
     )

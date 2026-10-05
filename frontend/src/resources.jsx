@@ -406,9 +406,112 @@ export const resources = {
   },
 }
 
+const isV3 = (v) => v.version === 'v3'
+const savedSecret = (flag) => (item) => (item?.[flag] ? 'Salvata: lascia vuoto per non cambiarla' : undefined)
+
+Object.assign(resources, {
+  'snmp-profiles': {
+    path: 'snmp-profiles',
+    title: 'Profili SNMP',
+    newLabel: 'Nuovo profilo SNMP',
+    editLabel: 'Modifica profilo SNMP',
+    intro: 'Le credenziali con cui la scansione interroga i device. Community e chiavi sono salvate cifrate e non si possono rileggere.',
+    label: (o) => o.name,
+    columns: [
+      { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
+      { name: 'version', label: 'Versione', type: 'select', options: O.SNMP_VERSIONS },
+      {
+        name: 'credentials',
+        label: 'Credenziali',
+        render: (o) =>
+          o.version === 'v3' ? (
+            <>
+              <Mono>{o.username}</Mono>
+              {o.auth_protocol && <span className="tag">{o.auth_protocol.toUpperCase()}</span>}
+              {o.priv_protocol && <span className="tag">{o.priv_protocol.toUpperCase()}</span>}
+            </>
+          ) : o.has_community ? (
+            'Community salvata'
+          ) : (
+            <span className="muted">Manca la community</span>
+          ),
+      },
+      { name: 'port', label: 'Porta', type: 'mono' },
+      { name: 'description', label: 'Note' },
+    ],
+    fields: [
+      { name: 'name', label: 'Nome', required: true, placeholder: 'Switch sede, v2c' },
+      { name: 'version', label: 'Versione', type: 'select', options: O.SNMP_VERSIONS, default: 'v2c', required: true },
+      { name: 'community', label: 'Community', type: 'secret', showIf: (v) => !isV3(v), savedHint: savedSecret('has_community') },
+      { name: 'username', label: 'Utente', showIf: isV3, hiddenValue: undefined },
+      { name: 'auth_protocol', label: 'Autenticazione', type: 'select', options: O.SNMP_AUTH, emptyLabel: 'Nessuna', showIf: isV3, hiddenValue: undefined },
+      { name: 'auth_key', label: 'Chiave di autenticazione', type: 'secret', showIf: (v) => isV3(v) && !!v.auth_protocol, savedHint: savedSecret('has_auth_key'), help: 'Almeno 8 caratteri.' },
+      { name: 'priv_protocol', label: 'Cifratura', type: 'select', options: O.SNMP_PRIV, emptyLabel: 'Nessuna', showIf: (v) => isV3(v) && !!v.auth_protocol, hiddenValue: undefined },
+      { name: 'priv_key', label: 'Chiave di cifratura', type: 'secret', showIf: (v) => isV3(v) && !!v.priv_protocol, savedHint: savedSecret('has_priv_key'), help: 'Almeno 8 caratteri.' },
+      { name: 'context_name', label: 'Context name', showIf: isV3, hiddenValue: undefined, help: 'Quasi sempre vuoto.' },
+      { name: 'port', label: 'Porta UDP', type: 'number', default: 161 },
+      { name: 'timeout', label: 'Attesa per richiesta (secondi)', type: 'number', default: 2 },
+      { name: 'retries', label: 'Tentativi in più', type: 'number', default: 1 },
+      description,
+    ],
+  },
+
+  'discovery-jobs': {
+    path: 'discovery-jobs',
+    title: 'Scansioni',
+    newLabel: 'Nuova scansione',
+    editLabel: 'Modifica scansione',
+    intro: 'Quali indirizzi interrogare, con quali profili e ogni quanto. Quello che trova finisce in "Da approvare".',
+    label: (o) => o.name,
+    detail: (o) => `/discovery-jobs/${o.id}`,
+    filters: [{ name: 'site_id', label: 'Sede', ref: 'sites' }],
+    columns: [
+      { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
+      { name: 'targets', label: 'Indirizzi', render: (o) => <Mono>{o.targets.join(', ')}</Mono> },
+      { name: 'site_id', label: 'Sede dei device nuovi', type: 'ref', ref: 'sites' },
+      {
+        name: 'interval_hours',
+        label: 'Quando',
+        render: (o) => (!o.enabled ? <span className="muted">Disattivata</span> : o.interval_hours ? `Ogni ${o.interval_hours} ore` : 'Solo a mano'),
+      },
+    ],
+    fields: [
+      { name: 'name', label: 'Nome', required: true, placeholder: 'Switch sede di Torino' },
+      { name: 'site_id', label: 'Sede dei device nuovi', type: 'ref', ref: 'sites', required: true },
+      {
+        name: 'targets',
+        label: 'Indirizzi da scansionare',
+        type: 'lines',
+        required: true,
+        placeholder: '10.10.99.0/24\n10.10.98.1-20\n10.10.1.1',
+        help: 'Uno per riga: subnet, intervallo o IP singolo. Massimo 4096 indirizzi.',
+      },
+      {
+        name: 'profile_ids',
+        label: 'Profili SNMP da provare',
+        type: 'refmulti',
+        ref: 'snmp-profiles',
+        ordered: true,
+        required: true,
+        help: 'Vengono provati nell\'ordine in cui li selezioni: vince il primo che risponde.',
+      },
+      { name: 'interval_hours', label: 'Ripeti ogni (ore)', type: 'number', placeholder: 'Vuoto = solo a mano' },
+      { name: 'enabled', label: 'Attiva', type: 'bool', default: true },
+      { name: 'auto_new_interfaces', label: 'Aggiungi da sola le porte nuove dei device già censiti', type: 'bool' },
+      { name: 'auto_new_ips', label: 'Aggiungi da sola gli IP nuovi sulle porte già censite', type: 'bool', help: 'Device nuovi, cavi e modifiche ai dati inseriti a mano restano sempre da approvare.' },
+      description,
+    ],
+  },
+})
+
+/** Voci del menu: chiave di una risorsa oppure pagina speciale { to, title, badge } */
 export const NAV = [
   { title: 'Rete', items: ['maps', 'devices', 'interfaces', 'cables'] },
   { title: 'Luoghi', items: ['sites', 'locations', 'racks'] },
   { title: 'Indirizzamento', items: ['prefixes', 'ip-addresses', 'vlans', 'vrfs'] },
   { title: 'Catalogo', items: ['device-roles', 'device-types', 'manufacturers'] },
+  {
+    title: 'Scansione SNMP',
+    items: [{ to: 'discovery/changes', title: 'Da approvare', badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
+  },
 ]

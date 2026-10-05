@@ -1,6 +1,8 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import ChangesPage from './pages/ChangesPage'
 import DevicePage from './pages/DevicePage'
+import DiscoveryJobPage from './pages/DiscoveryJobPage'
 import MapEditor from './pages/MapEditor'
 import PrefixPage from './pages/PrefixPage'
 import ResourcePage from './pages/ResourcePage'
@@ -27,6 +29,8 @@ export default function App() {
         <Route path="devices/:id" element={<DevicePage />} />
         <Route path="prefixes/:id" element={<PrefixPage />} />
         <Route path="search" element={<SearchPage />} />
+        <Route path="discovery-jobs/:id" element={<DiscoveryJobPage />} />
+        <Route path="discovery/changes" element={<ChangesPage />} />
         {Object.entries(resources).map(([key, config]) => (
           // key={key}: ogni elenco riparte da zero quando si cambia sezione
           <Route key={key} path={config.path} element={<ResourcePage key={key} resourceKey={key} />} />

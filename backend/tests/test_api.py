@@ -96,7 +96,7 @@ def test_mappe_e_porte(client):
 
     ports = client.get(f"/api/devices/{core['id']}/ports").json()
     assert [p["name"] for p in ports] == ["Gi1/0/2", "Gi1/0/10"]  # ordinamento naturale
-    assert ports[1]["remote_device"] == "sw" and ports[0]["cable_id"] is None
+    assert ports[1]["remote_device"] == "sw" and ports[1]["remote_interface"] == "49" and ports[0]["cable_id"] is None
 
     # Mappa automatica: tutti i device della sede, nessuna posizione salvata
     auto = create(client, "/maps", {"name": "Sede intera", "site_id": site["id"]})

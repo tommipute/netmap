@@ -112,7 +112,7 @@ class DiscoveryChangeRead(BaseModel):
     object_id: int | None = None
     summary: str
     data: dict[str, Any]
-    diff: dict[str, Any]
+    diff: list[list[Any]]  # [campo, attuale, proposto]
     status: str
     auto: bool
     error: str | None = None

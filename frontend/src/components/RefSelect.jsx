@@ -24,8 +24,8 @@ export function RefSelect({ id, resource, value, onChange, params, disabled, emp
   )
 }
 
-/** Selezione multipla a "pastiglie" (es. VLAN tagged su un trunk). */
-export function RefMulti({ resource, value, onChange }) {
+/** Selezione multipla a "pastiglie" (es. VLAN tagged su un trunk). ordered: mostra l'ordine di scelta. */
+export function RefMulti({ resource, value, onChange, ordered = false }) {
   const config = resources[resource]
   const items = useOptions(config.path)
   const selected = value || []
@@ -38,6 +38,7 @@ export function RefMulti({ resource, value, onChange }) {
         const on = selected.includes(o.id)
         return (
           <button type="button" key={o.id} className={`chip${on ? ' chip--on' : ''}`} aria-pressed={on} onClick={() => toggle(o.id)}>
+            {ordered && on && <span className="chip__order">{selected.indexOf(o.id) + 1}</span>}
             {config.label(o)}
           </button>
         )

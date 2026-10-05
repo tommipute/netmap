@@ -37,7 +37,7 @@ class RunError(Exception):
 
 
 def _log(run: DiscoveryRun, message: str) -> None:
-    stamp = now().strftime("%H:%M:%S")
+    stamp = datetime.now().astimezone().strftime("%H:%M:%S")  # ora locale del container (variabile TZ)
     run.log = f"{run.log or ''}{stamp} {message}\n"
 
 
@@ -97,10 +97,14 @@ def record(db: Session, job: DiscoveryJob, run: DiscoveryRun, host: str, proposa
                 continue
 
         change = pending or DiscoveryChange(key=p.key, status=PENDING)
+        # Lo stesso cavo visto dai due switch nella stessa scansione si conta una volta sola
+        already_counted = pending is not None and pending.run_id == run.id
         change.run_id, change.job_id, change.host = run.id, job.id, host
         change.device_id, change.device_label = p.device_id, p.device_label[:255]
         change.object_type, change.action, change.object_id = p.object_type, p.action, p.object_id
-        change.summary, change.data, change.diff = p.summary[:500], p.data, p.diff
+        # Elenco [campo, attuale, proposto]: un dizionario in JSONB perderebbe l'ordine dei campi
+        change.summary, change.data = p.summary[:500], p.data
+        change.diff = [[field, before, after] for field, (before, after) in p.diff.items()]
         change.error = None
         if pending is None:
             db.add(change)
@@ -113,7 +117,8 @@ def record(db: Session, job: DiscoveryJob, run: DiscoveryRun, host: str, proposa
                 run.changes_applied += 1
                 continue
             change.error = f"Applicazione automatica non riuscita: {error}"  # resta da approvare
-        run.changes_proposed += 1
+        if not already_counted:
+            run.changes_proposed += 1
 
     # Modifiche in attesa che questa scansione non vede più: non servono più
     stale = select(DiscoveryChange).where(

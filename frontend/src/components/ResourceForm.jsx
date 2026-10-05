@@ -7,7 +7,7 @@ import KeyValueEditor from './KeyValueEditor'
 import Modal from './Modal'
 import { RefMulti, RefSelect } from './RefSelect'
 
-const WIDE_TYPES = new Set(['textarea', 'kv', 'refmulti', 'interface', 'bool'])
+const WIDE_TYPES = new Set(['textarea', 'lines', 'kv', 'refmulti', 'interface', 'bool'])
 
 function emptyValue(field) {
   if (field.type === 'bool') return false
@@ -20,7 +20,9 @@ function initialValues(fields, item, preset) {
   const values = {}
   for (const f of fields) {
     const source = item ? item[f.name] : preset[f.name] ?? f.default
-    values[f.name] = source ?? emptyValue(f)
+    if (f.type === 'secret') values[f.name] = '' // i segreti non tornano mai dall'API
+    else if (f.type === 'lines') values[f.name] = (source || []).join('\n')
+    else values[f.name] = source ?? emptyValue(f)
   }
   return values
 }
@@ -29,9 +31,14 @@ function isEmpty(value) {
   return value === '' || value === null || value === undefined
 }
 
-/** Valore del modulo -> valore da mandare all'API */
-function convert(field, value) {
+/** Valore del modulo -> valore da mandare all'API (undefined = non inviare) */
+function convert(field, value, isEdit) {
   switch (field.type) {
+    case 'secret':
+      // In modifica un campo vuoto lascia il segreto salvato com'è
+      return value ? value : isEdit ? undefined : null
+    case 'lines':
+      return String(value || '').split('\n').map((line) => line.trim()).filter(Boolean)
     case 'number':
     case 'ref':
     case 'interface':
@@ -49,11 +56,21 @@ function convert(field, value) {
   }
 }
 
-function FieldControl({ field, value, values, fields, onChange, disabled, editingId }) {
+function FieldControl({ field, value, values, fields, onChange, disabled, editingId, item }) {
   const id = `field-${field.name}`
   switch (field.type) {
     case 'textarea':
       return <textarea id={id} className="input" rows={3} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+    case 'lines':
+      return (
+        <textarea id={id} className="input mono" rows={4} value={value} placeholder={field.placeholder} disabled={disabled}
+          onChange={(e) => onChange(e.target.value)} />
+      )
+    case 'secret':
+      return (
+        <input id={id} type="password" className="input" value={value} autoComplete="new-password" disabled={disabled}
+          placeholder={field.savedHint?.(item) ?? field.placeholder} onChange={(e) => onChange(e.target.value)} />
+      )
     case 'number':
       return (
         <input id={id} type="number" className="input" value={value} placeholder={field.placeholder} disabled={disabled}
@@ -81,7 +98,7 @@ function FieldControl({ field, value, values, fields, onChange, disabled, editin
       )
     }
     case 'refmulti':
-      return <RefMulti resource={field.ref} value={value} onChange={onChange} />
+      return <RefMulti resource={field.ref} value={value} onChange={onChange} ordered={field.ordered} />
     case 'interface':
       return <InterfacePicker value={value || null} onChange={onChange} freeOnly={field.freeOnly} currentCableId={editingId} label={field.label} />
     case 'kv':
@@ -123,11 +140,12 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
     for (const f of config.fields) {
       if (isEdit && f.createOnly) continue
       const visible = !f.showIf || f.showIf(values)
-      if (visible && f.required && isEmpty(values[f.name])) {
+      const missing = f.type === 'refmulti' ? !(values[f.name] || []).length : isEmpty(values[f.name])
+      if (visible && f.required && missing) {
         setError(`Compila il campo "${f.label}".`)
         return
       }
-      const v = visible ? convert(f, values[f.name]) : f.hiddenValue
+      const v = visible ? convert(f, values[f.name], isEdit) : f.hiddenValue
       if (v === undefined || (!isEdit && v === null)) continue
       payload[f.name] = v
     }
@@ -173,7 +191,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
                   {f.required && <span className="field__req" aria-hidden="true"> *</span>}
                 </Label>
                 <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields}
-                  onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} />
+                  onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />
                 {disabled && <span className="hint">Non modificabile dopo la creazione.</span>}
                 {!disabled && f.help && <span className="hint">{f.help}</span>}
               </div>

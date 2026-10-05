@@ -87,3 +87,25 @@ export function useDebounced(value, delay = 300) {
   }, [value, delay])
   return debounced
 }
+
+/** Numero di modifiche della scansione in attesa: si aggiorna ogni 30 s e dopo ogni invalidate(). */
+export function usePendingCount() {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      api
+        .get('/discovery-changes/count')
+        .then((data) => alive && setCount(data.pending))
+        .catch(() => {})
+    load()
+    const timer = setInterval(load, 30000)
+    listeners.add(load)
+    return () => {
+      alive = false
+      clearInterval(timer)
+      listeners.delete(load)
+    }
+  }, [])
+  return count
+}

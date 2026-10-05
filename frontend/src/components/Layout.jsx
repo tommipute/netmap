@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { usePendingCount } from '../hooks'
 import { NAV, resources } from '../resources'
 
 export default function Layout() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const badges = { pending: usePendingCount() }
 
   const search = (e) => {
     e.preventDefault()
@@ -26,11 +28,20 @@ export default function Layout() {
           {NAV.map((group) => (
             <div key={group.title} className="nav-group">
               <p className="nav-group__title">{group.title}</p>
-              {group.items.map((key) => (
-                <NavLink key={key} to={`/${resources[key].path}`} className="nav-link">
-                  {resources[key].title}
-                </NavLink>
-              ))}
+              {group.items.map((item) => {
+                const { to, title, badge } = typeof item === 'string' ? { to: resources[item].path, title: resources[item].title } : item
+                const count = badge ? badges[badge] : 0
+                return (
+                  <NavLink key={to} to={`/${to}`} className="nav-link">
+                    {title}
+                    {count > 0 && (
+                      <span className="nav-badge" aria-label={`${count} in attesa`}>
+                        {count > 999 ? '999+' : count}
+                      </span>
+                    )}
+                  </NavLink>
+                )
+              })}
             </div>
           ))}
         </nav>

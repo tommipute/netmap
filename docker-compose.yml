@@ -24,6 +24,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SECRETS_KEY: ${SECRETS_KEY:-}   # vuota = chiave generata in backend/.secrets_key
+      TZ: ${TZ:-Europe/Rome}           # orari dei log delle scansioni
       UVICORN_EXTRA_ARGS: --reload
       WATCHFILES_FORCE_POLLING: "true"   # serve su Windows per il reload automatico
     depends_on:
@@ -38,10 +39,13 @@ services:
   worker:
     build: ./backend
     restart: unless-stopped
-    command: python -m app.worker
+    # watchfiles riavvia il worker quando cambia il codice (come --reload per l'API)
+    command: watchfiles --filter python "python -m app.worker" app
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SECRETS_KEY: ${SECRETS_KEY:-}
+      TZ: ${TZ:-Europe/Rome}
+      WATCHFILES_FORCE_POLLING: "true"   # serve su Windows per il riavvio automatico
     depends_on:
       db:
         condition: service_healthy
