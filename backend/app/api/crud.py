@@ -80,8 +80,10 @@ def build_crud_router(
     search: tuple[str, ...] = (),
     order_by: tuple = (),
     hook: Hook | None = None,
+    delete_hook: Callable[[Session, Any], None] | None = None,
+    dependencies: list | None = None,
 ) -> APIRouter:
-    router = APIRouter(prefix=path, tags=[tag])
+    router = APIRouter(prefix=path, tags=[tag], dependencies=dependencies or [])
     columns = model.__table__.columns
     ordering = order_by or (model.id,)
 
@@ -164,7 +166,10 @@ def build_crud_router(
     # ----- Eliminazione -----
     @router.delete("/{item_id}", status_code=204, response_class=Response, summary=f"Elimina ({tag})")
     def delete_item(item_id: int, db: Session = Depends(get_db)):
-        db.delete(get_or_404(db, item_id))
+        obj = get_or_404(db, item_id)
+        if delete_hook:
+            delete_hook(db, obj)
+        db.delete(obj)
         commit_or_error(db)
         return Response(status_code=204)
 

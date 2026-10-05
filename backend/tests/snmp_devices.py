@@ -8,6 +8,8 @@ INT, STR, HEX, OID, IPADDR, GAUGE = "2", "4", "4x", "6", "64", "66"
 
 SW1_CHASSIS_MAC = "00:11:22:33:44:00"
 SW2_CHASSIS_MAC = "00:22:33:44:55:00"
+PC_A_MAC = "00:50:56:00:00:10"
+PC_B_MAC = "00:50:56:00:00:20"
 
 
 def _mac_hex(mac: str) -> str:
@@ -42,6 +44,20 @@ SW1 = {
     "lldp_remote": {(9, 1): (4, SW2_CHASSIS_MAC, 5, "49", "49", "sw-sim-02", "10.99.0.2")},
     # (ifIndex locale, indice): (device id, porta, IP)
     "cdp": {(1, 5): ("phone-01(SEP001122AABB)", "Port 1", "10.99.0.50")},
+    # Tabella MAC: porta bridge -> ifIndex, PVID per porta bridge, righe (VLAN o None, MAC, porta bridge, stato)
+    # Cisco senza Q-BRIDGE: solo BRIDGE-MIB, senza VLAN
+    "qbridge": False,
+    "bridge_ports": {1: 1, 2: 2, 9: 9},
+    "pvid": {},
+    "fdb": [
+        (None, PC_A_MAC, 1, 3),               # PC-A collegato a Gi1/0/1
+        (None, PC_B_MAC, 9, 3),               # PC-B visto dall'uplink verso sw-sim-02
+        (None, "00:22:33:44:55:02", 9, 3),
+        (None, "00:11:22:33:44:01", 1, 4),    # MAC dello switch stesso (self): da ignorare
+    ],
+    "vlans": {},
+    # ARP: (ifIndex, IP, MAC)
+    "arp": [(99, "10.99.0.10", PC_A_MAC), (99, "10.99.0.20", PC_B_MAC)],
 }
 
 SW2 = {
@@ -64,12 +80,22 @@ SW2 = {
     "lldp_local": {101: (7, "49", "49")},
     "lldp_remote": {(101, 3): (4, SW1_CHASSIS_MAC, 5, "TenGigabitEthernet1/1/1", "", "sw-sim-01.lab.local", None)},
     "cdp": {},
+    "qbridge": True,
+    "bridge_ports": {1: 1, 2: 2, 49: 49},
+    "pvid": {1: 99, 2: 99, 49: 1},
+    "fdb": [
+        (99, PC_B_MAC, 1, 3),                 # PC-B collegato alla porta 1
+        (99, PC_A_MAC, 49, 3),                # PC-A visto dall'uplink verso sw-sim-01
+        (99, "00:11:22:33:44:63", 49, 3),
+    ],
+    "vlans": {1: "DEFAULT_VLAN", 99: "LAB"},
+    "arp": [],
 }
 
 
 def host_data(device: dict, host: str, profile_id: int | None = None, profile_name: str | None = None):
     """Quello che il collector deve restituire leggendo `device` (serve anche come scansione finta)."""
-    from app.discovery.snmp import OPER_STATUS, HostData, IfData, IpData, NeighborData
+    from app.discovery.snmp import OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, NeighborData
 
     interfaces = [
         IfData(
@@ -103,12 +129,25 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         NeighborData(protocol="cdp", local_if_index=if_index, sys_name=dev_id.split("(")[0], port_id=port, addresses=[addr])
         for (if_index, _i), (dev_id, port, addr) in sorted(device["cdp"].items())
     ]
+    bridge, pvid = device["bridge_ports"], device["pvid"]
+    port_vlans = {bridge[bp]: vid for bp, vid in pvid.items()}
+    fdb = sorted(
+        {
+            (mac.upper(), bridge[bp], vlan if device["qbridge"] else port_vlans.get(bridge[bp]))
+            for vlan, mac, bp, status in device["fdb"] if status == 3
+        },
+        key=lambda e: (e[0], e[1], e[2] or 0),
+    )
+    arp = [ArpEntry(ip=ip, mac=mac.upper(), if_index=idx)
+           for idx, ip, mac in sorted(device["arp"], key=lambda r: ipaddress.ip_address(r[1]))]
     system = device["system"]
     return HostData(
         host=host, profile_id=profile_id, profile_name=profile_name,
         sys_name=system["name"], sys_descr=system["descr"], sys_object_id=system["object_id"],
         sys_location=system["location"], serial=chassis[0][1] if chassis else None,
         model=chassis[0][2] if chassis else None, interfaces=interfaces, ips=ips, neighbors=neighbors,
+        fdb=[FdbEntry(mac=m, if_index=i, vlan=v) for m, i, v in fdb], arp=arp,
+        vlans=dict(device["vlans"]), port_vlans=port_vlans,
     )
 
 
@@ -171,6 +210,24 @@ def snmprec(device: dict) -> str:
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.4.{index}", HEX, ipaddress.ip_address(address).packed.hex())
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.6.{index}", STR, device_id)
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.7.{index}", STR, port)
+
+    for base_port, if_index in device["bridge_ports"].items():
+        add(f"1.3.6.1.2.1.17.1.4.1.2.{base_port}", INT, if_index)
+    for base_port, vid in device["pvid"].items():
+        add(f"1.3.6.1.2.1.17.7.1.4.5.1.1.{base_port}", GAUGE, vid)
+    for vlan, mac, base_port, status in device["fdb"]:
+        arcs = ".".join(str(b) for b in bytes.fromhex(_mac_hex(mac)))
+        if device["qbridge"]:
+            add(f"1.3.6.1.2.1.17.7.1.2.2.1.2.{vlan}.{arcs}", INT, base_port)
+            add(f"1.3.6.1.2.1.17.7.1.2.2.1.3.{vlan}.{arcs}", INT, status)
+        else:
+            add(f"1.3.6.1.2.1.17.4.3.1.2.{arcs}", INT, base_port)
+            add(f"1.3.6.1.2.1.17.4.3.1.3.{arcs}", INT, status)
+    for vid, name in device["vlans"].items():
+        add(f"1.3.6.1.2.1.17.7.1.4.3.1.1.{vid}", STR, name)
+    for if_index, address, mac in device["arp"]:
+        add(f"1.3.6.1.2.1.4.22.1.2.{if_index}.{address}", HEX, _mac_hex(mac))
+        add(f"1.3.6.1.2.1.4.22.1.4.{if_index}.{address}", INT, 3)
 
     rows.sort(key=lambda row: tuple(int(part) for part in row[0].split(".")))
     return "".join(f"{oid}|{kind}|{value}\n" for oid, kind, value in rows)

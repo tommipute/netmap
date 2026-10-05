@@ -78,6 +78,21 @@ CDP_CACHE_ADDRESS = "1.3.6.1.4.1.9.9.23.1.2.1.1.4"
 CDP_CACHE_DEVICE_ID = "1.3.6.1.4.1.9.9.23.1.2.1.1.6"
 CDP_CACHE_DEVICE_PORT = "1.3.6.1.4.1.9.9.23.1.2.1.1.7"
 
+# Tabelle MAC (BRIDGE-MIB, Q-BRIDGE-MIB), VLAN e ARP: servono a "dov'è collegato?"
+DOT1D_BASE_PORT_IF_INDEX = "1.3.6.1.2.1.17.1.4.1.2"   # porta bridge -> ifIndex
+DOT1D_TP_FDB_PORT = "1.3.6.1.2.1.17.4.3.1.2"          # indice: MAC (6 numeri)
+DOT1D_TP_FDB_STATUS = "1.3.6.1.2.1.17.4.3.1.3"
+DOT1Q_TP_FDB_PORT = "1.3.6.1.2.1.17.7.1.2.2.1.2"      # indice: fdbId (di solito = VLAN) . MAC
+DOT1Q_TP_FDB_STATUS = "1.3.6.1.2.1.17.7.1.2.2.1.3"
+DOT1Q_PVID = "1.3.6.1.2.1.17.7.1.4.5.1.1"             # VLAN untagged della porta bridge
+DOT1Q_VLAN_STATIC_NAME = "1.3.6.1.2.1.17.7.1.4.3.1.1" # indice: VID
+IP_NET_TO_MEDIA_PHYS = "1.3.6.1.2.1.4.22.1.2"         # ARP IPv4, indice: ifIndex . indirizzo
+IP_NET_TO_MEDIA_TYPE = "1.3.6.1.2.1.4.22.1.4"
+IP_NET_TO_PHYSICAL_PHYS = "1.3.6.1.2.1.4.35.1.4"      # ARP/ND, indice: ifIndex . tipo . lunghezza . indirizzo
+FDB_LEARNED = 3
+FDB_SELF = 4
+ARP_INVALID = 2
+
 # LldpChassisIdSubtype / LldpPortIdSubtype
 LLDP_CHASSIS_MAC = 4
 LLDP_CHASSIS_NETWORK_ADDRESS = 5
@@ -154,6 +169,21 @@ class NeighborData:
 
 
 @dataclass
+class FdbEntry:
+    """Riga della tabella MAC di uno switch: quel MAC è stato visto su quella porta."""
+    mac: str
+    if_index: int
+    vlan: int | None = None
+
+
+@dataclass
+class ArpEntry:
+    ip: str
+    mac: str
+    if_index: int | None = None
+
+
+@dataclass
 class HostData:
     host: str
     profile_id: int | None = None
@@ -167,6 +197,10 @@ class HostData:
     interfaces: list[IfData] = field(default_factory=list)
     ips: list[IpData] = field(default_factory=list)
     neighbors: list[NeighborData] = field(default_factory=list)
+    fdb: list[FdbEntry] = field(default_factory=list)
+    arp: list[ArpEntry] = field(default_factory=list)
+    vlans: dict[int, str] = field(default_factory=dict)       # VID -> nome
+    port_vlans: dict[int, int] = field(default_factory=dict)  # ifIndex -> VLAN untagged (PVID)
 
 
 # ---------------------------------------------------------------- conversioni
@@ -471,6 +505,69 @@ async def _cdp(s: _Session) -> list[NeighborData]:
     return result
 
 
+def _mac_from_index(index: tuple[int, ...]) -> str | None:
+    if len(index) != 6 or any(not 0 <= b <= 255 for b in index):
+        return None
+    return ":".join(f"{b:02X}" for b in index)
+
+
+async def _bridge(s: _Session) -> tuple[list[FdbEntry], dict[int, int]]:
+    """Tabella MAC: prima Q-BRIDGE (con la VLAN), altrimenti BRIDGE-MIB. Ritorna anche il PVID delle porte."""
+    base_ports = {index[0]: value for index, value in (await s.walk(DOT1D_BASE_PORT_IF_INDEX)).items()
+                  if len(index) == 1 and isinstance(value, int)}
+    if not base_ports:
+        return [], {}
+    pvids = {base_ports[index[0]]: value for index, value in (await s.walk(DOT1Q_PVID)).items()
+             if len(index) == 1 and index[0] in base_ports and isinstance(value, int)}
+
+    entries: dict[tuple[str, int, int | None], FdbEntry] = {}
+
+    def add(mac: str | None, base_port: Any, status: Any, vlan: int | None) -> None:
+        if_index = base_ports.get(base_port) if isinstance(base_port, int) else None
+        if mac is None or if_index is None or (status is not None and status != FDB_LEARNED):
+            return
+        entries.setdefault((mac, if_index, vlan), FdbEntry(mac=mac, if_index=if_index, vlan=vlan))
+
+    q_ports = await s.walk(DOT1Q_TP_FDB_PORT)
+    if q_ports:
+        q_status = await s.walk(DOT1Q_TP_FDB_STATUS)
+        for index, port in q_ports.items():
+            if len(index) == 7:
+                add(_mac_from_index(index[1:]), port, q_status.get(index), index[0])
+    else:
+        ports = await s.walk(DOT1D_TP_FDB_PORT)
+        status = await s.walk(DOT1D_TP_FDB_STATUS) if ports else {}
+        for index, port in ports.items():
+            mac = _mac_from_index(index)
+            if_index = base_ports.get(port) if isinstance(port, int) else None
+            add(mac, port, status.get(index), pvids.get(if_index))
+    return sorted(entries.values(), key=lambda e: (e.mac, e.if_index, e.vlan or 0)), pvids
+
+
+async def _vlan_names(s: _Session) -> dict[int, str]:
+    names = await s.walk(DOT1Q_VLAN_STATIC_NAME)
+    return {index[0]: _text(value) or str(index[0]) for index, value in names.items() if len(index) == 1}
+
+
+async def _arp(s: _Session) -> list[ArpEntry]:
+    result: dict[str, ArpEntry] = {}
+    types = await s.walk(IP_NET_TO_MEDIA_TYPE)
+    for index, raw in (await s.walk(IP_NET_TO_MEDIA_PHYS)).items():
+        if len(index) != 5 or types.get(index) == ARP_INVALID:
+            continue
+        mac, ip = _mac(raw), ".".join(str(n) for n in index[1:])
+        if mac and mac != "00:00:00:00:00:00":
+            result[ip] = ArpEntry(ip=ip, mac=mac, if_index=index[0])
+    if not result:
+        for index, raw in (await s.walk(IP_NET_TO_PHYSICAL_PHYS)).items():
+            if len(index) < 4 or index[2] != len(index) - 3:
+                continue
+            ip, mac = _ip_from_bytes(index[3:]), _mac(raw)
+            if ip and mac and mac != "00:00:00:00:00:00" and _useful_ip(ip):
+                result.setdefault(ip, ArpEntry(ip=ip, mac=mac, if_index=index[0]))
+    return sorted(result.values(), key=lambda a: ipaddress.ip_address(a.ip))
+
+
 async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data = HostData(
         host=s.host,
@@ -485,6 +582,9 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data.ips = await _ips(s)
     data.serial, data.model = await _chassis(s)
     data.neighbors = await _lldp(s, data.interfaces) + await _cdp(s)
+    data.fdb, data.port_vlans = await _bridge(s)
+    data.vlans = await _vlan_names(s)
+    data.arp = await _arp(s)
     return data
 
 

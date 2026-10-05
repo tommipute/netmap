@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import Field, model_validator
@@ -162,7 +163,12 @@ DeviceUpdate = make_partial(DeviceBase, "DeviceUpdate")
 
 
 class DeviceRead(DeviceCreate, DiscoveryRead, ReadSchema):
-    pass
+    # Stato live (fase 4), solo lettura: lo aggiorna il monitor
+    reachable: bool | None = None
+    last_check_at: datetime | None = None
+    reachable_changed_at: datetime | None = None
+    rtt_ms: float | None = None
+    snmp_profile_id: int | None = None
 
 
 # ---------- Interfacce ----------

@@ -1,17 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Device, NetworkMap, Prefix
+from app.models import Device, NetworkMap, Prefix, Rack
+from app.schemas.common import Page
 from app.schemas.ipam import IPAddressRead
 from app.schemas.maps import MapRead, MapView, NodePosition
 from app.schemas.views import (
+    CheckResult,
     DeviceImportRequest,
     DeviceImportResult,
+    EndpointRead,
     Neighbor,
     Port,
     PrefixUtilization,
+    RackElevation,
     SearchResult,
+    StatusSummary,
     Topology,
 )
 from app.services.device_import_export import (
@@ -19,13 +25,16 @@ from app.services.device_import_export import (
     generate_device_csv_template,
     import_devices_from_csv,
 )
+from app.services.endpoints import endpoint_query, endpoint_rows
 from app.services.ipam import available_ips, prefix_ip_addresses, prefix_utilization
+from app.services.monitor import check_devices, status_summary
 from app.services.topology import (
     build_topology,
     device_neighbors,
     device_ports,
     global_search,
     map_view,
+    rack_elevation,
     save_map_positions,
 )
 
@@ -151,3 +160,42 @@ def put_map_nodes(map_id: int, positions: list[NodePosition], db: Session = Depe
             summary="Cerca device, MAC address e IP")
 def search(q: str = Query(..., min_length=2), db: Session = Depends(get_db)):
     return global_search(db, q)
+
+
+# ---------- Fase 4: dov'è collegato, stato live, rack ----------
+@router.get("/endpoints", response_model=Page[EndpointRead], tags=["Dov'è collegato"],
+            summary="MAC visti nelle tabelle degli switch: cerca per MAC, IP o nome DNS")
+def list_endpoints(
+    q: str | None = Query(None, description="MAC (anche parziale o aabb.ccdd.eeff), inizio dell'IP o nome DNS"),
+    device_id: int | None = Query(None, description="Switch"),
+    interface_id: int | None = Query(None, description="Porta dello switch"),
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    stmt = endpoint_query(q, device_id, interface_id)
+    total = db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
+    items = list(db.scalars(stmt.limit(limit).offset(offset)).unique())
+    return {"total": total, "items": endpoint_rows(db, items)}
+
+
+@router.get("/status/summary", response_model=StatusSummary, tags=["Stato live"],
+            summary="Quanti device rispondono, quanti no e quando è stato fatto l'ultimo controllo")
+def get_status_summary(db: Session = Depends(get_db)):
+    return status_summary(db)
+
+
+@router.post("/devices/{device_id}/check", response_model=CheckResult, tags=["Stato live"],
+             summary="Controlla subito il device (ping e SNMP sull'IP di management)")
+def post_device_check(device_id: int, db: Session = Depends(get_db)):
+    _get_or_404(db, Device, device_id)
+    result = check_devices(db, [device_id])
+    if result["checked"] == 0:
+        raise HTTPException(422, "Il device non ha un IP di management oppure è pianificato o dismesso: niente da controllare")
+    return result
+
+
+@router.get("/racks/{rack_id}/elevation", response_model=RackElevation, tags=["Rack"],
+            summary="Vista frontale: device del rack con unità occupate")
+def get_rack_elevation(rack_id: int, db: Session = Depends(get_db)):
+    return rack_elevation(db, _get_or_404(db, Rack, rack_id))

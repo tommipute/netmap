@@ -14,6 +14,7 @@ from app.discovery.planner import Planner, Proposal
 from app.discovery.targets import TargetError, expand_targets
 from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
 from app.models.enums import ChangeStatus, RunStatus
+from app.services.endpoints import update_endpoints
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,19 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
                 savepoint.rollback()
                 logger.exception("Elaborazione di %s fallita", hd.host)
                 _log(run, f"{hd.host}: errore durante l'elaborazione ({exc})")
+            db.commit()
+
+        # Tabelle MAC e ARP di tutti gli switch insieme: servono per scartare gli uplink
+        if any(hd.fdb or hd.arp for hd in results):
+            savepoint = db.begin_nested()
+            try:
+                located = update_endpoints(db, results, now())
+                savepoint.commit()
+                _log(run, f"Tabelle MAC e ARP: {located} endpoint localizzati su porte di accesso")
+            except Exception as exc:
+                savepoint.rollback()
+                logger.exception("Aggiornamento degli endpoint fallito")
+                _log(run, f"Tabelle MAC e ARP: errore durante l'elaborazione ({exc})")
             db.commit()
 
         run.status = RunStatus.DONE.value

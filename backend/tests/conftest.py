@@ -5,15 +5,19 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api import auth
 from app.config import settings
 from app.core import secrets
 from app.database import get_db
 from app.main import app
 from app.models import Base
 
+ADMIN = {"username": "admin", "password": "password-di-prova", "full_name": "Amministratore"}
+
 # Chiave di cifratura usa e getta: i test non leggono né creano backend/.secrets_key
 settings.secrets_key = Fernet.generate_key().decode()
 secrets._fernet.cache_clear()
+secrets.master_key.cache_clear()
 
 
 @pytest.fixture()
@@ -46,6 +50,17 @@ def client(session_factory):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    auth._failures.clear()  # tentativi di login sbagliati dei test precedenti
     with TestClient(app) as test_client:
+        # Primo amministratore: il cookie di sessione resta nel client per tutti i test
+        response = test_client.post("/api/auth/setup", json=ADMIN)
+        assert response.status_code == 201, response.text
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def anonymous(client):
+    """Client senza sessione, sullo stesso database (l'amministratore esiste già)."""
+    with TestClient(app) as other:
+        yield other

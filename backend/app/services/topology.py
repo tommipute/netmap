@@ -6,7 +6,20 @@ from fastapi import HTTPException
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, aliased, selectinload
 
-from app.models import VLAN, Cable, Device, DeviceRole, Interface, IPAddress, Location, MapNode, NetworkMap
+from app.models import (
+    VLAN,
+    Cable,
+    Device,
+    DeviceRole,
+    DeviceType,
+    Endpoint,
+    Interface,
+    IPAddress,
+    Location,
+    MapNode,
+    NetworkMap,
+    Rack,
+)
 from app.models.enums import NON_CABLEABLE_TYPES
 
 DEFAULT_COLOR = "#888780"
@@ -48,6 +61,10 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
             "color": role.color if role else DEFAULT_COLOR,
             "level": role.level if role else DEFAULT_LEVEL,
             "primary_ip": primary_ips.get(device.id),
+            "reachable": device.reachable,
+            "last_check_at": device.last_check_at,
+            "reachable_changed_at": device.reachable_changed_at,
+            "rtt_ms": device.rtt_ms,
         }
         for device, role in rows
     ]
@@ -168,6 +185,10 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
     ).unique():
         ips[ip.interface_id].append({"id": ip.id, "address": ip.address, "is_primary": ip.is_primary})
 
+    endpoint_counts = dict(db.execute(
+        select(Endpoint.interface_id, func.count(Endpoint.id)).where(Endpoint.interface_id.in_(ids)).group_by(Endpoint.interface_id)
+    ).all())
+
     untagged_ids = {i.untagged_vlan_id for i in interfaces if i.untagged_vlan_id}
     vids = dict(db.execute(select(VLAN.id, VLAN.vid).where(VLAN.id.in_(untagged_ids))).all()) if untagged_ids else {}
 
@@ -197,6 +218,7 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
             "remote_interface_id": remote.id if remote else None,
             "remote_interface": remote.name if remote else None,
             "ips": ips.get(iface.id, []),
+            "endpoints": endpoint_counts.get(iface.id, 0),
         })
     return result
 
@@ -264,4 +286,62 @@ def global_search(db: Session, q: str, limit: int = 25) -> list[dict]:
         where = f"{ip.device_name} {ip.interface_name}" if ip.device_name else "non assegnato"
         results.append({"type": "ip", "id": ip.id, "label": ip.address, "detail": where, "device_id": ip.device_id})
 
+    # Endpoint visti nelle tabelle MAC: "dov'è collegato?"
+    from app.services.endpoints import endpoint_query  # import locale: endpoints importa matching
+
+    for e in db.scalars(endpoint_query(term).limit(limit)).unique():
+        where = f"{e.interface.device_name} {e.interface.name}" if e.interface else "porta non più presente"
+        results.append({
+            "type": "endpoint",
+            "id": e.id,
+            "label": f"{e.mac}{f' ({e.ip})' if e.ip else ''}",
+            "detail": where,
+            "device_id": e.interface.device_id if e.interface else None,
+        })
     return results
+
+
+# ---------------------------------------------------------------- vista frontale del rack
+def rack_elevation(db: Session, rack: Rack) -> dict:
+    rows = db.execute(
+        select(Device, DeviceType, DeviceRole)
+        .select_from(Device)
+        .outerjoin(DeviceType, Device.device_type_id == DeviceType.id)
+        .outerjoin(DeviceRole, Device.role_id == DeviceRole.id)
+        .where(Device.rack_id == rack.id)
+        .order_by(Device.rack_position.desc().nulls_last(), Device.name)
+    ).all()
+    placed, unplaced, occupied = [], [], defaultdict(list)
+    for device, dtype, role in rows:
+        item = {
+            "id": device.id,
+            "name": device.name,
+            "position": device.rack_position,
+            "u_height": max(1, dtype.u_height) if dtype and dtype.u_height else 1,
+            "face_label": dtype.model if dtype else None,
+            "role": role.name if role else None,
+            "color": role.color if role else DEFAULT_COLOR,
+            "status": device.status,
+            "reachable": device.reachable,
+            "conflict": False,
+        }
+        if device.rack_position is None:
+            unplaced.append(item)
+            continue
+        placed.append(item)
+        for unit in range(device.rack_position, device.rack_position + item["u_height"]):
+            occupied[unit].append(item)
+            if unit > rack.u_height:
+                item["conflict"] = True
+    for items in occupied.values():
+        if len(items) > 1:
+            for item in items:
+                item["conflict"] = True
+    return {
+        "rack_id": rack.id,
+        "name": rack.name,
+        "u_height": rack.u_height,
+        "used_units": len([u for u in occupied if u <= rack.u_height]),
+        "devices": placed,
+        "unplaced": unplaced,
+    }

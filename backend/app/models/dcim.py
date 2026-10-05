@@ -1,10 +1,12 @@
 """Infrastruttura: sedi, posizioni, rack, produttori, modelli, ruoli, device, interfacce e cavi."""
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
@@ -115,6 +117,13 @@ class Device(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     sys_name: Mapped[str | None] = mapped_column(String(255))
     sys_descr: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
+    # Stato live (fase 4): l'ultimo controllo del monitor (ping e SNMP sull'IP di management)
+    reachable: Mapped[bool | None] = mapped_column(Boolean)          # vuoto = mai controllato
+    last_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reachable_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rtt_ms: Mapped[float | None] = mapped_column(Float)
+    # Profilo SNMP che ha risposto all'ultima scansione: il monitor lo usa per leggere lo stato delle porte
+    snmp_profile_id: Mapped[int | None] = mapped_column(ForeignKey("snmp_profiles.id", ondelete="SET NULL"))
 
 
 interface_tagged_vlans = Table(

@@ -106,3 +106,10 @@ class ChangeObject(StrEnum):
     INTERFACE = "interface"
     IP = "ip"
     CABLE = "cable"
+
+
+# ---------- Login (fase 4) ----------
+class UserRole(StrEnum):
+    ADMIN = "admin"     # tutto, compresi gli utenti
+    EDITOR = "editor"   # modifica i dati
+    VIEWER = "viewer"   # solo consultazione

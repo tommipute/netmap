@@ -17,7 +17,8 @@ class SecretError(Exception):
 
 
 @lru_cache
-def _fernet() -> Fernet:
+def master_key() -> str:
+    """Chiave dei segreti (da SECRETS_KEY o dal file). Serve anche a firmare i token di login."""
     key = settings.secrets_key.strip()
     if not key:
         path = settings.secrets_key_file
@@ -30,8 +31,13 @@ def _fernet() -> Fernet:
             pass
         with open(path) as f:
             key = f.read().strip()
+    return key
+
+
+@lru_cache
+def _fernet() -> Fernet:
     try:
-        return Fernet(key.encode())
+        return Fernet(master_key().encode())
     except ValueError as exc:
         raise SecretError("SECRETS_KEY non valida: serve una chiave Fernet (44 caratteri base64)") from exc
 

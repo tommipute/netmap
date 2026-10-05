@@ -64,6 +64,7 @@ class Planner:
         device.sys_name = hd.sys_name or device.sys_name
         device.sys_descr = hd.sys_descr or device.sys_descr
         device.last_seen_at = self.now
+        device.snmp_profile_id = hd.profile_id or device.snmp_profile_id
 
         proposals: list[Proposal] = []
         self._device_update(device, hd, proposals)
@@ -118,6 +119,7 @@ class Planner:
                 "serial": hd.serial,
                 "sys_name": hd.sys_name,
                 "sys_descr": hd.sys_descr,
+                "snmp_profile_id": hd.profile_id,
                 "device_type": type_ref,
                 "interfaces": [self._interface_data(i) for i in hd.interfaces],
                 "ips": ips,

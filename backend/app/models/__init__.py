@@ -1,4 +1,5 @@
 """Importa tutti i modelli: Alembic li trova da qui."""
+from app.models.auth import User
 from app.models.base import Base
 from app.models.dcim import (
     Cable,
@@ -15,6 +16,7 @@ from app.models.dcim import (
 from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
 from app.models.maps import MapNode, NetworkMap
+from app.models.monitoring import Endpoint
 
 __all__ = [
     "Base",
@@ -25,6 +27,7 @@ __all__ = [
     "DiscoveryChange",
     "DiscoveryJob",
     "DiscoveryRun",
+    "Endpoint",
     "Interface",
     "IPAddress",
     "Location",
@@ -35,6 +38,7 @@ __all__ = [
     "Rack",
     "Site",
     "SnmpProfile",
+    "User",
     "VLAN",
     "VRF",
     "interface_tagged_vlans",

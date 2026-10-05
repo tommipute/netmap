@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Cable, Device, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer
+from app.models import Cable, Device, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
 from app.services.rules import cable_hook, interface_hook, ip_hook
 
@@ -100,6 +100,7 @@ def _create_device(db: Session, data: dict, change: DiscoveryChange) -> None:
         serial=data.get("serial"),
         sys_name=data.get("sys_name"),
         sys_descr=data.get("sys_descr"),
+        snmp_profile_id=data.get("snmp_profile_id") if db.get(SnmpProfile, data.get("snmp_profile_id") or 0) else None,
         source=SNMP,
         last_seen_at=_now(),
     )

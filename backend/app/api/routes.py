@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.api import discovery, extra
+from app.api import auth, discovery, extra
+from app.api.auth import require_admin, require_user
 from app.api.crud import build_crud_router
 from app.models import (
     VLAN,
@@ -19,7 +20,9 @@ from app.models import (
     Rack,
     Site,
     SnmpProfile,
+    User,
 )
+from app.schemas import auth as sa
 from app.schemas import dcim as d
 from app.schemas import discovery as sd
 from app.schemas import ipam as i
@@ -27,6 +30,8 @@ from app.schemas import maps as m
 from app.services import rules
 
 api_router = APIRouter(prefix="/api")
+# Tutto quello che non è login richiede un utente; per scrivere serve il ruolo editor o admin
+protected = APIRouter(dependencies=[Depends(require_user)])
 
 _routers = [
     # ---------- Infrastruttura ----------
@@ -83,11 +88,19 @@ _routers = [
     dict(model=DiscoveryJob, create_schema=sd.DiscoveryJobCreate, update_schema=sd.DiscoveryJobUpdate,
          read_schema=sd.DiscoveryJobRead, path="/discovery-jobs", tag="Scansione", filters=("site_id", "enabled"),
          search=("name", "description"), order_by=(DiscoveryJob.name,), hook=rules.discovery_job_hook),
+    # ---------- Utenti (solo amministratori) ----------
+    dict(model=User, create_schema=sa.UserCreate, update_schema=sa.UserUpdate, read_schema=sa.UserRead,
+         path="/users", tag="Utenti", filters=("role", "active"), search=("username", "full_name"),
+         order_by=(User.username,), hook=rules.user_hook, delete_hook=rules.user_delete_hook,
+         dependencies=[Depends(require_admin)]),
 ]
 
-api_router.include_router(extra.router)
-api_router.include_router(discovery.router)
+protected.include_router(extra.router)
+protected.include_router(discovery.router)
 
 for config in _routers:
-    api_router.include_router(build_crud_router(**config))
+    protected.include_router(build_crud_router(**config))
+
+api_router.include_router(auth.router)
+api_router.include_router(protected)
 

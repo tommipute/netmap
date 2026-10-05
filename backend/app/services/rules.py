@@ -5,9 +5,10 @@ from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.auth import hash_password
 from app.core.secrets import SecretError, encrypt
-from app.models import VLAN, Cable, Device, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile
-from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion
+from app.models import VLAN, Cable, Device, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, User
+from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole
 
 
 def _fail(message: str) -> None:
@@ -176,3 +177,36 @@ def discovery_job_hook(db: Session, job, data: dict[str, Any], is_create: bool) 
     if missing:
         _fail(f"Profili SNMP non trovati: {missing}")
     job.profile_ids = ids
+
+
+# ---------- Utenti (fase 4) ----------
+def _other_active_admins(db: Session, user: User) -> int:
+    stmt = select(User.id).where(User.role == UserRole.ADMIN.value, User.active.is_(True))
+    if user.id is not None:
+        stmt = stmt.where(User.id != user.id)
+    return len(db.scalars(stmt).all())
+
+
+def user_hook(db: Session, user: User, data: dict[str, Any], is_create: bool) -> None:
+    stmt = select(User.id).where(User.username == user.username)
+    if user.id is not None:
+        stmt = stmt.where(User.id != user.id)
+    if db.scalar(stmt):
+        _fail(f"Il nome utente {user.username} è già usato")
+    if data.get("password"):
+        user.password_hash = hash_password(data["password"])
+        if not is_create:
+            user.token_version = (user.token_version or 0) + 1  # le sessioni aperte di quell'utente scadono
+    elif is_create:
+        _fail("Serve una password")
+    if not is_create:
+        if ("active" in data and not user.active) or ("role" in data and user.role != UserRole.ADMIN.value):
+            if _other_active_admins(db, user) == 0:
+                _fail("Serve almeno un amministratore attivo: questo è l'ultimo")
+        if "active" in data and not user.active:
+            user.token_version = (user.token_version or 0) + 1
+
+
+def user_delete_hook(db: Session, user: User) -> None:
+    if user.role == UserRole.ADMIN.value and user.active and _other_active_admins(db, user) == 0:
+        raise HTTPException(409, "Non puoi eliminare l'ultimo amministratore attivo")

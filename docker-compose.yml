@@ -26,6 +26,9 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SECRETS_KEY: ${SECRETS_KEY:-}   # vuota = chiave generata in backend/.secrets_key
       TZ: ${TZ:-Europe/Rome}           # orari dei log delle scansioni
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      SESSION_HOURS: ${SESSION_HOURS:-12}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}   # true se l'app è dietro HTTPS
       UVICORN_EXTRA_ARGS: --reload
       WATCHFILES_FORCE_POLLING: ${FILE_POLLING:-true}   # serve su Windows; su Linux FILE_POLLING=false
     depends_on:
@@ -52,6 +55,25 @@ services:
         condition: service_healthy
       api:
         condition: service_started   # l'API applica le migration all'avvio
+    volumes:
+      - ./backend:/app
+
+  # Stato live: ping e SNMP periodici sui device con IP di management (stessa immagine dell'API)
+  monitor:
+    build: ./backend
+    restart: unless-stopped
+    command: watchfiles --filter python "python -m app.monitor" app
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRETS_KEY: ${SECRETS_KEY:-}
+      TZ: ${TZ:-Europe/Rome}
+      MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}   # 0 = monitor spento
+      WATCHFILES_FORCE_POLLING: ${FILE_POLLING:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
     volumes:
       - ./backend:/app
 
