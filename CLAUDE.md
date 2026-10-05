@@ -16,8 +16,20 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live in mappa, "dov'è collegato questo PC", login | da fare, piano in `docs/roadmap.md` |
 
-Progetto in `E:\Claude\NetMap`, repository git locale (branch `main`, nessun remote).
 Test: `docker compose exec api pytest` (27 test, compresi quelli con due switch SNMP simulati).
+
+### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
+
+| Copia | Percorso | Note |
+|---|---|---|
+| PC Windows | `E:\Claude\NetMap` | Docker Desktop, `FILE_POLLING=true`; remote git `server` (chiave `~/.ssh/proxmox_ed25519` in `core.sshCommand`) |
+| Server | LXC 103 "dev" sul Proxmox: `~/progetti/netmap` (utente `tommaso`) | 192.168.1.74 in LAN, NetBird `dev.netbird.cloud` / 100.111.74.88; `FILE_POLLING=false`; sessione Claude remota "dev" parte da `~/progetti` |
+
+Interfaccia da remoto: http://dev.netbird.cloud:5174 (oppure http://100.111.74.88:5174). Ogni copia ha il suo database:
+quello del server è nato dal dump del PC il 5/10/2026. Per allineare il codice: `git push server` / `git pull` dal PC;
+sul server `receive.denyCurrentBranch=updateInstead` aggiorna la cartella, ma solo se lì non ci sono modifiche non salvate
+(se lavori sul server, fai commit lì e dal PC `git pull`). `.env` e `backend/.secrets_key` non sono in git:
+la chiave del server è una copia di quella del PC.
 
 ## Avvio e comandi
 
