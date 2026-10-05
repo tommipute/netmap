@@ -5,7 +5,9 @@ import ipaddress
 import json
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.net import normalize_ip_interface
@@ -21,7 +23,7 @@ from app.models import (
     Site,
 )
 from app.models.enums import DeviceStatus, InterfaceType
-from app.services.rules import ip_hook
+from app.services.rules import device_hook, ip_hook
 
 # Mappatura sinonimi/alias per le intestazioni CSV (italiano e inglese)
 HEADER_ALIASES: dict[str, list[str]] = {
@@ -283,6 +285,268 @@ def generate_device_csv_template(delimiter: str = ";") -> str:
     return output.getvalue()
 
 
+# ---------------------------------------------------------------- import
+
+# Stati scritti in italiano (come nell'interfaccia) -> valore salvato
+STATUS_ALIASES = {
+    "attivo": DeviceStatus.ACTIVE.value,
+    "pianificato": DeviceStatus.PLANNED.value,
+    "spento": DeviceStatus.OFFLINE.value,
+    "dismesso": DeviceStatus.DECOMMISSIONED.value,
+}
+MGMT_NAMES = ["mgmt", "management", "eth0"]
+
+
+class RowError(Exception):
+    """Errore di una singola riga: la riga viene saltata, le altre proseguono."""
+
+
+def _result(dry_run: bool, error: str | None = None) -> dict[str, Any]:
+    return {
+        "total_rows": 0,
+        "created_count": 0,
+        "updated_count": 0,
+        "skipped_count": 0,
+        "errors": [{"row": 0, "error": error}] if error else [],
+        "created_devices": [],
+        "updated_devices": [],
+        "skipped_devices": [],
+        "dry_run": dry_run,
+    }
+
+
+def _text(row: dict[str, str], key: str, label: str, max_length: int = 100) -> str:
+    value = row.get(key, "").strip()
+    if len(value) > max_length:
+        raise RowError(f"{label} troppo lungo: massimo {max_length} caratteri")
+    return value
+
+
+def _by_id_or_name(db: Session, model, value: str, name_column, *conditions):
+    """Cerca per id numerico o per nome (senza distinguere maiuscole)."""
+    if value.isdigit():
+        obj = db.get(model, int(value))
+        if obj is not None:
+            return obj
+    return db.scalars(select(model).where(func.lower(name_column) == value.lower(), *conditions)).first()
+
+
+def _get_or_create_manufacturer(db: Session, name: str) -> Manufacturer:
+    manufacturer = db.scalars(select(Manufacturer).where(func.lower(Manufacturer.name) == name.lower())).first()
+    if manufacturer is None:
+        manufacturer = Manufacturer(name=name)
+        db.add(manufacturer)
+        db.flush()
+    return manufacturer
+
+
+def _resolve_site(db: Session, value: str) -> Site:
+    if not value:
+        site = db.scalars(select(Site).order_by(Site.id)).first()
+        if site:
+            return site
+        value = "Sede principale"
+    site = _by_id_or_name(db, Site, value, Site.name)
+    if site is None:
+        site = Site(name=value)
+        db.add(site)
+        db.flush()
+    return site
+
+
+def _resolve_location(db: Session, site: Site, value: str) -> Location | None:
+    if not value:
+        return None
+    location = _by_id_or_name(db, Location, value, Location.name, Location.site_id == site.id)
+    if location is None:
+        location = Location(site_id=site.id, name=value)
+        db.add(location)
+        db.flush()
+    return location
+
+
+def _resolve_rack(db: Session, site: Site, location: Location | None, value: str) -> Rack | None:
+    if not value:
+        return None
+    rack = _by_id_or_name(db, Rack, value, Rack.name, Rack.site_id == site.id)
+    if rack is None:
+        rack = Rack(site_id=site.id, location_id=location.id if location else None, name=value)
+        db.add(rack)
+        db.flush()
+    return rack
+
+
+def _resolve_device_type(db: Session, manufacturer_name: str, model: str) -> DeviceType | None:
+    if not model:
+        return None
+    if manufacturer_name:
+        manufacturer = _get_or_create_manufacturer(db, manufacturer_name)
+        dev_type = _by_id_or_name(db, DeviceType, model, DeviceType.model, DeviceType.manufacturer_id == manufacturer.id)
+    else:
+        manufacturer = None
+        dev_type = _by_id_or_name(db, DeviceType, model, DeviceType.model)
+    if dev_type is None:
+        manufacturer = manufacturer or _get_or_create_manufacturer(db, "Generico")
+        dev_type = DeviceType(manufacturer_id=manufacturer.id, model=model, u_height=1)
+        db.add(dev_type)
+        db.flush()
+    return dev_type
+
+
+def _resolve_role(db: Session, value: str) -> DeviceRole | None:
+    if not value:
+        return None
+    role = _by_id_or_name(db, DeviceRole, value, DeviceRole.name)
+    if role is not None:
+        return role
+    r_lower = value.lower()
+    lvl, col = 2, "#888780"
+    if "firewall" in r_lower or "gw" in r_lower or "router" in r_lower:
+        lvl, col = 0, "#E24B4B"
+    elif "core" in r_lower:
+        lvl, col = 0, "#2B7FFF"
+    elif "distrib" in r_lower:
+        lvl, col = 1, "#4FA8F6"
+    elif "access" in r_lower or "switch" in r_lower:
+        lvl, col = 2, "#10B981"
+    elif "ap" in r_lower.split() or "wifi" in r_lower or "wi-fi" in r_lower:
+        lvl, col = 3, "#F59E0B"
+    role = DeviceRole(name=value, level=lvl, color=col)
+    db.add(role)
+    db.flush()
+    return role
+
+
+def _parse_status(value: str) -> str | None:
+    if not value:
+        return None
+    value = value.lower()
+    status = STATUS_ALIASES.get(value, value)
+    if status not in VALID_STATUSES:
+        raise RowError(
+            f"Stato non valido: '{value}'. Usa attivo, pianificato, offline o dismesso "
+            "(oppure active, planned, offline, decommissioned)"
+        )
+    return status
+
+
+def _parse_rack_position(value: str) -> int | None:
+    if not value:
+        return None
+    if not value.isdigit() or not 1 <= int(value) <= 60:
+        raise RowError(f"Unità nel rack non valida: '{value}' (serve un numero da 1 a 60)")
+    return int(value)
+
+
+def _assign_primary_ip(db: Session, device: Device, value: str) -> None:
+    try:
+        address = normalize_ip_interface(value)
+    except ValueError as exc:
+        raise RowError(str(exc)) from exc
+    host = str(ipaddress.ip_interface(address).ip)
+
+    # L'import non ha la colonna VRF: gli IP stanno nella tabella globale
+    ip_obj = db.scalars(select(IPAddress).where(IPAddress.host == host, IPAddress.vrf_id.is_(None))).first()
+    if ip_obj is not None and ip_obj.interface is not None and ip_obj.interface.device_id != device.id:
+        raise RowError(f"L'IP {host} è già assegnato a {ip_obj.interface.device.name} {ip_obj.interface.name}")
+
+    if ip_obj is not None and ip_obj.interface is not None:
+        iface = ip_obj.interface  # già su questo device: resta sulla sua porta
+    else:
+        # Porta dell'IP primario attuale, altrimenti una porta di management, altrimenti ne creo una
+        iface = db.scalars(
+            select(Interface)
+            .join(IPAddress, IPAddress.interface_id == Interface.id)
+            .where(Interface.device_id == device.id, IPAddress.is_primary.is_(True))
+        ).first() or db.scalars(
+            select(Interface)
+            .where(
+                Interface.device_id == device.id,
+                or_(Interface.mgmt_only.is_(True), func.lower(Interface.name).in_(MGMT_NAMES)),
+            )
+            .order_by(Interface.mgmt_only.desc(), Interface.id)
+        ).first()
+        if iface is None:
+            iface = Interface(
+                device_id=device.id,
+                name="mgmt",
+                type=InterfaceType.COPPER.value,
+                mgmt_only=True,
+                description="Porta di management creata dall'import",
+            )
+            db.add(iface)
+            db.flush()
+
+    if ip_obj is None:
+        ip_obj = IPAddress(address=address, interface_id=iface.id, is_primary=True)
+        db.add(ip_obj)
+    else:
+        ip_obj.address = address
+        ip_obj.interface_id = iface.id
+        ip_obj.is_primary = True
+    db.flush()
+    ip_hook(db, ip_obj, {}, False)  # toglie il flag "primario" agli altri IP del device
+
+
+def _import_row(db: Session, row: dict[str, str], update_existing: bool) -> str:
+    """Crea o aggiorna il device di una riga. Ritorna 'created', 'updated' o 'skipped'."""
+    name = _text(row, "name", "Nome")
+    if not name:
+        raise RowError("Nome del device vuoto")
+    status = _parse_status(row.get("status", "").strip())
+    rack_position = _parse_rack_position(row.get("rack_position", "").strip())
+    serial = _text(row, "serial", "Numero di serie")
+    asset_tag = _text(row, "asset_tag", "Asset tag")
+    description = row.get("description", "").strip()
+
+    site = _resolve_site(db, _text(row, "site", "Sede"))
+    location = _resolve_location(db, site, _text(row, "location", "Posizione"))
+    rack = _resolve_rack(db, site, location, _text(row, "rack", "Rack"))
+    dev_type = _resolve_device_type(db, _text(row, "manufacturer", "Produttore"), _text(row, "model", "Modello"))
+    role = _resolve_role(db, _text(row, "role", "Ruolo"))
+
+    device = db.scalars(
+        select(Device).where(Device.site_id == site.id, func.lower(Device.name) == name.lower())
+    ).first()
+    if device is not None and not update_existing:
+        return "skipped"
+    outcome = "updated" if device is not None else "created"
+    if device is None:
+        device = Device(name=name, site_id=site.id, status=status or DeviceStatus.ACTIVE.value)
+        db.add(device)
+
+    # Si aggiornano solo le colonne presenti e compilate: una cella vuota lascia il valore com'è
+    if status:
+        device.status = status
+    if location:
+        device.location_id = location.id
+    if rack:
+        device.rack_id = rack.id
+    if rack_position is not None:
+        device.rack_position = rack_position
+    if dev_type:
+        device.device_type_id = dev_type.id
+    if role:
+        device.role_id = role.id
+    if serial:
+        device.serial = serial
+    if description:
+        device.description = description
+    if asset_tag:
+        owner = db.scalar(select(Device.name).where(Device.asset_tag == asset_tag, Device.id != device.id))
+        if owner:
+            raise RowError(f"Asset tag {asset_tag} già usato da {owner}")
+        device.asset_tag = asset_tag
+
+    device_hook(db, device, {}, outcome == "created")  # posizione e rack della stessa sede
+    db.flush()
+
+    ip_value = row.get("primary_ip", "").strip()
+    if ip_value:
+        _assign_primary_ip(db, device, ip_value)
+    return outcome
+
+
 def import_devices_from_csv(
     db: Session,
     csv_text: str,
@@ -291,355 +555,58 @@ def import_devices_from_csv(
 ) -> dict[str, Any]:
     """Importa device da una stringa CSV.
 
-    Risolve automaticamente sedi, posizioni, rack, produttori, modelli, ruoli e assegna l'IP primario.
-    Supporta dry-run e aggiornamento di device esistenti.
+    Risolve (e se servono crea) sedi, posizioni, rack, produttori, modelli e ruoli e assegna l'IP primario.
+    Ogni riga è in un SAVEPOINT: una riga sbagliata finisce tra gli errori senza bloccare le altre.
+    Con dry_run alla fine si annulla tutto, ma gli errori segnalati sono gli stessi dell'import vero.
     """
-    lines = [l for l in csv_text.splitlines() if l.strip()]
-    if not lines:
-        return {
-            "total_rows": 0,
-            "created_count": 0,
-            "updated_count": 0,
-            "skipped_count": 0,
-            "errors": [{"row": 0, "error": "Il testo o file CSV fornito è vuoto."}],
-            "created_devices": [],
-            "updated_devices": [],
-            "skipped_devices": [],
-        }
+    lines = csv_text.lstrip("﻿").splitlines()
+    header_index = next((i for i, line in enumerate(lines) if line.strip()), None)
+    if header_index is None:
+        return _result(dry_run, "Il testo o file CSV fornito è vuoto.")
 
-    first_line = lines[0]
-    if first_line.startswith("\ufeff"):
-        first_line = first_line[1:]
-        lines[0] = first_line
-
-    # Rilevamento automatico del separatore
-    delim = ","
-    if ";" in first_line and first_line.count(";") >= first_line.count(","):
-        delim = ";"
-    elif "\t" in first_line:
+    first_line = lines[header_index]
+    if "\t" in first_line:
         delim = "\t"
+    elif first_line.count(";") >= first_line.count(","):
+        delim = ";"
+    else:
+        delim = ","
 
     reader = csv.reader(io.StringIO("\n".join(lines)), delimiter=delim)
-    raw_headers = next(reader, None)
-    if not raw_headers:
-        return {
-            "total_rows": 0,
-            "created_count": 0,
-            "updated_count": 0,
-            "skipped_count": 0,
-            "errors": [{"row": 0, "error": "Intestazioni del CSV non trovate."}],
-            "created_devices": [],
-            "updated_devices": [],
-            "skipped_devices": [],
-        }
+    for _ in range(header_index):
+        next(reader)
+    headers = [_normalize_header(h) for h in next(reader)]
+    if "name" not in headers:
+        return _result(dry_run, "Colonna obbligatoria 'name' (o 'nome') mancante nelle intestazioni.")
 
-    normalized_headers = [_normalize_header(h) for h in raw_headers]
-    if "name" not in normalized_headers:
-        return {
-            "total_rows": 0,
-            "created_count": 0,
-            "updated_count": 0,
-            "skipped_count": 0,
-            "errors": [
-                {
-                    "row": 1,
-                    "error": "Colonna obbligatoria 'name' (o 'nome') mancante nelle intestazioni.",
-                }
-            ],
-            "created_devices": [],
-            "updated_devices": [],
-            "skipped_devices": [],
-        }
-
-    created_devices: list[str] = []
-    updated_devices: list[str] = []
-    skipped_devices: list[str] = []
-    errors: list[dict[str, Any]] = []
-
-    row_index = 1  # 1-indexed (la riga 1 erano le intestazioni)
-    for row_values in reader:
-        row_index += 1
-        if not any(v.strip() for v in row_values):
-            continue  # riga vuota
-
-        row_dict = {}
-        for h, val in zip(normalized_headers, row_values):
-            if h:
-                row_dict[h] = val.strip()
-
-        dev_name = row_dict.get("name", "").strip()
-        if not dev_name:
-            errors.append({"row": row_index, "error": "Nome del device vuoto."})
+    result = _result(dry_run)
+    for values in reader:
+        if not any(v.strip() for v in values):
             continue
+        result["total_rows"] += 1
+        row = {h: v.strip() for h, v in zip(headers, values) if h}
+        row_number = reader.line_num  # riga del file, intestazione compresa
+        device_name = row.get("name") or None
 
-        # 1. Sede (Site)
-        site_val = row_dict.get("site", "").strip()
-        site: Site | None = None
-        if site_val:
-            if site_val.isdigit():
-                site = db.get(Site, int(site_val))
-            if not site:
-                site = db.scalars(select(Site).where(func.lower(Site.name) == site_val.lower())).first()
-            if not site:
-                # Creazione automatica della sede se non esiste
-                site = Site(name=site_val)
-                db.add(site)
-                db.flush()
-        else:
-            # Se non indicata, prova a usare la prima sede esistente, o segnala errore
-            first_site = db.scalars(select(Site).order_by(Site.id)).first()
-            if first_site:
-                site = first_site
+        savepoint = db.begin_nested()
+        try:
+            outcome = _import_row(db, row, update_existing)
+            savepoint.commit()
+        except (RowError, HTTPException, IntegrityError, DataError) as exc:
+            savepoint.rollback()
+            if isinstance(exc, HTTPException):
+                message = exc.detail
+            elif isinstance(exc, (IntegrityError, DataError)):
+                message = "Valore duplicato o non valido per il database"
             else:
-                site = Site(name="Sede Principale")
-                db.add(site)
-                db.flush()
-
-        # 2. Posizione (Location)
-        loc_val = row_dict.get("location", "").strip()
-        location: Location | None = None
-        if loc_val:
-            if loc_val.isdigit():
-                location = db.get(Location, int(loc_val))
-            if not location:
-                location = db.scalars(
-                    select(Location).where(
-                        Location.site_id == site.id,
-                        func.lower(Location.name) == loc_val.lower(),
-                    )
-                ).first()
-            if not location:
-                location = Location(site_id=site.id, name=loc_val)
-                db.add(location)
-                db.flush()
-
-        # 3. Rack
-        rack_val = row_dict.get("rack", "").strip()
-        rack: Rack | None = None
-        if rack_val:
-            if rack_val.isdigit():
-                rack = db.get(Rack, int(rack_val))
-            if not rack:
-                rack = db.scalars(
-                    select(Rack).where(
-                        Rack.site_id == site.id,
-                        func.lower(Rack.name) == rack_val.lower(),
-                    )
-                ).first()
-            if not rack:
-                rack = Rack(
-                    site_id=site.id,
-                    location_id=location.id if location else None,
-                    name=rack_val,
-                )
-                db.add(rack)
-                db.flush()
-
-        # Posizione Rack (U)
-        rack_pos_raw = row_dict.get("rack_position", "").strip()
-        rack_pos: int | None = None
-        if rack_pos_raw and rack_pos_raw.isdigit():
-            rack_pos = int(rack_pos_raw)
-            if rack_pos < 1 or rack_pos > 60:
-                rack_pos = None
-
-        # 4. Produttore (Manufacturer)
-        mfg_val = row_dict.get("manufacturer", "").strip()
-        mfg: Manufacturer | None = None
-        if mfg_val:
-            mfg = db.scalars(
-                select(Manufacturer).where(func.lower(Manufacturer.name) == mfg_val.lower())
-            ).first()
-            if not mfg:
-                mfg = Manufacturer(name=mfg_val)
-                db.add(mfg)
-                db.flush()
-
-        # 5. Modello (DeviceType)
-        model_val = row_dict.get("model", "").strip()
-        dev_type: DeviceType | None = None
-        if model_val:
-            if model_val.isdigit():
-                dev_type = db.get(DeviceType, int(model_val))
-            if not dev_type:
-                dev_type = db.scalars(
-                    select(DeviceType).where(func.lower(DeviceType.model) == model_val.lower())
-                ).first()
-            if not dev_type:
-                if not mfg:
-                    mfg = db.scalars(select(Manufacturer).order_by(Manufacturer.id)).first()
-                    if not mfg:
-                        mfg = Manufacturer(name="Generico")
-                        db.add(mfg)
-                        db.flush()
-                dev_type = DeviceType(manufacturer_id=mfg.id, model=model_val, u_height=1)
-                db.add(dev_type)
-                db.flush()
-
-        # 6. Ruolo (DeviceRole)
-        role_val = row_dict.get("role", "").strip()
-        role: DeviceRole | None = None
-        if role_val:
-            if role_val.isdigit():
-                role = db.get(DeviceRole, int(role_val))
-            if not role:
-                role = db.scalars(
-                    select(DeviceRole).where(func.lower(DeviceRole.name) == role_val.lower())
-                ).first()
-            if not role:
-                r_lower = role_val.lower()
-                lvl = 2
-                col = "#888780"
-                if "firewall" in r_lower or "gw" in r_lower or "router" in r_lower:
-                    lvl, col = 0, "#e24b4b"
-                elif "core" in r_lower:
-                    lvl, col = 0, "#2b7fff"
-                elif "distrib" in r_lower:
-                    lvl, col = 1, "#4fa8f6"
-                elif "access" in r_lower or "switch" in r_lower:
-                    lvl, col = 2, "#10b981"
-                elif "ap" in r_lower or "wifi" in r_lower:
-                    lvl, col = 3, "#f59e0b"
-                role = DeviceRole(name=role_val, level=lvl, color=col)
-                db.add(role)
-                db.flush()
-
-        # 7. Stato
-        status_val = row_dict.get("status", "").strip().lower()
-        if status_val not in VALID_STATUSES:
-            status_val = DeviceStatus.ACTIVE.value
-
-        serial = row_dict.get("serial", "").strip() or None
-        asset_tag = row_dict.get("asset_tag", "").strip() or None
-        description = row_dict.get("description", "").strip() or None
-
-        # Ricerca device esistente (per sede e nome)
-        existing = db.scalars(
-            select(Device).where(
-                Device.site_id == site.id,
-                func.lower(Device.name) == dev_name.lower(),
-            )
-        ).first()
-
-        device: Device
-        if existing:
-            if not update_existing:
-                skipped_devices.append(dev_name)
-                continue
-            # Aggiornamento campi
-            existing.status = status_val
-            if location:
-                existing.location_id = location.id
-            if rack:
-                existing.rack_id = rack.id
-            if rack_pos is not None:
-                existing.rack_position = rack_pos
-            if dev_type:
-                existing.device_type_id = dev_type.id
-            if role:
-                existing.role_id = role.id
-            if serial:
-                existing.serial = serial
-            if asset_tag:
-                existing.asset_tag = asset_tag
-            if description:
-                existing.description = description
-            device = existing
-            updated_devices.append(dev_name)
-        else:
-            device = Device(
-                name=dev_name,
-                site_id=site.id,
-                location_id=location.id if location else None,
-                rack_id=rack.id if rack else None,
-                rack_position=rack_pos,
-                device_type_id=dev_type.id if dev_type else None,
-                role_id=role.id if role else None,
-                status=status_val,
-                serial=serial,
-                asset_tag=asset_tag,
-                description=description,
-            )
-            db.add(device)
-            db.flush()
-            created_devices.append(dev_name)
-
-        # 8. Assegnazione IP primario
-        ip_val = row_dict.get("primary_ip", "").strip()
-        if ip_val:
-            try:
-                norm_addr = normalize_ip_interface(ip_val)
-                # Cerca un'interfaccia adatta o creane una 'mgmt'
-                iface = db.scalars(
-                    select(Interface).where(
-                        Interface.device_id == device.id,
-                        or_(
-                            Interface.mgmt_only.is_(True),
-                            Interface.name.in_(["mgmt", "Management", "eth0", "Gi1/0/1"]),
-                        ),
-                    ).order_by(Interface.mgmt_only.desc(), Interface.id)
-                ).first()
-
-                if not iface:
-                    # Prendi la prima interfaccia qualunque del device
-                    iface = db.scalars(
-                        select(Interface).where(Interface.device_id == device.id).order_by(Interface.id)
-                    ).first()
-
-                if not iface:
-                    # Crea una porta mgmt dedicata
-                    iface = Interface(
-                        device_id=device.id,
-                        name="mgmt",
-                        type=InterfaceType.COPPER.value,
-                        mgmt_only=True,
-                        description="Porta di management creata dall'import",
-                    )
-                    db.add(iface)
-                    db.flush()
-
-                # Cerca o crea l'indirizzo IP
-                ip_net = ipaddress.ip_interface(norm_addr)
-                host_str = str(ip_net.ip)
-
-                ip_obj = db.scalars(
-                    select(IPAddress).where(IPAddress.host == host_str)
-                ).first()
-
-                if ip_obj:
-                    ip_obj.interface_id = iface.id
-                    ip_obj.address = norm_addr
-                    ip_obj.is_primary = True
-                    ip_hook(db, ip_obj, {}, is_create=False)
-                else:
-                    ip_obj = IPAddress(
-                        address=norm_addr,
-                        interface_id=iface.id,
-                        is_primary=True,
-                    )
-                    db.add(ip_obj)
-                    db.flush()
-                    ip_hook(db, ip_obj, {}, is_create=True)
-            except Exception as exc:
-                errors.append({
-                    "row": row_index,
-                    "device": dev_name,
-                    "error": f"Errore configurazione IP '{ip_val}': {str(exc)}",
-                })
+                message = str(exc)
+            result["errors"].append({"row": row_number, "device": device_name, "error": message})
+            continue
+        result[f"{outcome}_count"] += 1
+        result[f"{outcome}_devices"].append(device_name)
 
     if dry_run:
         db.rollback()
     else:
         db.commit()
-
-    return {
-        "total_rows": row_index - 1,
-        "created_count": len(created_devices),
-        "updated_count": len(updated_devices),
-        "skipped_count": len(skipped_devices),
-        "errors": errors,
-        "created_devices": created_devices,
-        "updated_devices": updated_devices,
-        "skipped_devices": skipped_devices,
-        "dry_run": dry_run,
-    }
+    return result

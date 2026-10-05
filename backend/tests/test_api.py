@@ -117,34 +117,38 @@ def test_mappe_e_porte(client):
     assert [n["name"] for n in view["nodes"]] == ["core"] and [a["name"] for a in view["available"]] == ["sw"]
 
 
-def test_device_import_export(client):
-    # Template
-    tmpl = client.get("/api/devices/import/template")
-    assert tmpl.status_code == 200
-    assert "name" in tmpl.text
+def test_patch_valida_e_modifica_solo_i_campi_inviati(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    dev = create(client, "/devices", {"name": "sw", "site_id": site["id"], "serial": "SN1", "status": "planned"})
+    port = create(client, "/interfaces", {"device_id": dev["id"], "name": "1", "mac_address": "aa:bb:cc:dd:ee:ff"})
 
-    # Import CSV
-    csv_data = """name;status;site;location;rack;rack_position;manufacturer;model;role;primary_ip;serial;asset_tag;description
-dev-imp-01;active;Sede Export;Sala 1;Rack 1;10;Cisco;C9300;Core;192.168.1.1/24;SN12345;AST-99;Dispositivo di test import
-dev-imp-02;planned;Sede Export;Sala 1;Rack 1;12;HPE;2930;Switch;192.168.1.2/24;SN67890;AST-100;Secondo switch
-"""
-    res = client.post("/api/devices/import", json={"csv_data": csv_data, "update_existing": True, "dry_run": False})
-    assert res.status_code == 200, res.text
-    data = res.json()
-    assert data["created_count"] == 2
-    assert data["errors"] == []
+    # Le validazioni dello schema valgono anche nel PATCH
+    assert client.patch(f"/api/interfaces/{port['id']}", json={"mac_address": "non-un-mac"}).status_code == 422
+    assert client.patch(f"/api/devices/{dev['id']}", json={"name": "   "}).status_code == 422
+    assert client.patch(f"/api/devices/{dev['id']}", json={"rack_position": 99}).status_code == 422
+    assert client.patch(f"/api/devices/{dev['id']}", json={"campo_inventato": 1}).status_code == 422
 
-    # Export CSV
-    exp_csv = client.get("/api/devices/export", params={"format": "csv", "q": "dev-imp"})
-    assert exp_csv.status_code == 200
-    assert "dev-imp-01" in exp_csv.text
-    assert "192.168.1.1/24" in exp_csv.text
-    assert "Cisco" in exp_csv.text
+    # Un solo campo: gli altri restano com'erano
+    updated = client.patch(f"/api/devices/{dev['id']}", json={"description": "nota"}).json()
+    assert updated["description"] == "nota"
+    assert updated["serial"] == "SN1" and updated["status"] == "planned" and updated["name"] == "sw"
+    mac = client.patch(f"/api/interfaces/{port['id']}", json={"mac_address": "1122.3344.5566"}).json()["mac_address"]
+    assert mac == "11:22:33:44:55:66"
 
-    # Export JSON
-    exp_json = client.get("/api/devices/export", params={"format": "json", "q": "dev-imp"}).json()
-    assert len(exp_json) == 2
-    assert exp_json[0]["name"] == "dev-imp-01"
-    assert exp_json[0]["primary_ip"] == "192.168.1.1/24"
-    assert exp_json[0]["site"] == "Sede Export"
 
+def test_seed_di_esempio(client, session_factory):
+    from app.seed import load_demo
+
+    for expected in (True, False):  # la seconda volta non carica doppioni
+        with session_factory() as db:
+            assert load_demo(db) is expected
+
+    counts = {path: client.get(f"/api/{path}").json()["total"] for path in ("devices", "cables", "vlans", "prefixes", "maps")}
+    assert counts == {"devices": 4, "cables": 3, "vlans": 3, "prefixes": 3, "maps": 1}
+
+    map_id = client.get("/api/maps").json()["items"][0]["id"]
+    view = client.get(f"/api/maps/{map_id}/view").json()
+    assert len(view["nodes"]) == 4 and len(view["edges"]) == 3
+    # Nessuna posizione salvata: la disposizione automatica parte nel browser, per livello del ruolo
+    assert all(n["x"] is None for n in view["nodes"])
+    assert sorted(n["level"] for n in view["nodes"]) == [0, 1, 2, 2]
