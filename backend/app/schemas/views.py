@@ -70,6 +70,7 @@ class Port(BaseModel):
     type: str
     enabled: bool
     mgmt_only: bool
+    oper_status: str | None = None  # up/down dall'ultima scansione
     mode: str | None
     speed_mbps: int | None
     mac_address: str | None

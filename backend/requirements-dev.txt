@@ -1,3 +1,6 @@
 -r requirements.txt
 pytest>=8
 httpx>=0.27
+# Agent SNMP simulato per i test della scansione (pysmi gli serve ma non lo dichiara)
+snmpsim>=1.2,<2
+pysmi>=1.5

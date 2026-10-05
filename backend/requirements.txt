@@ -5,3 +5,6 @@ alembic>=1.13
 psycopg[binary]>=3.2
 pydantic>=2.7
 pydantic-settings>=2.3
+# Fase 3: scansione SNMP (pysnmp mantenuto da lextudio, API asyncio) e cifratura dei segreti
+pysnmp>=7.1,<8
+cryptography>=43

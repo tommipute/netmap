@@ -180,6 +180,7 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
             "type": iface.type,
             "enabled": iface.enabled,
             "mgmt_only": iface.mgmt_only,
+            "oper_status": iface.oper_status,
             "mode": iface.mode,
             "speed_mbps": iface.speed_mbps,
             "mac_address": iface.mac_address,

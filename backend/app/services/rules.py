@@ -5,8 +5,9 @@ from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models import VLAN, Cable, Device, Interface, IPAddress, Location, Prefix, Rack
-from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType
+from app.core.secrets import SecretError, encrypt
+from app.models import VLAN, Cable, Device, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile
+from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion
 
 
 def _fail(message: str) -> None:
@@ -136,3 +137,42 @@ def ip_hook(db: Session, ip: IPAddress, data: dict[str, Any], is_create: bool) -
 def map_hook(db: Session, network_map, data: dict[str, Any], is_create: bool) -> None:
     if network_map.location_id is not None and db.get(Location, network_map.location_id).site_id != network_map.site_id:
         _fail("La posizione appartiene a un'altra sede")
+
+
+# ---------- Scansione SNMP ----------
+_SECRETS = {"community": "community_enc", "auth_key": "auth_key_enc", "priv_key": "priv_key_enc"}
+
+
+def snmp_profile_hook(db: Session, profile: SnmpProfile, data: dict[str, Any], is_create: bool) -> None:
+    # I segreti arrivano in chiaro e si salvano solo cifrati. Campo assente = invariato, null o vuoto = cancellato
+    try:
+        for field, column in _SECRETS.items():
+            if field in data:
+                setattr(profile, column, encrypt(data[field]) if data[field] else None)
+    except SecretError as exc:
+        raise HTTPException(500, str(exc)) from exc
+
+    if profile.version == SnmpVersion.V2C.value:
+        if not profile.community_enc:
+            _fail("Per SNMP v2c serve la community")
+        return
+    if not profile.username:
+        _fail("Per SNMPv3 serve il nome utente")
+    if profile.auth_protocol and not profile.auth_key_enc:
+        _fail("Hai scelto un protocollo di autenticazione: serve anche la chiave")
+    if profile.priv_protocol:
+        if not profile.auth_protocol:
+            _fail("La cifratura (privacy) in SNMPv3 richiede anche l'autenticazione")
+        if not profile.priv_key_enc:
+            _fail("Hai scelto un protocollo di cifratura: serve anche la chiave")
+
+
+def discovery_job_hook(db: Session, job, data: dict[str, Any], is_create: bool) -> None:
+    ids = list(dict.fromkeys(job.profile_ids or []))  # senza doppioni, ordine mantenuto
+    if not ids:
+        _fail("Scegli almeno un profilo SNMP")
+    found = set(db.scalars(select(SnmpProfile.id).where(SnmpProfile.id.in_(ids))))
+    missing = [i for i in ids if i not in found]
+    if missing:
+        _fail(f"Profili SNMP non trovati: {missing}")
+    job.profile_ids = ids

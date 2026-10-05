@@ -60,3 +60,49 @@ class IPAddressStatus(StrEnum):
 
 # Interfacce che non possono avere un cavo fisico
 NON_CABLEABLE_TYPES = {InterfaceType.VIRTUAL.value, InterfaceType.LAG.value}
+
+
+# ---------- Scansione SNMP (fase 3) ----------
+class SnmpVersion(StrEnum):
+    V2C = "v2c"
+    V3 = "v3"
+
+
+class SnmpAuthProtocol(StrEnum):
+    MD5 = "md5"
+    SHA = "sha"
+    SHA256 = "sha256"
+    SHA512 = "sha512"
+
+
+class SnmpPrivProtocol(StrEnum):
+    DES = "des"
+    AES = "aes"
+    AES256 = "aes256"
+
+
+class RunStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class ChangeStatus(StrEnum):
+    PENDING = "pending"
+    APPLIED = "applied"
+    REJECTED = "rejected"
+    FAILED = "failed"   # approvata ma non applicabile (es. porta nel frattempo occupata)
+
+
+class ChangeAction(StrEnum):
+    CREATE = "create"
+    UPDATE = "update"
+    STALE = "stale"     # non più vista dalla scansione: approvare = eliminare
+
+
+class ChangeObject(StrEnum):
+    DEVICE = "device"
+    INTERFACE = "interface"
+    IP = "ip"
+    CABLE = "cable"

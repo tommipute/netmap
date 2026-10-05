@@ -12,6 +12,7 @@ from app.models.dcim import (
     Site,
     interface_tagged_vlans,
 )
+from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
 from app.models.maps import MapNode, NetworkMap
 
@@ -21,6 +22,9 @@ __all__ = [
     "Device",
     "DeviceRole",
     "DeviceType",
+    "DiscoveryChange",
+    "DiscoveryJob",
+    "DiscoveryRun",
     "Interface",
     "IPAddress",
     "Location",
@@ -30,6 +34,7 @@ __all__ = [
     "Prefix",
     "Rack",
     "Site",
+    "SnmpProfile",
     "VLAN",
     "VRF",
     "interface_tagged_vlans",

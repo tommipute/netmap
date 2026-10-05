@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api import extra
+from app.api import discovery, extra
 from app.api.crud import build_crud_router
 from app.models import (
     VLAN,
@@ -9,6 +9,7 @@ from app.models import (
     Device,
     DeviceRole,
     DeviceType,
+    DiscoveryJob,
     Interface,
     IPAddress,
     Location,
@@ -17,8 +18,10 @@ from app.models import (
     Prefix,
     Rack,
     Site,
+    SnmpProfile,
 )
 from app.schemas import dcim as d
+from app.schemas import discovery as sd
 from app.schemas import ipam as i
 from app.schemas import maps as m
 from app.services import rules
@@ -73,9 +76,17 @@ _routers = [
     dict(model=NetworkMap, create_schema=m.MapCreate, update_schema=m.MapUpdate, read_schema=m.MapRead,
          path="/maps", tag="Mappe", filters=("site_id",), search=("name",), order_by=(NetworkMap.name,),
          hook=rules.map_hook),
+    # ---------- Scansione SNMP ----------
+    dict(model=SnmpProfile, create_schema=sd.SnmpProfileCreate, update_schema=sd.SnmpProfileUpdate,
+         read_schema=sd.SnmpProfileRead, path="/snmp-profiles", tag="Scansione", search=("name", "username"),
+         order_by=(SnmpProfile.name,), hook=rules.snmp_profile_hook),
+    dict(model=DiscoveryJob, create_schema=sd.DiscoveryJobCreate, update_schema=sd.DiscoveryJobUpdate,
+         read_schema=sd.DiscoveryJobRead, path="/discovery-jobs", tag="Scansione", filters=("site_id", "enabled"),
+         search=("name", "description"), order_by=(DiscoveryJob.name,), hook=rules.discovery_job_hook),
 ]
 
 api_router.include_router(extra.router)
+api_router.include_router(discovery.router)
 
 for config in _routers:
     api_router.include_router(build_crud_router(**config))

@@ -1,12 +1,19 @@
 import pytest
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
+from app.core import secrets
 from app.database import get_db
 from app.main import app
 from app.models import Base
+
+# Chiave di cifratura usa e getta: i test non leggono né creano backend/.secrets_key
+settings.secrets_key = Fernet.generate_key().decode()
+secrets._fernet.cache_clear()
 
 
 @pytest.fixture()
