@@ -1,6 +1,24 @@
 # Roadmap NetMap
 
-## Fase 3: discovery SNMP
+## Fase 3: discovery SNMP — fatta (5/10/2026)
+
+Fatto: profili v2c/v3 con segreti cifrati, job con intervalli e pianificazione, worker, lettura di sistema,
+IF-MIB, IP-MIB (anche IPv6), ENTITY-MIB, LLDP e CDP, abbinamento, regole di applicazione, pagina "Da approvare",
+test con due switch simulati (snmpsim). Dettagli tecnici in `CLAUDE.md`, sezione "Scansione SNMP".
+
+Differenze rispetto al piano qui sotto:
+- **Niente Redis/ARQ**: la coda è la tabella `discovery_runs` (un worker che la legge con `SKIP LOCKED`).
+  Meno servizi da gestire; se un giorno servissero più worker o code diverse si può passare ad ARQ.
+- `discovery_jobs` non ha "regole di applicazione" generiche ma due interruttori: porte nuove e IP nuovi.
+- Porte sparite: si propone l'eliminazione già alla prima scansione che non le vede (non dopo N scansioni);
+  se la porta ricompare la proposta sparisce da sola.
+- Non ancora letti: VLAN (Q-BRIDGE `dot1qVlanStaticName`, `dot1qPvid`), tabelle MAC e ARP. Le ultime due servono
+  alla fase 4 ("dov'è collegato?").
+
+Possibili miglioramenti: ruolo proposto in base al modello o al sysObjectID, abbinamento device ↔ modello esistente
+senza sysObjectID (proporre di collegarli), fibra/rame dai transceiver (ENTITY-MIB), pulsante "Prova profilo" su un IP.
+
+Il piano originale, per riferimento:
 
 Obiettivo: trovare device, porte, IP e collegamenti con SNMP e proporli come **modifiche da approvare**,
 senza mai sovrascrivere da soli i dati inseriti a mano.
