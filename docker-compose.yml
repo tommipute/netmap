@@ -11,7 +11,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5433:5432"   # 5433 per non andare in conflitto con l'app inventory
+      # Solo da questo computer (niente password del DB esposta in rete); 5433 per non scontrarsi con l'inventory
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -26,7 +27,7 @@ services:
       SECRETS_KEY: ${SECRETS_KEY:-}   # vuota = chiave generata in backend/.secrets_key
       TZ: ${TZ:-Europe/Rome}           # orari dei log delle scansioni
       UVICORN_EXTRA_ARGS: --reload
-      WATCHFILES_FORCE_POLLING: "true"   # serve su Windows per il reload automatico
+      WATCHFILES_FORCE_POLLING: ${FILE_POLLING:-true}   # serve su Windows; su Linux FILE_POLLING=false
     depends_on:
       db:
         condition: service_healthy
@@ -45,7 +46,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SECRETS_KEY: ${SECRETS_KEY:-}
       TZ: ${TZ:-Europe/Rome}
-      WATCHFILES_FORCE_POLLING: "true"   # serve su Windows per il riavvio automatico
+      WATCHFILES_FORCE_POLLING: ${FILE_POLLING:-true}
     depends_on:
       db:
         condition: service_healthy
@@ -61,7 +62,8 @@ services:
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     environment:
       VITE_API_PROXY: http://api:8000
-      CHOKIDAR_USEPOLLING: "true"   # serve su Windows per il reload automatico
+      CHOKIDAR_USEPOLLING: ${FILE_POLLING:-true}
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-.netbird.cloud}   # nomi host accettati oltre a IP e localhost
     depends_on:
       - api
     ports:
