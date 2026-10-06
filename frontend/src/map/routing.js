@@ -1,5 +1,7 @@
 /**
  * Percorso ad angolo retto che non passa sotto i device.
+ * Parte e arriva su un lato qualsiasi (map/anchors.js sceglie quali): esce dritto dal lato per un tratto
+ * fisso (stub), poi cerca la strada, ed entra dritto nel lato di arrivo.
  *
  * Griglia "sparsa": le linee possibili sono i bordi dei device (allargati di MARGIN), le metà degli spazi tra
  * un bordo e l'altro, e le righe/colonne di partenza e arrivo. Sulla griglia cerco con A* il percorso più corto,
@@ -8,13 +10,14 @@
  * fila si sovrappongono e formano un'unica linea, come in uno schema di rete fatto a mano.
  */
 export const MARGIN = 14 // distanza minima tra un cavo e un device
-export const STUB = 20 // tratto verticale fisso in uscita (sotto) e in entrata (sopra)
+export const STUB = 20 // tratto dritto fisso in uscita e in entrata (più corto se i device sono vicini)
 const BEND = 40
 const OFF_PREFERRED = 0.02 // piccolo sovrapprezzo per i tratti orizzontali fuori dalla riga preferita
 const MAX_CELLS = 60000 // oltre: niente ricerca (meglio un cavo semplice che una mappa lenta)
 const NEAR = 400 // considero solo i device vicini al rettangolo tra partenza e arrivo
 
-const DOWN = 1
+// Direzioni: 0 destra, 1 giù, 2 sinistra, 3 su
+const OUT_DIR = { right: 0, bottom: 1, left: 2, top: 3 }
 const DX = [1, 0, -1, 0]
 const DY = [0, 1, 0, -1]
 
@@ -90,28 +93,34 @@ class Heap {
 }
 
 /**
- * from: punto di uscita (sotto il device di partenza), to: punto di entrata (sopra quello di arrivo).
- * rects: [{ x, y, width, height }] dei device. Restituisce i punti del percorso (angoli compresi) o null.
+ * from/to: { x, y, side } punti di attacco sui bordi. rects: [{ x, y, width, height, margin? }] degli ostacoli.
+ * preferY: riga preferita per i tratti orizzontali; stub: lunghezza dei tratti dritti alle estremità.
+ * Restituisce i punti del percorso (angoli compresi) o null.
  */
-export function routeOrthogonal(rawFrom, rawTo, rects, rawPreferY) {
+export function routeOrthogonal(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB } = {}) {
   // Tutto a mezzo pixel: le coordinate dei bordi devono coincidere con le linee della griglia
   const from = { x: half(rawFrom.x), y: half(rawFrom.y) }
   const to = { x: half(rawTo.x), y: half(rawTo.y) }
-  const preferY = half(rawPreferY)
-  const start = { x: from.x, y: from.y + STUB }
-  const end = { x: to.x, y: to.y - STUB }
+  const preferY = Number.isFinite(rawPreferY) ? half(rawPreferY) : null
+  const startDir = OUT_DIR[rawFrom.side] ?? 1
+  const arriveDir = ((OUT_DIR[rawTo.side] ?? 3) + 2) & 3 // si entra nel lato andando verso l'interno
+  const start = { x: from.x + DX[startDir] * stub, y: from.y + DY[startDir] * stub }
+  const end = { x: to.x - DX[arriveDir] * stub, y: to.y - DY[arriveDir] * stub }
   const minX = Math.min(start.x, end.x) - NEAR
   const maxX = Math.max(start.x, end.x) + NEAR
   const minY = Math.min(start.y, end.y) - NEAR
   const maxY = Math.max(start.y, end.y) + NEAR
   const boxes = rects
-    .map((r) => ({ l: half(r.x - MARGIN), r: half(r.x + r.width + MARGIN), t: half(r.y - MARGIN), b: half(r.y + r.height + MARGIN) }))
+    .map((r) => {
+      const m = r.margin ?? MARGIN
+      return { l: half(r.x - m), r: half(r.x + r.width + m), t: half(r.y - m), b: half(r.y + r.height + m) }
+    })
     .filter((b) => b.r > minX && b.l < maxX && b.b > minY && b.t < maxY)
     // Partenza o arrivo dentro un device allargato (device molto vicini): quel device non conta
     .filter((b) => !inside(b, start) && !inside(b, end))
 
   const xs = withMidpoints(uniqueSorted([start.x, end.x, ...boxes.flatMap((b) => [b.l, b.r])]))
-  const ys = withMidpoints(uniqueSorted([start.y, end.y, preferY, ...boxes.flatMap((b) => [b.t, b.b])].filter((v) => Number.isFinite(v))))
+  const ys = withMidpoints(uniqueSorted([start.y, end.y, ...(preferY === null ? [] : [preferY]), ...boxes.flatMap((b) => [b.t, b.b])]))
   const nx = xs.length
   const ny = ys.length
   if (nx * ny > MAX_CELLS) return null
@@ -147,7 +156,7 @@ export function routeOrthogonal(rawFrom, rawTo, rects, rawPreferY) {
   const prev = new Int32Array(states).fill(-1)
   const heap = new Heap()
   const h = (i, j) => Math.abs(xs[i] - end.x) + Math.abs(ys[j] - end.y)
-  const first = (sj * nx + si) * 4 + DOWN
+  const first = (sj * nx + si) * 4 + startDir
   cost[first] = 0
   heap.push(first, h(si, sj))
 
@@ -175,10 +184,10 @@ export function routeOrthogonal(rawFrom, rawTo, rects, rawPreferY) {
       const horizontal = d === 0 || d === 2
       const length = horizontal ? Math.abs(xs[ni] - xs[i]) : Math.abs(ys[nj] - ys[j])
       let step = length + (d !== dir ? BEND : 0)
-      if (horizontal && ys[j] !== preferY) step += length * OFF_PREFERRED
+      if (horizontal && preferY !== null && ys[j] !== preferY) step += length * OFF_PREFERRED
       const next = (nj * nx + ni) * 4 + d
-      // Arrivo: l'ultimo tratto deve scendere sul device
-      const arrival = nj * nx + ni === goal && d !== DOWN ? BEND : 0
+      // Arrivo: l'ultimo tratto deve già andare verso il device
+      const arrival = nj * nx + ni === goal && d !== arriveDir ? BEND : 0
       const nc = c + step + arrival
       if (nc < cost[next]) {
         cost[next] = nc

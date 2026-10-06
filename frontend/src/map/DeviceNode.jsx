@@ -13,14 +13,17 @@ function DeviceNode({ data, selected }) {
   )
   return (
     <div className={`dnode${selected ? ' dnode--selected' : ''}${live === 'down' ? ' dnode--down' : ''}`} style={{ '--role': data.color }}>
-      <Handle type="target" position={Position.Top} className="dnode__handle" />
+      {/* Pallini per collegare due device trascinando: i cavi invece si attaccano dove serve (map/anchors.js) */}
+      <Handle type="target" id="t" position={Position.Top} className="dnode__handle" />
+      <Handle type="source" id="l" position={Position.Left} className="dnode__handle" />
+      <Handle type="source" id="r" position={Position.Right} className="dnode__handle" />
       <div className="dnode__name">
         {dot}
         {data.name}
       </div>
       <div className="dnode__role">{data.role || 'Senza ruolo'}</div>
       {ip && <div className="dnode__ip">{ip}</div>}
-      <Handle type="source" position={Position.Bottom} className="dnode__handle" />
+      <Handle type="source" id="b" position={Position.Bottom} className="dnode__handle" />
     </div>
   )
 }

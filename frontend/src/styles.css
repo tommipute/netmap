@@ -324,6 +324,10 @@ textarea.input { resize: vertical; min-height: 72px; }
 .dnode__role { color: var(--muted); font-size: 11px; margin-top: 1px; }
 .dnode__ip { font-family: var(--mono); font-size: 11px; margin-top: 3px; }
 .dnode__handle.react-flow__handle { width: 10px; height: 10px; background: var(--surface); border: 2px solid var(--accent); }
+/* Visibili solo quando servono: passando sopra il device, se è selezionato o durante un collegamento */
+.dnode__handle.react-flow__handle { opacity: 0; transition: opacity 0.12s; }
+.react-flow__node:hover .dnode__handle, .dnode--selected .dnode__handle,
+.react-flow__handle.connectingfrom, .react-flow__handle.connectingto { opacity: 1; }
 .status-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .status-dot--active { background: var(--ok); }
 .status-dot--planned { background: var(--warn); }
@@ -413,6 +417,11 @@ textarea.input { resize: vertical; min-height: 72px; }
 .dnode--down { border-color: var(--danger); box-shadow: 0 0 0 2px var(--danger-soft); }
 .map-live { display: inline-flex; align-items: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .map-live--down { color: var(--danger); font-weight: 500; }
+
+/* ---------- Evidenza in mappa: il resto in dissolvenza ---------- */
+.react-flow__node, .react-flow__edge { transition: opacity 0.15s; }
+.react-flow__node.is-faded { opacity: 0.22; }
+.react-flow__edge.cable--faded { opacity: 0.12; }
 
 /* ---------- Bolle dei rack in mappa ---------- */
 .react-flow__node-rack { pointer-events: none !important; }

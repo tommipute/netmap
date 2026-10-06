@@ -21,15 +21,16 @@ import CableDialog from '../components/CableDialog'
 import { IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
-import BusEdge from '../map/BusEdge'
+import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
+import { cableGeometry } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
 import RackNode from '../map/RackNode'
 import { X_GAP, Y_GAP, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 
 const nodeTypes = { device: DeviceNode, rack: RackNode }
-const edgeTypes = { bus: BusEdge }
+const edgeTypes = { cable: CableEdge }
 const EDGE_STYLE_KEY = 'netmap.map.edgeStyle'
 
 /** Cavi ad angolo (predefinito) o dritti: preferenza di chi guarda, salvata nel browser. */
@@ -90,40 +91,76 @@ function buildFlowNodes(view, previous) {
 }
 
 // Margini della bolla di un rack attorno ai suoi device. In alto poco spazio, così la linea comune dei cavi
-// (28 px sopra i device, vedi BusEdge) resta fuori; in basso c'è il nome del rack.
+// (28 px sopra i device, vedi map/geometry.js) resta fuori; in basso c'è il nome del rack.
 const RACK_PAD = { top: 10, side: 16, bottom: 30 }
 
-/** Bolle dei rack: rettangoli sotto i device dello stesso rack, ricalcolati a ogni spostamento. */
+const bubbleBox = (members) => ({
+  l: Math.min(...members.map((n) => n.position.x)) - RACK_PAD.side,
+  t: Math.min(...members.map((n) => n.position.y)) - RACK_PAD.top,
+  r: Math.max(...members.map((n) => n.position.x + n.measured.width)) + RACK_PAD.side,
+  b: Math.max(...members.map((n) => n.position.y + n.measured.height)) + RACK_PAD.bottom,
+})
+const overlaps = (box, n) =>
+  n.position.x < box.r && n.position.x + n.measured.width > box.l && n.position.y < box.b && n.position.y + n.measured.height > box.t
+
+/**
+ * Bolle dei rack: rettangoli sotto i device dello stesso rack, ricalcolati a ogni spostamento.
+ * Se tra due device del rack c'è un device di un altro rack, il rack si divide in più bolle (con lo stesso
+ * nome) invece di coprirlo: unisco i gruppi più vicini finché la bolla unita non copre nessun estraneo.
+ */
 function rackBubbles(nodes, onSelect) {
+  const measured = nodes.filter((n) => n.measured?.width)
   const groups = new Map()
-  for (const n of nodes) {
-    if (!n.data.rack_id || !n.measured?.width) continue
+  for (const n of measured) {
+    if (!n.data.rack_id) continue
     if (!groups.has(n.data.rack_id)) groups.set(n.data.rack_id, [])
     groups.get(n.data.rack_id).push(n)
   }
-  return [...groups.entries()].map(([rackId, members]) => {
-    const left = Math.min(...members.map((n) => n.position.x)) - RACK_PAD.side
-    const top = Math.min(...members.map((n) => n.position.y)) - RACK_PAD.top
-    const right = Math.max(...members.map((n) => n.position.x + n.measured.width)) + RACK_PAD.side
-    const bottom = Math.max(...members.map((n) => n.position.y + n.measured.height)) + RACK_PAD.bottom
-    const ids = members.map((n) => n.id)
-    return {
-      id: `rack-${rackId}`,
-      type: 'rack',
-      position: { x: left, y: top },
-      width: right - left,
-      height: bottom - top,
-      data: { name: members[0].data.rack_name, count: members.length, ids, onSelect: () => onSelect(ids) },
-      selectable: false,
-      draggable: false,
-      connectable: false,
-      focusable: false,
-      zIndex: -1,
+  const bubbles = []
+  for (const [rackId, members] of groups) {
+    const others = measured.filter((n) => n.data.rack_id !== rackId)
+    let clusters = members.map((n) => [n])
+    for (;;) {
+      let best = null
+      for (let i = 0; i < clusters.length; i++) {
+        for (let j = i + 1; j < clusters.length; j++) {
+          const box = bubbleBox([...clusters[i], ...clusters[j]])
+          if (others.some((n) => overlaps(box, n))) continue
+          const area = (box.r - box.l) * (box.b - box.t)
+          if (!best || area < best.area) best = { i, j, area }
+        }
+      }
+      if (!best) break
+      clusters[best.i] = [...clusters[best.i], ...clusters[best.j]]
+      clusters = clusters.filter((_, k) => k !== best.j)
     }
-  })
+    const allIds = members.map((n) => n.id)
+    clusters.forEach((cluster, k) => {
+      const box = bubbleBox(cluster)
+      bubbles.push({
+        id: `rack-${rackId}-${k}`,
+        type: 'rack',
+        position: { x: box.l, y: box.t },
+        width: box.r - box.l,
+        height: box.b - box.t,
+        data: {
+          name: members[0].data.rack_name,
+          count: members.length,
+          ids: cluster.map((n) => n.id),
+          onSelect: () => onSelect(allIds),
+        },
+        selectable: false,
+        draggable: false,
+        connectable: false,
+        focusable: false,
+        zIndex: -1,
+      })
+    })
+  }
+  return bubbles
 }
 
-function toFlowEdge(edge, levelOf, showLabels, selected, edgeType) {
+function toFlowEdge(edge, levelOf, showLabels, selected, mode) {
   // Il cavo parte sempre dal device più in alto nella gerarchia
   const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
   const style = cableStyle(edge.type)
@@ -132,14 +169,15 @@ function toFlowEdge(edge, levelOf, showLabels, selected, edgeType) {
     id: `cable-${edge.id}`,
     source: String(flip ? edge.target : edge.source),
     target: String(flip ? edge.source : edge.target),
-    type: edgeType,
-    data: edge,
-    label: showLabels
-      ? flip
-        ? `${edge.target_interface} – ${edge.source_interface}`
-        : `${edge.source_interface} – ${edge.target_interface}`
-      : undefined,
-    labelBgPadding: [6, 3],
+    type: 'cable',
+    data: {
+      ...edge,
+      mode,
+      // Nomi delle porte, ognuno vicino al suo device
+      sourceLabel: showLabels ? (flip ? edge.target_interface : edge.source_interface) : null,
+      targetLabel: showLabels ? (flip ? edge.source_interface : edge.target_interface) : null,
+    },
+    labelBgPadding: [5, 2],
     labelBgBorderRadius: 3,
     className: selected ? 'cable cable--selected' : 'cable',
     style: {
@@ -262,7 +300,7 @@ function Editor() {
   }, [dirty, canEdit])
 
   const levelOf = useMemo(() => Object.fromEntries((view?.nodes || []).map((n) => [n.id, n.level])), [view])
-  const edges = useMemo(
+  const baseEdges = useMemo(
     () =>
       (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle)),
     [view, levelOf, showLabels, selection, edgeStyle],
@@ -276,7 +314,48 @@ function Editor() {
     },
     [setNodes],
   )
-  const displayNodes = useMemo(() => [...rackBubbles(nodes, selectRack), ...nodes], [nodes, selectRack])
+  const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
+  // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni, si ricalcolano mentre si sposta un device
+  const geometry = useMemo(() => cableGeometry(nodes, bubbles, baseEdges, edgeStyle), [nodes, bubbles, baseEdges, edgeStyle])
+
+  // Evidenza: con un device, un cavo o un rack selezionato restano in primo piano lui, i suoi cavi e i device
+  // collegati; il resto va in dissolvenza
+  const focus = useMemo(() => {
+    if (selection?.kind === 'edge') {
+      const cable = view?.edges.find((e) => e.id === selection.id)
+      if (!cable) return null
+      return { devices: new Set([String(cable.source), String(cable.target)]), cables: new Set([`cable-${cable.id}`]) }
+    }
+    const seeds = new Set(selection?.kind === 'node' ? [String(selection.id)] : nodes.filter((n) => n.selected).map((n) => n.id))
+    if (seeds.size === 0) return null
+    const devices = new Set(seeds)
+    const cables = new Set()
+    for (const e of baseEdges) {
+      if (seeds.has(e.source) || seeds.has(e.target)) {
+        cables.add(e.id)
+        devices.add(e.source)
+        devices.add(e.target)
+      }
+    }
+    return { devices, cables }
+  }, [selection, nodes, baseEdges, view])
+
+  const edges = useMemo(
+    () =>
+      baseEdges.map((e) => ({
+        ...e,
+        className: focus && !focus.cables.has(e.id) ? `${e.className} cable--faded` : e.className,
+        data: { ...e.data, geometry: geometry[e.id] || null },
+      })),
+    [baseEdges, geometry, focus],
+  )
+  const displayNodes = useMemo(() => {
+    const faded = (node, inFocus) => (focus && !inFocus ? { ...node, className: 'is-faded' } : node)
+    return [
+      ...bubbles.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
+      ...nodes.map((n) => faded(n, focus?.devices.has(n.id))),
+    ]
+  }, [bubbles, nodes, focus])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -296,7 +375,8 @@ function Editor() {
   }
 
   const arrange = () => {
-    const layout = hierarchicalLayout(view.nodes, view.edges)
+    const heights = Object.fromEntries(nodesRef.current.map((n) => [n.id, n.measured?.height]))
+    const layout = hierarchicalLayout(view.nodes, view.edges, heights)
     setNodes((current) => current.map((n) => ({ ...n, position: layout[n.id] ?? n.position })))
     setDirty(true)
     setTimeout(() => fitRef.current({ padding: 0.25, duration: 300 }), 50)
@@ -458,7 +538,7 @@ function Editor() {
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onNodeDragStop={() => setDirty(true)}
-          onNodeClick={(_, node) => setSelection({ kind: 'node', id: Number(node.id) })}
+          onNodeClick={(_, node) => node.type === 'device' && setSelection({ kind: 'node', id: Number(node.id) })}
           onEdgeClick={(_, edge) => setSelection({ kind: 'edge', id: edge.data.id })}
           onPaneClick={() => setSelection(null)}
           onConnect={({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) })}
@@ -477,7 +557,7 @@ function Editor() {
           </Panel>
           {canEdit && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">
-              Trascina da un pallino di un device a quello di un altro per collegarli.
+              Per collegare due device passa sopra uno dei due e trascina da un suo pallino all'altro.
             </Panel>
           )}
         </ReactFlow>

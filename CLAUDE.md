@@ -224,10 +224,17 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   (in alto c'è la linea dei cavi). Clic sul nome = seleziona i device del rack per spostarli insieme.
   Spostamenti → `dirty` → "Salva disposizione". Aggiungere/togliere un device (mappe manuali) salva subito.
   Collegamento trascinando tra due device → `CableDialog` per scegliere le porte.
-  Cavi **ad angolo** (predefinito, `map/BusEdge.jsx` + `map/routing.js`): A* su una griglia fatta dai bordi dei
-  device; **non passano mai sotto un device né dentro la bolla di un altro rack**; il tratto orizzontale preferito
-  è 28 px sopra il device di arrivo, così i cavi verso la stessa fila si sovrappongono. Se non trova strada usa il
-  percorso semplice. Oppure cavi dritti: scelta nel browser (localStorage).
+  **Cavi** (`map/geometry.js`, calcolata in MapEditor per tutta la mappa; `map/CableEdge.jsx` disegna soltanto):
+  punti di attacco in `map/anchors.js` (lato scelto da solo: sotto/sopra o destra/sinistra se affiancati; sullo
+  stesso lato i cavi dello stesso tipo condividono il punto, tipi diversi e cavi verso lo stesso device, es. LAG,
+  hanno punti separati). Ad angolo (predefinito) con `map/routing.js`: A* su griglia, **mai sotto un device né
+  dentro la bolla di un altro rack**, riga orizzontale preferita 28 px sopra il device di arrivo; tratti di
+  uscita/entrata più corti tra device vicini. Oppure dritti (scelta in localStorage).
+  **Nomi delle porte mai sovrapposti**: piazzati uno alla volta (prima i cavi corti), ognuno vicino al suo device
+  fuori dal tratto condiviso; se non c'è posto un'etichetta unica "porta – porta", altrimenti niente (si vede
+  cliccando il cavo). Ostacoli per le etichette: device, altre etichette, nome del rack nella bolla.
+  **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
+  I pallini (4, per collegare trascinando) si vedono solo passando sopra il device o se è selezionato.
   I cavi partono dal device di livello più alto; colore per tipo (`map/cables.js`), spessore per velocità ≥10G,
   tratteggio se pianificati. `deleteKeyCode={null}`: niente cancellazioni accidentali da tastiera.
   `fitView` parte quando tutti i device hanno `measured` (con un timer fisso non scattava a pagina nascosta;

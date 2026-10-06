@@ -8,7 +8,10 @@ function RackNode({ data }) {
   const what = data.count === 1 ? '1 device' : `${data.count} device`
   return (
     <div className="rack-bubble">
-      <button type="button" className="rack-bubble__label nodrag" onClick={data.onSelect}
+      <button type="button" className="rack-bubble__label nodrag" onClick={(e) => {
+          e.stopPropagation()
+          data.onSelect()
+        }}
         title={`Rack ${data.name}, ${what}: clic per selezionarli e spostarli insieme`}>
         {data.name}
       </button>

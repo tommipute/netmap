@@ -1,6 +1,8 @@
 export const X_GAP = 240
 export const Y_GAP = 170
-const NODE_H = 64 // altezza tipica di un device in mappa (la posizione si calcola prima di misurarli)
+const NODE_H = 64 // altezza di riferimento di un device in mappa per lo spazio tra le righe
+// Altezza stimata quando il device non è ancora misurato: con l'IP di management c'è una riga in più
+const estimatedHeight = (n) => (n.primary_ip ? 76 : 58)
 const STACK_GAP = 48 // tra due device impilati nello stesso rack
 const MAX_PER_ROW = 8
 const NODE_HALF = 86 // metà della larghezza di un device in mappa (.dnode)
@@ -29,7 +31,7 @@ const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'it', { nume
  * (unità più alta in cima); un device senza rack è un blocco da solo. Il blocco sta nella riga
  * del suo device più in alto nella gerarchia.
  */
-function buildBlocks(nodes) {
+function buildBlocks(nodes, heights) {
   const groups = new Map()
   for (const n of nodes) {
     const key = n.rack_id ? `rack-${n.rack_id}` : `device-${n.id}`
@@ -38,11 +40,15 @@ function buildBlocks(nodes) {
   }
   return [...groups.values()].map((members) => {
     members.sort((a, b) => (b.rack_position ?? -1) - (a.rack_position ?? -1) || byName(a, b))
+    const sizes = members.map((m) => heights[String(m.id)] || estimatedHeight(m))
+    // Distanza dall'alto del blocco di ogni device impilato
+    const offsets = sizes.map((_, k) => sizes.slice(0, k).reduce((sum, h) => sum + h + STACK_GAP, 0))
     return {
       ids: members.map((m) => String(m.id)),
+      offsets,
       name: members[0].rack_name || members[0].name || '',
       level: Math.min(...members.map(levelOf)),
-      height: members.length * NODE_H + (members.length - 1) * STACK_GAP,
+      height: offsets[offsets.length - 1] + sizes[sizes.length - 1],
     }
   })
 }
@@ -51,9 +57,10 @@ function buildBlocks(nodes) {
  * Disposizione gerarchica: una riga per livello del ruolo (0 in alto).
  * Dentro una riga i blocchi stanno vicino ai device a cui sono collegati sopra
  * (media delle x dei vicini già posizionati). Righe troppo lunghe vanno a capo.
- * nodes: [{ id, name, level, rack_id, rack_name, rack_position }], edges: [{ source, target }] -> { "id": { x, y } }
+ * nodes: [{ id, name, level, rack_id, rack_name, rack_position, primary_ip }], edges: [{ source, target }],
+ * heights: { id: altezza misurata } se disponibili -> { "id": { x, y } }
  */
-export function hierarchicalLayout(nodes, edges) {
+export function hierarchicalLayout(nodes, edges, heights = {}) {
   const neighbors = new Map(nodes.map((n) => [String(n.id), []]))
   for (const e of edges) {
     const s = String(e.source)
@@ -63,7 +70,7 @@ export function hierarchicalLayout(nodes, edges) {
       neighbors.get(t).push(s)
     }
   }
-  const blocks = buildBlocks(nodes)
+  const blocks = buildBlocks(nodes, heights)
   const levels = [...new Set(blocks.map((b) => b.level))].sort((a, b) => a - b)
 
   const positions = {}
@@ -75,7 +82,7 @@ export function hierarchicalLayout(nodes, edges) {
   const place = (chunk, xs) => {
     chunk.forEach((block, j) => {
       block.ids.forEach((id, k) => {
-        positions[id] = { x: xs[j], y: y + k * (NODE_H + STACK_GAP) }
+        positions[id] = { x: xs[j], y: y + block.offsets[k] }
       })
     })
     y += Math.max(...chunk.map((b) => b.height)) + Y_GAP - NODE_H
