@@ -5,6 +5,7 @@ import { usePendingCount, useStatusSummary } from '../hooks'
 import { labelOf } from '../options'
 import { NAV, resources } from '../resources'
 import PasswordDialog from './PasswordDialog'
+import { IconButton } from './Icon'
 
 function StatusChip() {
   const summary = useStatusSummary()
@@ -29,8 +30,8 @@ function UserMenu() {
         {user.full_name || user.username}
         <span className="tag">{labelOf(ROLES, user.role)}</span>
       </span>
-      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog(true)}>Cambia password</button>
-      <button type="button" className="btn btn--ghost btn--sm" onClick={logout}>Esci</button>
+      <IconButton icon="key" label="Cambia password" small className="btn--ghost" onClick={() => setDialog(true)} />
+      <IconButton icon="logout" label="Esci" small className="btn--ghost" onClick={logout} />
       {dialog && <PasswordDialog onClose={() => setDialog(false)} />}
     </div>
   )

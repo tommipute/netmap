@@ -19,14 +19,38 @@ import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, LiveStatus } from '../components/Bits'
 import CableDialog from '../components/CableDialog'
+import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
+import BusEdge from '../map/BusEdge'
 import { cableStyle } from '../map/cables'
 import DeviceNode from '../map/DeviceNode'
 import { X_GAP, Y_GAP, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 
 const nodeTypes = { device: DeviceNode }
+const edgeTypes = { bus: BusEdge }
+const EDGE_STYLE_KEY = 'netmap.map.edgeStyle'
+
+/** Cavi ad angolo (predefinito) o dritti: preferenza di chi guarda, salvata nel browser. */
+function useEdgeStyle() {
+  const [value, setValue] = useState(() => {
+    try {
+      return localStorage.getItem(EDGE_STYLE_KEY) === 'straight' ? 'straight' : 'bus'
+    } catch {
+      return 'bus'
+    }
+  })
+  const change = (next) => {
+    setValue(next)
+    try {
+      localStorage.setItem(EDGE_STYLE_KEY, next)
+    } catch {
+      // senza storage la scelta vale solo per questa pagina
+    }
+  }
+  return [value, change]
+}
 const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
 const EXPORT_PADDING = 40
 
@@ -65,7 +89,7 @@ function buildFlowNodes(view, previous) {
   }
 }
 
-function toFlowEdge(edge, levelOf, showLabels, selected) {
+function toFlowEdge(edge, levelOf, showLabels, selected, edgeType) {
   // Il cavo parte sempre dal device più in alto nella gerarchia
   const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
   const style = cableStyle(edge.type)
@@ -74,7 +98,7 @@ function toFlowEdge(edge, levelOf, showLabels, selected) {
     id: `cable-${edge.id}`,
     source: String(flip ? edge.target : edge.source),
     target: String(flip ? edge.source : edge.target),
-    type: 'straight',
+    type: edgeType,
     data: edge,
     label: showLabels
       ? flip
@@ -134,6 +158,7 @@ function Editor() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
+  const [edgeStyle, setEdgeStyle] = useEdgeStyle()
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id }
   const [connecting, setConnecting] = useState(null) // { a, b } id device
   const [checking, setChecking] = useState(false)
@@ -202,8 +227,8 @@ function Editor() {
   const levelOf = useMemo(() => Object.fromEntries((view?.nodes || []).map((n) => [n.id, n.level])), [view])
   const edges = useMemo(
     () =>
-      (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id)),
-    [view, levelOf, showLabels, selection],
+      (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle)),
+    [view, levelOf, showLabels, selection, edgeStyle],
   )
 
   const savePositions = async (list) => {
@@ -349,6 +374,10 @@ function Editor() {
               ))}
             </select>
           )}
+          <select className="input input--sm" value={edgeStyle} onChange={(e) => setEdgeStyle(e.target.value)} aria-label="Forma dei cavi">
+            <option value="bus">Cavi ad angolo</option>
+            <option value="straight">Cavi dritti</option>
+          </select>
           <label className="check check--inline">
             <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
             Nomi delle porte
@@ -362,9 +391,7 @@ function Editor() {
           </select>
           {canEdit && (
             <>
-              <button type="button" className="btn btn--sm" onClick={arrange} disabled={view.nodes.length === 0}>
-                Disponi automaticamente
-              </button>
+              <IconButton icon="layout" label="Disponi automaticamente" small onClick={arrange} disabled={view.nodes.length === 0} />
               <button type="button" className="btn btn--sm btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
                 {saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'}
               </button>
@@ -380,6 +407,7 @@ function Editor() {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onNodeDragStop={() => setDirty(true)}
           onNodeClick={(_, node) => setSelection({ kind: 'node', id: Number(node.id) })}
@@ -437,14 +465,12 @@ function Editor() {
             <div className="map-panel__actions">
               <Link className="btn btn--sm btn--primary" to={`/devices/${selectedNode.id}`}>Apri scheda del device</Link>
               {canEdit && selectedNode.primary_ip && (
-                <button type="button" className="btn btn--sm" disabled={checking} onClick={() => checkNow(selectedNode.id)}>
-                  {checking ? 'Controllo…' : 'Controlla ora'}
-                </button>
+                <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : 'Controlla ora (ping e SNMP)'} small
+                  className={checking ? 'is-spinning' : ''} disabled={checking} onClick={() => checkNow(selectedNode.id)} />
               )}
               {canEdit && !view.map.auto_include && (
-                <button type="button" className="btn btn--sm btn--ghost" onClick={() => removeFromMap(selectedNode.id)}>
-                  Togli dalla mappa
-                </button>
+                <IconButton icon="eyeOff" label="Togli dalla mappa (il device resta)" small className="btn--ghost"
+                  onClick={() => removeFromMap(selectedNode.id)} />
               )}
             </div>
           </aside>
@@ -466,9 +492,7 @@ function Editor() {
             </dl>
             {canEdit && (
               <div className="map-panel__actions">
-                <button type="button" className="btn btn--sm btn--ghost btn--danger" onClick={() => deleteCable(selectedEdge)}>
-                  Elimina cavo
-                </button>
+                <IconButton icon="trash" label="Elimina cavo" small danger className="btn--ghost" onClick={() => deleteCable(selectedEdge)} />
               </div>
             )}
           </aside>

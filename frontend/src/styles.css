@@ -141,6 +141,15 @@ textarea.input { resize: vertical; min-height: 72px; }
 .btn--ghost:hover { background: var(--surface-2); border-color: var(--line); }
 .btn--danger { color: var(--danger); }
 .btn--sm { min-height: 30px; padding: 3px 10px; font-size: 13px; }
+/* Pulsanti con solo l'icona (il nome è nel tooltip) */
+.btn--icon { padding: 6px 9px; }
+.btn--icon.btn--sm { padding: 3px 6px; min-width: 30px; }
+.btn--icon:has(.btn__tag) { padding-right: 11px; }
+.btn__tag { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.icon { flex: none; display: block; }
+.btn--ghost.btn--danger:hover { background: var(--danger-soft); border-color: transparent; }
+.is-spinning .icon { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); }

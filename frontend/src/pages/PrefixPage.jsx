@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
+import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
@@ -55,8 +56,8 @@ export default function PrefixPage() {
           {prefix.description && <p className="page-intro">{prefix.description}</p>}
         </div>
         <div className="page-head__actions">
-          {canEdit && <button type="button" className="btn" onClick={() => setDialog({ kind: 'edit' })}>Modifica</button>}
-          {canEdit && <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>}
+          {canEdit && <IconButton icon="edit" label="Modifica subnet" onClick={() => setDialog({ kind: 'edit' })} />}
+          {canEdit && <IconButton icon="trash" label="Elimina subnet" danger className="btn--ghost" onClick={remove} />}
         </div>
       </header>
 
@@ -134,9 +135,8 @@ export default function PrefixPage() {
                     <td><Badge value={ip.status} options={IP_STATUS} /></td>
                     <td className="table__actions">
                       {canEdit && (
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'editIp', item: ip })}>
-                          Modifica
-                        </button>
+                        <IconButton icon="edit" label={`Modifica ${ip.address}`} small className="btn--ghost"
+                          onClick={() => setDialog({ kind: 'editIp', item: ip })} />
                       )}
                     </td>
                   </tr>

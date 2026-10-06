@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
+import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi, useOptions } from '../hooks'
@@ -87,8 +88,8 @@ export default function DiscoveryJobPage() {
               <button type="button" className="btn btn--primary" onClick={start} disabled={active}>
                 {active ? 'Scansione in corso…' : 'Avvia scansione'}
               </button>
-              <button type="button" className="btn" onClick={() => setEditing(true)}>Modifica</button>
-              <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>
+              <IconButton icon="edit" label="Modifica scansione" onClick={() => setEditing(true)} />
+              <IconButton icon="trash" label="Elimina scansione" danger className="btn--ghost" onClick={remove} />
             </>
           )}
         </div>

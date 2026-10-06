@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { qs } from '../api'
 import { ErrorBox, Loading, Mono } from '../components/Bits'
+import { IconButton } from '../components/Icon'
 import { useApi, useDebounced } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
 
@@ -171,13 +172,9 @@ export default function EndpointsPage() {
 
       {data && data.total > LIMIT && (
         <div className="pager">
-          <button type="button" className="btn btn--ghost btn--sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>
-            Precedenti
-          </button>
+          <IconButton icon="prev" label="Pagina precedente" small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
           <span>{offset + 1}–{Math.min(offset + LIMIT, data.total)} di {data.total}</span>
-          <button type="button" className="btn btn--ghost btn--sm" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)}>
-            Successivi
-          </button>
+          <IconButton icon="next" label="Pagina successiva" small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
         </div>
       )}
     </div>

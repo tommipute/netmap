@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { Badge, ErrorBox, LiveStatus, Loading, Mono } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
+import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
@@ -104,12 +105,11 @@ export default function DevicePage() {
         </div>
         <div className="page-head__actions">
           {canEdit && primary && (
-            <button type="button" className="btn" onClick={checkNow} disabled={checking} title="Ping e SNMP sull'IP di management">
-              {checking ? 'Controllo…' : 'Controlla ora'}
-            </button>
+            <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : "Controlla ora (ping e SNMP sull'IP di management)"}
+              className={checking ? 'is-spinning' : ''} onClick={checkNow} disabled={checking} />
           )}
-          {canEdit && <button type="button" className="btn" onClick={() => setDialog({ kind: 'edit' })}>Modifica</button>}
-          {canEdit && <button type="button" className="btn btn--ghost btn--danger" onClick={removeDevice}>Elimina</button>}
+          {canEdit && <IconButton icon="edit" label="Modifica device" onClick={() => setDialog({ kind: 'edit' })} />}
+          {canEdit && <IconButton icon="trash" label="Elimina device" danger className="btn--ghost" onClick={removeDevice} />}
         </div>
       </header>
 
@@ -235,26 +235,20 @@ export default function DevicePage() {
                     </td>
                     <td className="table__actions">
                       {!canEdit ? null : p.cable_id ? (
-                        <button type="button" className="btn btn--ghost btn--sm"
-                          onClick={() => run(`Scollegare ${p.name} da ${p.remote_device} ${p.remote_interface}?`, () => api.del(`/cables/${p.cable_id}`))}>
-                          Scollega
-                        </button>
+                        <IconButton icon="unlink" label={`Scollega ${p.name}`} small className="btn--ghost"
+                          onClick={() => run(`Scollegare ${p.name} da ${p.remote_device} ${p.remote_interface}?`, () => api.del(`/cables/${p.cable_id}`))} />
                       ) : (
                         p.cableable && (
-                          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'cable', portId: p.id })}>
-                            Collega
-                          </button>
+                          <IconButton icon="link" label={`Collega ${p.name} a un'altra porta`} small className="btn--ghost"
+                            onClick={() => setDialog({ kind: 'cable', portId: p.id })} />
                         )
                       )}
                       {canEdit && (
                         <>
-                          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'editPort', portId: p.id })}>
-                            Modifica
-                          </button>
-                          <button type="button" className="btn btn--ghost btn--sm btn--danger"
-                            onClick={() => run(`Eliminare la porta ${p.name}?`, () => api.del(`/interfaces/${p.id}`))}>
-                            Elimina
-                          </button>
+                          <IconButton icon="edit" label={`Modifica ${p.name}`} small className="btn--ghost"
+                            onClick={() => setDialog({ kind: 'editPort', portId: p.id })} />
+                          <IconButton icon="trash" label={`Elimina ${p.name}`} small danger className="btn--ghost"
+                            onClick={() => run(`Eliminare la porta ${p.name}?`, () => api.del(`/interfaces/${p.id}`))} />
                         </>
                       )}
                     </td>

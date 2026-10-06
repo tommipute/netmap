@@ -4,6 +4,7 @@ import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import DeviceImportDialog from '../components/DeviceImportDialog'
+import { Icon, IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { RefSelect } from '../components/RefSelect'
 import ResourceForm from '../components/ResourceForm'
@@ -118,36 +119,18 @@ export default function ResourcePage({ resourceKey }) {
         <div className="page-head__actions">
           {resourceKey === 'devices' && (
             <>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => handleExport('csv')}
-                title="Esporta elenco completo o filtrato dei device in CSV (compatibile con Microsoft Excel)"
-              >
-                Esporta CSV
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => handleExport('json')}
-                title="Esporta elenco completo o filtrato dei device in JSON"
-              >
-                Esporta JSON
-              </button>
-              {canEdit && (
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setImporting(true)}
-                  title="Importa device da file o testo CSV"
-                >
-                  Importa
-                </button>
-              )}
+              <IconButton icon="download" label="Esporta in CSV (si apre con Excel), con i filtri attivi" onClick={() => handleExport('csv')}>
+                <span className="btn__tag">CSV</span>
+              </IconButton>
+              <IconButton icon="download" label="Esporta in JSON, con i filtri attivi" onClick={() => handleExport('json')}>
+                <span className="btn__tag">JSON</span>
+              </IconButton>
+              {canEdit && <IconButton icon="upload" label="Importa device da un file CSV" onClick={() => setImporting(true)} />}
             </>
           )}
           {canEdit && (
             <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
+              <Icon name="plus" />
               {config.newLabel}
             </button>
           )}
@@ -230,12 +213,8 @@ export default function ResourcePage({ resourceKey }) {
                   <td className="table__actions" onClick={(e) => e.stopPropagation()}>
                     {canEdit && (
                       <>
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(item)}>
-                          Modifica
-                        </button>
-                        <button type="button" className="btn btn--ghost btn--sm btn--danger" onClick={() => remove(item)}>
-                          Elimina
-                        </button>
+                        <IconButton icon="edit" label="Modifica" small className="btn--ghost" onClick={() => setEditing(item)} />
+                        <IconButton icon="trash" label="Elimina" small danger className="btn--ghost" onClick={() => remove(item)} />
                       </>
                     )}
                   </td>
@@ -248,15 +227,11 @@ export default function ResourcePage({ resourceKey }) {
 
       {data && data.total > LIMIT && (
         <div className="pager">
-          <button type="button" className="btn btn--ghost btn--sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>
-            Precedenti
-          </button>
+          <IconButton icon="prev" label="Pagina precedente" small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
           <span>
             {offset + 1}–{Math.min(offset + LIMIT, data.total)} di {data.total}
           </span>
-          <button type="button" className="btn btn--ghost btn--sm" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)}>
-            Successivi
-          </button>
+          <IconButton icon="next" label="Pagina successiva" small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
         </div>
       )}
 

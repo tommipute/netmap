@@ -17,7 +17,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
 Test: `docker compose exec api pytest` (36 test, compresi quelli con due switch SNMP simulati).
-Resta da fare (in `docs/roadmap.md`): integrazione con l'app inventory.
+Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
 
@@ -216,9 +216,12 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   `status`, `job_id`, `device_id`).
 - **Mappa** (`pages/MapEditor.jsx`, `map/`): posizione = quella corrente > quella salvata > calcolata.
   Se nessun device ha una posizione salvata parte la disposizione gerarchica (`map/layout.js`: una riga per
-  `DeviceRole.level`, ordinamento per baricentro dei vicini, massimo 8 per riga). I device nuovi finiscono in fila sotto.
+  `DeviceRole.level`, ordinamento per baricentro dei vicini, massimo 8 per riga; una fila che va a capo lascia un
+  corridoio libero sotto i device sopra, dove scendono i cavi). I device nuovi finiscono in fila sotto.
   Spostamenti → `dirty` → "Salva disposizione". Aggiungere/togliere un device (mappe manuali) salva subito.
   Collegamento trascinando tra due device → `CableDialog` per scegliere le porte.
+  Cavi **ad angolo** (predefinito, `map/BusEdge.jsx`: giù dal device sopra, linea orizzontale appena sopra la fila
+  sotto, giù sul device; i cavi verso la stessa fila la condividono) oppure dritti: scelta nel browser (localStorage).
   I cavi partono dal device di livello più alto; colore per tipo (`map/cables.js`), spessore per velocità ≥10G,
   tratteggio se pianificati. `deleteKeyCode={null}`: niente cancellazioni accidentali da tastiera.
   `fitView` parte quando `useNodesInitialized()` diventa vero (con un timer fisso non scattava a pagina nascosta).
@@ -230,11 +233,14 @@ bianche, accento acqua come la fibra OM3 (`--accent`). Font IBM Plex Sans + IBM 
 Device in mappa = etichetta da rack con banda colorata del ruolo. Colori cavi da convenzione reale:
 rame blu, fibra multimodale acqua, monomodale gialla, DAC grigio scuro.
 Testi: italiano, sentence case, frasi semplici, pulsanti che dicono cosa fanno ("Salva disposizione", "Crea collegamento").
+**Azioni secondarie con icona** (scelta dell'utente): modifica, elimina, importa, esporta, stampa, collega/scollega,
+controlla ora, password, esci, pagine. Usa `IconButton` di `components/Icon.jsx` (SVG a mano, niente librerie):
+il testo va in `label`, che diventa tooltip e `aria-label`. Le azioni principali (Nuovo…, Salva, Approva, Avvia
+scansione, pulsanti dei moduli) restano con il testo. Icona nuova = un path in `PATHS`.
 
 ## Decisioni già prese con l'utente (non rimetterle in discussione senza chiedere)
 
-- App **separata** dall'inventory, dedicata solo alla rete; in futuro le due app possono parlarsi via API
-  (abbinamento device ↔ asset per numero di serie).
+- App **separata** dall'inventory, dedicata solo alla rete, e **non deve integrarsi** con lei: lavora da sola.
 - Mappe sia automatiche sia manuali: `NetworkMap.auto_include` (tutti i device della sede/posizione) oppure scelti a mano.
 - La scansione **non sovrascrive** i dati inseriti a mano: propone modifiche che l'utente approva.
 - Custom fields liberi su tutte le entità principali.

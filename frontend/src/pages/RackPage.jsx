@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, LiveStatus, Loading } from '../components/Bits'
+import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
@@ -80,9 +81,9 @@ export default function RackPage() {
           </p>
         </div>
         <div className="page-head__actions">
-          <button type="button" className="btn" onClick={() => window.print()}>Stampa</button>
-          {canEdit && <button type="button" className="btn" onClick={() => setEditing(true)}>Modifica</button>}
-          {canEdit && <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>}
+          <IconButton icon="print" label="Stampa" onClick={() => window.print()} />
+          {canEdit && <IconButton icon="edit" label="Modifica rack" onClick={() => setEditing(true)} />}
+          {canEdit && <IconButton icon="trash" label="Elimina rack" danger className="btn--ghost" onClick={remove} />}
         </div>
       </header>
 

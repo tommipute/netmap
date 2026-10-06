@@ -97,7 +97,8 @@ lo stato delle porte lo aggiorna il monitor, non solo la scansione.
 
 ## Da fare
 
-- **Integrazione con l'app inventory**: abbinamento device ↔ asset per numero di serie via API
-  (l'API accetta già `Authorization: Bearer`).
+NetMap lavora da solo: l'integrazione con l'app inventory è stata scartata (6/10/2026).
+
+
 - HTTPS (reverse proxy) prima di esporre l'app fuori dalla rete interna.
 - Avvisi quando un device smette di rispondere (mail o webhook).
