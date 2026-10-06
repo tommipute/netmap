@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, qs } from '../api'
+import { useAuth } from '../auth'
 import { ErrorBox, Loading } from '../components/Bits'
 import { RefSelect } from '../components/RefSelect'
 import { invalidate, useApi } from '../hooks'
@@ -36,6 +37,7 @@ function Diff({ diff }) {
 }
 
 function ChangeRow({ change, busy, onDecide }) {
+  const { canEdit } = useAuth()
   const action = CHANGE_ACTIONS[change.action] || { label: change.action, tone: 'muted' }
   const pending = change.status === 'pending'
   return (
@@ -55,7 +57,7 @@ function ChangeRow({ change, busy, onDecide }) {
           </p>
         )}
       </div>
-      {pending && (
+      {pending && canEdit && (
         <div className="change__actions">
           <button type="button" className="btn btn--sm btn--primary" disabled={busy} onClick={() => onDecide('approve', [change.id])}>
             Approva
@@ -70,6 +72,7 @@ function ChangeRow({ change, busy, onDecide }) {
 }
 
 export default function ChangesPage() {
+  const { canEdit } = useAuth()
   const [params, setParams] = useSearchParams()
   const status = params.get('status') || 'pending'
   const jobId = params.get('job_id') ? Number(params.get('job_id')) : ''
@@ -128,7 +131,7 @@ export default function ChangesPage() {
             una modifica rifiutata non viene riproposta finché i dati restano uguali.
           </p>
         </div>
-        {pendingView && allIds.length > 0 && (
+        {canEdit && pendingView && allIds.length > 0 && (
           <div className="page-head__actions">
             <button type="button" className="btn btn--primary" disabled={busy} onClick={() => decide('approve', allIds)}>
               Approva tutte ({allIds.length})
@@ -197,7 +200,7 @@ export default function ChangesPage() {
                 {group.items.length === 1 ? '1 modifica' : `${group.items.length} modifiche`}
               </span>
             </h2>
-            {pendingView && group.items.length > 1 && (
+            {canEdit && pendingView && group.items.length > 1 && (
               <div className="page-head__actions">
                 <button type="button" className="btn btn--sm" disabled={busy} onClick={() => decide('approve', group.items.map((c) => c.id))}>
                   Approva tutte

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { labelOf } from '../options'
+import { formatDateTime, formatSince, labelOf } from '../options'
 
 const TONE = {
   active: 'ok',
@@ -43,4 +43,19 @@ export function ErrorBox({ error }) {
 
 export function Loading() {
   return <p className="muted">Caricamento…</p>
+}
+
+/** Stato live di un device: pallino + testo. Vuoto se il monitor non l'ha mai controllato. */
+export function LiveStatus({ device, long = false }) {
+  if (device.reachable === null || device.reachable === undefined) return <span className="muted">—</span>
+  const up = device.reachable
+  const title = `Ultimo controllo: ${formatDateTime(device.last_check_at)}`
+  return (
+    <span className={`live${up ? '' : ' live--down'}`} title={title}>
+      <span className={`live-dot live-dot--${up ? 'up' : 'down'}`} />
+      {up ? 'Risponde' : 'Non risponde'}
+      {long && device.reachable_changed_at && <span className="muted"> {formatSince(device.reachable_changed_at)}</span>}
+      {long && up && device.rtt_ms !== null && device.rtt_ms !== undefined && <span className="muted"> · {device.rtt_ms} ms</span>}
+    </span>
+  )
 }

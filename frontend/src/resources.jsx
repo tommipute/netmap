@@ -2,7 +2,8 @@
  * Configurazione delle entità: colonne della tabella e campi del modulo.
  * Per aggiungere un'entità basta una voce qui (più il backend).
  */
-import { Badge, CellLink, Mono } from './components/Bits'
+import { ROLES } from './auth'
+import { Badge, CellLink, LiveStatus, Mono } from './components/Bits'
 import * as O from './options'
 
 const description = { name: 'description', label: 'Note', type: 'textarea' }
@@ -51,10 +52,12 @@ export const resources = {
       { name: 'site_id', label: 'Sede', ref: 'sites' },
       { name: 'role_id', label: 'Ruolo', ref: 'device-roles' },
       { name: 'status', label: 'Stato', options: O.DEVICE_STATUS },
+      { name: 'reachable', label: 'Stato live', options: O.REACHABLE },
     ],
     columns: [
       { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
       { name: 'status', label: 'Stato', type: 'badge', options: O.DEVICE_STATUS },
+      { name: 'reachable', label: 'Stato live', render: (o) => <LiveStatus device={o} /> },
       { name: 'role_id', label: 'Ruolo', type: 'ref', ref: 'device-roles' },
       { name: 'site_id', label: 'Sede', type: 'ref', ref: 'sites' },
       { name: 'location_id', label: 'Posizione', type: 'ref', ref: 'locations' },
@@ -216,6 +219,7 @@ export const resources = {
     newLabel: 'Nuovo rack',
     editLabel: 'Modifica rack',
     label: (o) => o.name,
+    detail: (o) => `/racks/${o.id}`,
     filters: [{ name: 'site_id', label: 'Sede', ref: 'sites' }],
     columns: [
       { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
@@ -504,9 +508,40 @@ Object.assign(resources, {
   },
 })
 
-/** Voci del menu: chiave di una risorsa oppure pagina speciale { to, title, badge } */
+resources.users = {
+  path: 'users',
+  title: 'Utenti',
+  newLabel: 'Nuovo utente',
+  editLabel: 'Modifica utente',
+  intro: 'Chi può accedere. Solo lettura: consulta e cerca. Modifica: cambia i dati e approva le scansioni. Amministratore: anche gli utenti.',
+  label: (o) => o.username,
+  filters: [{ name: 'role', label: 'Ruolo', options: ROLES }],
+  columns: [
+    { name: 'username', label: 'Nome utente', render: (o) => <strong>{o.username}</strong> },
+    { name: 'full_name', label: 'Nome' },
+    { name: 'role', label: 'Ruolo', type: 'select', options: ROLES },
+    { name: 'active', label: 'Attivo', type: 'bool' },
+    { name: 'last_login_at', label: 'Ultimo accesso', render: (o) => O.formatDateTime(o.last_login_at) },
+  ],
+  fields: [
+    { name: 'username', label: 'Nome utente', required: true, placeholder: 'mario.rossi' },
+    { name: 'full_name', label: 'Nome e cognome' },
+    { name: 'role', label: 'Ruolo', type: 'select', options: ROLES, default: 'viewer', required: true },
+    {
+      name: 'password',
+      label: 'Password',
+      type: 'secret',
+      requiredOnCreate: true,
+      savedHint: (item) => (item ? 'Lascia vuoto per non cambiarla' : undefined),
+      help: 'Almeno 8 caratteri. Cambiandola, le sessioni aperte dell\'utente si chiudono.',
+    },
+    { name: 'active', label: 'Attivo', type: 'bool', default: true, help: 'Un utente disattivato non può più accedere.' },
+  ],
+}
+
+/** Voci del menu: chiave di una risorsa oppure pagina speciale { to, title, badge }; admin: solo amministratori */
 export const NAV = [
-  { title: 'Rete', items: ['maps', 'devices', 'interfaces', 'cables'] },
+  { title: 'Rete', items: ['maps', 'devices', { to: 'where', title: "Dov'è collegato?" }, 'interfaces', 'cables'] },
   { title: 'Luoghi', items: ['sites', 'locations', 'racks'] },
   { title: 'Indirizzamento', items: ['prefixes', 'ip-addresses', 'vlans', 'vrfs'] },
   { title: 'Catalogo', items: ['device-roles', 'device-types', 'manufacturers'] },
@@ -514,4 +549,5 @@ export const NAV = [
     title: 'Scansione SNMP',
     items: [{ to: 'discovery/changes', title: 'Da approvare', badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
+  { title: 'Amministrazione', admin: true, items: ['users'] },
 ]

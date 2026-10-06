@@ -1,10 +1,44 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { usePendingCount } from '../hooks'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { ROLES, useAuth } from '../auth'
+import { usePendingCount, useStatusSummary } from '../hooks'
+import { labelOf } from '../options'
 import { NAV, resources } from '../resources'
+import PasswordDialog from './PasswordDialog'
+
+function StatusChip() {
+  const summary = useStatusSummary()
+  if (!summary || summary.up + summary.down === 0) return null
+  return (
+    <Link to="/devices?reachable=false" className="live-chip" title="Stato live dei device con IP di management">
+      <span className="live-chip__item"><span className="live-dot live-dot--up" />{summary.up}</span>
+      <span className={`live-chip__item${summary.down ? ' live-chip__item--down' : ''}`}>
+        <span className="live-dot live-dot--down" />{summary.down} non rispondono
+      </span>
+    </Link>
+  )
+}
+
+function UserMenu() {
+  const { enabled, user, logout } = useAuth()
+  const [dialog, setDialog] = useState(false)
+  if (!enabled || !user) return null
+  return (
+    <div className="user-menu">
+      <span className="user-menu__name" title={labelOf(ROLES, user.role)}>
+        {user.full_name || user.username}
+        <span className="tag">{labelOf(ROLES, user.role)}</span>
+      </span>
+      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog(true)}>Cambia password</button>
+      <button type="button" className="btn btn--ghost btn--sm" onClick={logout}>Esci</button>
+      {dialog && <PasswordDialog onClose={() => setDialog(false)} />}
+    </div>
+  )
+}
 
 export default function Layout() {
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const [query, setQuery] = useState('')
   const badges = { pending: usePendingCount() }
 
@@ -25,7 +59,7 @@ export default function Layout() {
           NetMap
         </NavLink>
         <nav aria-label="Sezioni">
-          {NAV.map((group) => (
+          {NAV.filter((group) => !group.admin || isAdmin).map((group) => (
             <div key={group.title} className="nav-group">
               <p className="nav-group__title">{group.title}</p>
               {group.items.map((item) => {
@@ -58,9 +92,11 @@ export default function Layout() {
               aria-label="Cerca device, IP o MAC address"
             />
           </form>
+          <StatusChip />
           <a className="topbar__link" href="/docs" target="_blank" rel="noreferrer">
             API
           </a>
+          <UserMenu />
         </header>
         <main className="content">
           <Outlet />

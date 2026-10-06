@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { useApi, useOptions } from '../hooks'
+import { useApi } from '../hooks'
+import { RefSelect } from './RefSelect'
 
 /**
  * Scelta di una porta in due passi: prima il device, poi la porta.
  * freeOnly: disabilita le porte già cablate (tranne quella del cavo che si sta modificando).
  */
 export default function InterfacePicker({ value, onChange, fixedDeviceId, freeOnly = false, currentCableId = null, label }) {
-  const devices = useOptions('devices')
   const [deviceId, setDeviceId] = useState(fixedDeviceId ?? '')
 
   useEffect(() => {
@@ -24,23 +24,17 @@ export default function InterfacePicker({ value, onChange, fixedDeviceId, freeOn
 
   return (
     <div className="picker">
-      <select
-        className="input"
+      <RefSelect
+        resource="devices"
         value={deviceId}
         disabled={Boolean(fixedDeviceId)}
-        aria-label={label ? `${label}: device` : 'Device'}
-        onChange={(e) => {
-          setDeviceId(e.target.value ? Number(e.target.value) : '')
+        emptyLabel="Scegli il device…"
+        ariaLabel={label ? `${label}: device` : 'Device'}
+        onChange={(v) => {
+          setDeviceId(v)
           onChange('')
         }}
-      >
-        <option value="">Scegli il device…</option>
-        {devices.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-          </option>
-        ))}
-      </select>
+      />
       <select
         className="input"
         value={value ?? ''}

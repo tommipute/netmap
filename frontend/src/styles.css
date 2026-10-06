@@ -369,6 +369,105 @@ textarea.input { resize: vertical; min-height: 72px; }
 .oper-dot--up { background: var(--ok); }
 .oper-dot--down { background: var(--line-strong); }
 
+/* ---------- Login (fase 4) ---------- */
+.login { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg); }
+.login__card {
+  width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 28px 26px;
+  box-shadow: 0 10px 30px rgba(15, 21, 28, 0.08);
+}
+.login__brand { padding: 0 0 6px; }
+.login__card .btn { margin-top: 4px; }
+.user-menu { display: flex; align-items: center; gap: 4px; }
+.user-menu__name { font-size: 13px; margin-right: 6px; white-space: nowrap; }
+
+/* ---------- Stato live ---------- */
+.live-dot { flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.live-dot--up { background: var(--ok); }
+/* Giù: rosso con anello, si distingue anche senza colori */
+.live-dot--down { background: var(--danger); box-shadow: 0 0 0 2px var(--danger-soft); }
+.dnode__name .live-dot, .dnode__name .status-dot { margin-right: 0; }
+.live { white-space: nowrap; }
+.live--down { color: var(--danger); font-weight: 500; }
+.live .muted { font-weight: 400; }
+.live-chip {
+  display: inline-flex; align-items: center; gap: 12px; padding: 4px 10px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 999px; color: var(--ink); white-space: nowrap;
+}
+.live-chip:hover { text-decoration: none; border-color: var(--line-strong); }
+.live-chip__item { display: inline-flex; align-items: center; color: var(--muted); }
+.live-chip__item--down { color: var(--danger); font-weight: 500; }
+.dnode--down { border-color: var(--danger); box-shadow: 0 0 0 2px var(--danger-soft); }
+.map-live { display: inline-flex; align-items: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.map-live--down { color: var(--danger); font-weight: 500; }
+
+/* ---------- Dov'è collegato ---------- */
+.toolbar__search--wide { width: 420px; max-width: 100%; }
+.answer {
+  margin-bottom: 20px; padding: 16px 18px; background: var(--surface);
+  border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.answer__what { font-size: 13px; }
+.answer__where { font-size: 18px; font-weight: 500; }
+.answer .notice { margin: 0; }
+.facts--inline { margin: 4px 0 0; padding: 0; border: 0; background: none; }
+
+/* ---------- Rack ---------- */
+.rack-layout { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: start; }
+.rack {
+  display: grid; grid-template-columns: 34px 300px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; padding: 10px 12px 10px 4px;
+}
+.rack__scale { list-style: none; margin: 0; padding: 0; display: grid; grid-template-rows: repeat(var(--units), var(--unit)); }
+.rack__scale li { font: 11px/var(--unit) var(--mono); color: var(--muted); text-align: right; padding-right: 8px; }
+.rack__bay {
+  display: grid; grid-template-rows: repeat(var(--units), var(--unit)); grid-template-columns: 1fr;
+  border-left: 3px solid var(--line-strong); border-right: 3px solid var(--line-strong); background: var(--surface-2);
+}
+.rack__slot { grid-column: 1; border-bottom: 1px dashed var(--line); }
+.rack__device {
+  grid-column: 1; z-index: 1; margin: 1px 2px; min-height: 0; overflow: hidden;
+  display: flex; align-items: center; gap: 6px; padding: 0 8px;
+  background: var(--surface); color: var(--ink); font-size: 12px;
+  border: 1px solid var(--line-strong); border-left: 5px solid var(--role, #888780); border-radius: 3px;
+}
+.rack__device:hover { text-decoration: none; border-color: var(--accent); border-left-color: var(--role, #888780); }
+.rack__device--inactive { opacity: 0.6; border-style: dashed; }
+.rack__device--conflict { border-color: var(--danger); background: var(--danger-soft); }
+.rack__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rack__model { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rack__device .live-dot { margin-right: 0; }
+.rack-side .results li { flex-wrap: wrap; }
+
+/* ---------- Menu con ricerca (oltre 1000 elementi) ---------- */
+.combo { position: relative; min-width: 0; }
+.combo .input { width: 100%; }
+.combo__list {
+  position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0; max-height: 260px; overflow-y: auto;
+  list-style: none; margin: 0; padding: 4px; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 10px 24px rgba(15, 21, 28, 0.15);
+}
+.combo__item {
+  font: inherit; width: 100%; text-align: left; cursor: pointer; padding: 6px 8px;
+  background: none; border: 0; border-radius: 4px; color: var(--ink);
+}
+.combo__item:hover, .combo__item:focus-visible { background: var(--accent-soft); }
+.combo__item[aria-selected='true'] { font-weight: 600; }
+.combo__more { padding: 6px 8px; }
+.chip:disabled { cursor: default; opacity: 0.7; }
+
+/* ---------- Stampa: solo il contenuto (mappa, rack) ---------- */
+@media print {
+  body { background: #fff; }
+  .sidebar, .topbar, .map-toolbar__actions, .react-flow__controls, .react-flow__minimap, .map-hint, .map-panel,
+  .page-head__actions, .react-flow__handle { display: none !important; }
+  .shell { display: block; height: auto; }
+  .content { overflow: visible; }
+  .map-page { position: static; height: 100vh; }
+  .rack__device, .rack { break-inside: avoid; }
+}
+
 /* ---------- Schermi piccoli ---------- */
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
@@ -383,6 +482,11 @@ textarea.input { resize: vertical; min-height: 72px; }
   .form__grid, .picker { grid-template-columns: 1fr; }
   .toolbar__search { width: 100%; }
   .map-panel { top: auto; height: 50%; width: auto; left: 12px; }
+  .topbar { height: auto; flex-wrap: wrap; padding: 8px 16px; gap: 8px; }
+  .topbar__search { flex-basis: 100%; max-width: none; }
+  .user-menu__name { display: none; }
+  .rack-layout { grid-template-columns: 1fr; }
+  .rack { grid-template-columns: 30px minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

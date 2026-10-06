@@ -85,15 +85,19 @@ senza mai sovrascrivere da soli i dati inseriti a mano.
 - Le risposte SNMP vanno simulate (fixture con le tabelle già lette) per testare abbinamento e generazione delle modifiche
   senza apparati veri. Volendo, `snmpsim` per test d'integrazione.
 
-## Fase 4
+## Fase 4 — fatta (6/10/2026)
 
-- **Stato live**: controllo periodico (ping ICMP e/o SNMP `ifOperStatus`), colonne `reachable` e `last_check` sui device,
-  colori di stato in mappa e porte su/giù nella scheda device.
-- **"Dov'è collegato?"**: tabella `endpoints` (MAC, IP da ARP, porta switch, VLAN, prima/ultima volta visto) dalla
-  tabella MAC degli switch, scartando le porte di uplink (quelle con cavo verso altri switch).
-  Ricerca per MAC/IP/nome che risponde "switch X, porta Y, piano Z".
-- **Login e permessi**: autenticazione (JWT) e ruoli, prima di esporre l'app fuori dalla rete interna.
-- **Esportazione mappa** in SVG/PNG e stampa.
-- **Integrazione con l'app inventory**: abbinamento device ↔ asset per numero di serie via API.
-- Select con ricerca lato server per superare il limite dei 1000 elementi nei menu.
-- Vista frontale dei rack.
+Fatto: stato live (servizio `monitor`: ping + SNMP ifOperStatus, colori in mappa, rack, elenco e scheda device),
+"Dov'è collegato?" (tabella `endpoints` da tabelle MAC/ARP, scartando gli uplink; ricerca per MAC, IP, DNS),
+login con ruoli admin/editor/viewer, vista frontale dei rack, export della mappa in PNG/SVG e stampa,
+menu con ricerca lato server oltre i 1000 elementi. Dettagli in `CLAUDE.md`, sezione "Fase 4".
+
+Differenze rispetto al piano: niente libreria JWT (token firmato con `hmac` della libreria standard);
+lo stato delle porte lo aggiorna il monitor, non solo la scansione.
+
+## Da fare
+
+- **Integrazione con l'app inventory**: abbinamento device ↔ asset per numero di serie via API
+  (l'API accetta già `Authorization: Bearer`).
+- HTTPS (reverse proxy) prima di esporre l'app fuori dalla rete interna.
+- Avvisi quando un device smette di rispondere (mail o webhook).

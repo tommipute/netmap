@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
-import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
+import { useAuth } from '../auth'
+import { Badge, ErrorBox, LiveStatus, Loading, Mono } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
 import RefLabel from '../components/RefLabel'
@@ -38,6 +39,8 @@ export default function DevicePage() {
   const { data: ports, error: portsError, reload: reloadPorts } = useApi(`/devices/${id}/ports`)
   const { data: pending } = useApi(`/discovery-changes?device_id=${id}&limit=1`)
   const [dialog, setDialog] = useState(null)
+  const [checking, setChecking] = useState(false)
+  const { canEdit } = useAuth()
 
   const refresh = () => {
     setDialog(null)
@@ -61,6 +64,19 @@ export default function DevicePage() {
       await api.del(`/devices/${id}`)
       navigate('/devices')
     })
+
+  const checkNow = async () => {
+    setChecking(true)
+    try {
+      await api.post(`/devices/${id}/check`)
+      reload()
+      reloadPorts()
+    } catch (err) {
+      window.alert(err.message)
+    } finally {
+      setChecking(false)
+    }
+  }
 
   if (error) return <div className="page"><ErrorBox error={error} /></div>
   if (!device) return <div className="page"><Loading /></div>
@@ -87,8 +103,13 @@ export default function DevicePage() {
           </p>
         </div>
         <div className="page-head__actions">
-          <button type="button" className="btn" onClick={() => setDialog({ kind: 'edit' })}>Modifica</button>
-          <button type="button" className="btn btn--ghost btn--danger" onClick={removeDevice}>Elimina</button>
+          {canEdit && primary && (
+            <button type="button" className="btn" onClick={checkNow} disabled={checking} title="Ping e SNMP sull'IP di management">
+              {checking ? 'Controllo…' : 'Controlla ora'}
+            </button>
+          )}
+          {canEdit && <button type="button" className="btn" onClick={() => setDialog({ kind: 'edit' })}>Modifica</button>}
+          {canEdit && <button type="button" className="btn btn--ghost btn--danger" onClick={removeDevice}>Elimina</button>}
         </div>
       </header>
 
@@ -105,11 +126,25 @@ export default function DevicePage() {
         <div>
           <dt>Rack</dt>
           <dd>
-            <RefLabel resource="racks" id={device.rack_id} />
+            {device.rack_id ? (
+              <Link to={`/racks/${device.rack_id}`}><RefLabel resource="racks" id={device.rack_id} /></Link>
+            ) : (
+              <RefLabel resource="racks" id={device.rack_id} />
+            )}
             {device.rack_position ? `, U${device.rack_position}` : ''}
           </dd>
         </div>
         <div><dt>IP di management</dt><dd>{primary ? <Mono>{primary.address}</Mono> : <span className="muted">—</span>}</dd></div>
+        <div>
+          <dt>Stato live</dt>
+          <dd>
+            {device.reachable === null ? (
+              <span className="muted">{primary ? 'Non ancora controllato' : 'Serve un IP di management'}</span>
+            ) : (
+              <LiveStatus device={device} long />
+            )}
+          </dd>
+        </div>
         <div><dt>Numero di serie</dt><dd><Mono>{device.serial}</Mono></dd></div>
         <div><dt>Asset tag</dt><dd><Mono>{device.asset_tag}</Mono></dd></div>
         <div><dt>Origine dati</dt><dd>{labelOf(SOURCES, device.source)}</dd></div>
@@ -133,8 +168,11 @@ export default function DevicePage() {
             {ports && <span className="section__count">{ports.length} porte, {connected} collegate</span>}
           </h2>
           <div className="page-head__actions">
-            <button type="button" className="btn btn--sm" onClick={() => setDialog({ kind: 'bulk' })}>Aggiungi in blocco</button>
-            <button type="button" className="btn btn--sm btn--primary" onClick={() => setDialog({ kind: 'port' })}>Aggiungi porta</button>
+            {ports?.some((p) => p.endpoints > 0) && (
+              <Link className="btn btn--sm" to={`/where?device_id=${device.id}`}>Endpoint collegati</Link>
+            )}
+            {canEdit && <button type="button" className="btn btn--sm" onClick={() => setDialog({ kind: 'bulk' })}>Aggiungi in blocco</button>}
+            {canEdit && <button type="button" className="btn btn--sm btn--primary" onClick={() => setDialog({ kind: 'port' })}>Aggiungi porta</button>}
           </div>
         </header>
         <ErrorBox error={portsError} />
@@ -154,6 +192,7 @@ export default function DevicePage() {
                   <th>Velocità</th>
                   <th>Collegata a</th>
                   <th>IP</th>
+                  <th title="MAC visti su questa porta nelle tabelle dello switch">Endpoint</th>
                   <th className="table__actions"><span className="sr-only">Azioni</span></th>
                 </tr>
               </thead>
@@ -163,7 +202,7 @@ export default function DevicePage() {
                     <td>
                       {p.oper_status && (
                         <span className={`oper-dot oper-dot--${p.oper_status === 'up' ? 'up' : 'down'}`}
-                          title={`Stato all'ultima scansione: ${p.oper_status === 'up' ? 'su' : 'giù'}`} />
+                          title={`Stato all'ultimo controllo: ${p.oper_status === 'up' ? 'su' : 'giù'}`} />
                       )}
                       <Mono>{p.name}</Mono>
                       {!p.enabled && <span className="tag">disabilitata</span>}
@@ -187,8 +226,15 @@ export default function DevicePage() {
                         <div key={ip.id}><Mono>{ip.address}</Mono></div>
                       ))}
                     </td>
+                    <td>
+                      {p.endpoints > 0 ? (
+                        <Link to={`/where?interface_id=${p.id}`}>{p.endpoints === 1 ? '1 MAC' : `${p.endpoints} MAC`}</Link>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
                     <td className="table__actions">
-                      {p.cable_id ? (
+                      {!canEdit ? null : p.cable_id ? (
                         <button type="button" className="btn btn--ghost btn--sm"
                           onClick={() => run(`Scollegare ${p.name} da ${p.remote_device} ${p.remote_interface}?`, () => api.del(`/cables/${p.cable_id}`))}>
                           Scollega
@@ -200,13 +246,17 @@ export default function DevicePage() {
                           </button>
                         )
                       )}
-                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'editPort', portId: p.id })}>
-                        Modifica
-                      </button>
-                      <button type="button" className="btn btn--ghost btn--sm btn--danger"
-                        onClick={() => run(`Eliminare la porta ${p.name}?`, () => api.del(`/interfaces/${p.id}`))}>
-                        Elimina
-                      </button>
+                      {canEdit && (
+                        <>
+                          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'editPort', portId: p.id })}>
+                            Modifica
+                          </button>
+                          <button type="button" className="btn btn--ghost btn--sm btn--danger"
+                            onClick={() => run(`Eliminare la porta ${p.name}?`, () => api.del(`/interfaces/${p.id}`))}>
+                            Elimina
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

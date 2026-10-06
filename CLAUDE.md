@@ -14,9 +14,10 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 1 | Modello dati + API REST | fatta, verificata |
 | 2 | Interfaccia web (elenchi, moduli, scheda device, subnet, mappe) + import/export CSV dei device | fatta, verificata |
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
-| 4 | Stato live in mappa, "dov'è collegato questo PC", login | da fare, piano in `docs/roadmap.md` |
+| 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (27 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (36 test, compresi quelli con due switch SNMP simulati).
+Resta da fare (in `docs/roadmap.md`): integrazione con l'app inventory.
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
 
@@ -49,6 +50,7 @@ docker compose build api worker                     # dopo aver cambiato require
 | web (Vite + React) | http://localhost:5174 | proxy verso l'API per `/api`, `/docs`, `/openapi.json` |
 | api (FastAPI) | http://localhost:8001/docs | reload automatico, codice montato da `./backend` |
 | worker | — | esegue le scansioni in coda; `watchfiles` lo riavvia quando cambia il codice |
+| monitor | — | stato live: ping + SNMP ifOperStatus ogni `MONITOR_INTERVAL_SECONDS` (0 = spento) |
 | db (Postgres 16) | localhost:5433 | |
 
 Porte scelte apposta per non scontrarsi con l'app inventory: **non cambiarle**.
@@ -121,6 +123,10 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/discovery-runs?job_id=` · `/discovery-runs/{id}` | storico delle scansioni con log |
 | `GET /api/discovery-changes?status=&job_id=&device_id=` · `/discovery-changes/count` | modifiche proposte, contatore |
 | `POST /api/discovery-changes/approve` · `/reject` con `{ids}` | applica (ognuna in un SAVEPOINT) / rifiuta |
+| `GET /api/endpoints?q=&device_id=&interface_id=` | "dov'è collegato": MAC/IP/DNS → switch, porta, VLAN, luogo |
+| `GET /api/status/summary` · `POST /api/devices/{id}/check` | riepilogo su/giù · controllo immediato di un device |
+| `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
+| `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
 Anche `/snmp-profiles` e `/discovery-jobs` sono CRUD generati.
@@ -162,9 +168,34 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Prova dal vivo: nel DB c'è la sede "Laboratorio SNMP (simulato)" con profilo, job e mappa di prova; i due switch
   simulati si avviano nel container worker (snmpsim su 127.0.0.1/.2:11161) e si fermano al riavvio del container.
 
+## Fase 4: stato live, dov'è collegato, login, rack
+
+- **Login** (`api/auth.py`, `core/auth.py`, `models/auth.py`): password scrypt, token JWT HS256 fatto in casa
+  (niente librerie), in cookie httpOnly o `Authorization: Bearer`. `token_version` sull'utente: cambiare password
+  o disattivarlo chiude le sessioni. Ruoli `viewer` (legge), `editor` (scrive e approva), `admin` (anche `/users`).
+  Il controllo è una dipendenza sul router `protected` in `api/routes.py`: i metodi non GET richiedono editor/admin.
+  Primo avvio senza utenti → la pagina di login crea l'amministratore. Riga di comando:
+  `docker compose exec api python -m app.users list|create|password <utente>` (chiede la password: serve `-it`).
+  `AUTH_ENABLED=false` toglie il login (solo prove in locale); nei test `conftest.py` lo gestisce.
+- **Stato live** (`services/monitor.py`, `monitor.py`): device attivi con IP primario; raggiungibile se risponde
+  al ping o all'SNMP. Colonne `reachable` (NULL = mai controllato), `last_check_at`, `reachable_changed_at`, `rtt_ms`;
+  `oper_status` delle porte da ifOperStatus (abbinate per `if_index`).
+- **Endpoint** (`services/endpoints.py`, tabella `endpoints`): dopo ogni scansione unisce tabelle MAC
+  (BRIDGE/Q-BRIDGE), PVID/nomi VLAN e ARP; scarta gli uplink; tiene porta precedente e data dello spostamento.
+- Frontend: `auth.jsx` (`useAuth()` → `canEdit`, `isAdmin`; con login spento tutto permesso), `LoginPage`,
+  `PasswordDialog`, `EndpointsPage` (`/where`), `RackPage` (`/racks/:id`), voce `NAV` con `admin: true`.
+  **Ogni pulsante che scrive va nascosto con `canEdit`** (il backend risponde comunque 403).
+  Un 401 dall'API (fuori da `/auth/`) emette `netmap:unauthorized` e riporta al login.
+  `RefSelect`/`RefLabel` usano `useOptionsPage`: oltre i 1000 elementi diventano una ricerca lato server.
+  Mappa: aggiornamento ogni 30 s (senza toccare le posizioni), export PNG/SVG con `html-to-image` (tutta la mappa,
+  senza pallini di collegamento; il CSS di Google Fonts ha `crossorigin` apposta per incorporare i font), stampa.
+- Verifica nel browser (6/10/2026, Playwright): login admin e sola lettura, filtro "non rispondono",
+  "Dov'è collegato?", rack, utenti, export PNG/SVG, logout, schermo da telefono. Corretti: filtro `reachable`
+  mancante sui device (il parametro veniva ignorato), font e pallini nell'immagine esportata.
+
 ## Frontend (`frontend/src`)
 
-Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow). Nessun'altra libreria, CSS semplice.
+Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `html-to-image` (export mappa). CSS semplice.
 
 - `resources.jsx`: **cuore dell'interfaccia**. Per ogni entità: `path`, titoli, `label(o)`, `detail(o)` opzionale,
   `filters`, `columns` (`type`: ref, badge, select, mono, bool, color, oppure `render`), `fields`
@@ -218,7 +249,6 @@ negli aggiornamenti, IP spostati in silenzio da un altro device) e `remote_inter
 
 ## Limiti noti
 
-- I menu a tendina caricano al massimo 1000 elementi per tipo: con reti grandi servirà una select con ricerca lato server.
-- Nessun login: da aggiungere prima di esporre l'app oltre la rete interna (vedi roadmap).
-- Scansione: non legge ancora VLAN (Q-BRIDGE), tabelle MAC e ARP (servono alla fase 4); i device scoperti
-  restano senza ruolo; rame o fibra non si ricava dall'ifType.
+- Login senza HTTPS: prima di esporre l'app fuori dalla rete interna mettere un reverse proxy HTTPS e `COOKIE_SECURE=true`.
+- Scansione: le VLAN lette servono solo agli endpoint (non creano VLAN); i device scoperti restano senza ruolo;
+  rame o fibra non si ricava dall'ifType.

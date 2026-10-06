@@ -141,7 +141,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
       if (isEdit && f.createOnly) continue
       const visible = !f.showIf || f.showIf(values)
       const missing = f.type === 'refmulti' ? !(values[f.name] || []).length : isEmpty(values[f.name])
-      if (visible && f.required && missing) {
+      if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {
         setError(`Compila il campo "${f.label}".`)
         return
       }
@@ -188,7 +188,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
               <div key={f.name} className={`field${wide ? ' field--wide' : ''}`}>
                 <Label className="field__label" {...(labelIsElement ? { htmlFor: `field-${f.name}` } : {})}>
                   {f.label}
-                  {f.required && <span className="field__req" aria-hidden="true"> *</span>}
+                  {(f.required || (f.requiredOnCreate && !isEdit)) && <span className="field__req" aria-hidden="true"> *</span>}
                 </Label>
                 <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields}
                   onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />

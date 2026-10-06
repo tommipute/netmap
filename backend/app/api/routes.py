@@ -54,7 +54,7 @@ _routers = [
          order_by=(DeviceRole.level, DeviceRole.name)),
     dict(model=Device, create_schema=d.DeviceCreate, update_schema=d.DeviceUpdate, read_schema=d.DeviceRead,
          path="/devices", tag="Device",
-         filters=("site_id", "location_id", "rack_id", "role_id", "device_type_id", "status", "source"),
+         filters=("site_id", "location_id", "rack_id", "role_id", "device_type_id", "status", "source", "reachable"),
          search=("name", "serial", "asset_tag", "sys_name"), order_by=(Device.name,), hook=rules.device_hook),
     dict(model=Interface, create_schema=d.InterfaceCreate, update_schema=d.InterfaceUpdate,
          read_schema=d.InterfaceRead, path="/interfaces", tag="Interfacce",

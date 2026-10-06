@@ -1,10 +1,78 @@
-import { useOptions } from '../hooks'
+import { useEffect, useRef, useState } from 'react'
+import { qs } from '../api'
+import { useApi, useDebounced, useOptions, useOptionsPage } from '../hooks'
 import { resources } from '../resources'
+
+/** Oltre i 1000 elementi: campo di ricerca che interroga il server (es. migliaia di device o interfacce). */
+function SearchSelect({ id, config, value, onChange, params, disabled, emptyLabel, ariaLabel }) {
+  const [text, setText] = useState('')
+  const [open, setOpen] = useState(false)
+  const q = useDebounced(text.trim())
+  const boxRef = useRef(null)
+  const current = useApi(value ? `/${config.path}/${value}` : null).data
+  const results = useApi(open ? `/${config.path}${qs({ limit: 20, q, ...params })}` : null).data
+
+  useEffect(() => {
+    const close = (e) => boxRef.current && !boxRef.current.contains(e.target) && setOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  const choose = (item) => {
+    onChange(item ? item.id : '')
+    setText('')
+    setOpen(false)
+  }
+
+  return (
+    <div className="combo" ref={boxRef}>
+      <input
+        id={id}
+        className="input"
+        role="combobox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        placeholder={current ? config.label(current) : `${emptyLabel} (scrivi per cercare)`}
+        value={text}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          setText(e.target.value)
+          setOpen(true)
+        }}
+        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+      />
+      {open && (
+        <ul className="combo__list" role="listbox">
+          <li>
+            <button type="button" className="combo__item muted" onClick={() => choose(null)}>{emptyLabel}</button>
+          </li>
+          {(results?.items || []).map((o) => (
+            <li key={o.id}>
+              <button type="button" role="option" aria-selected={o.id === value} className="combo__item" onClick={() => choose(o)}>
+                {config.label(o)}
+              </button>
+            </li>
+          ))}
+          {results && results.total > results.items.length && (
+            <li className="combo__more hint">Altri {results.total - results.items.length}: scrivi di più per restringere</li>
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 /** Menu a tendina con gli elementi di un'altra entità (sedi, ruoli, VLAN...). */
 export function RefSelect({ id, resource, value, onChange, params, disabled, emptyLabel = '—', waitLabel, ariaLabel }) {
   const config = resources[resource]
-  const items = useOptions(waitLabel ? null : config.path, params)
+  const { items, total } = useOptionsPage(waitLabel ? null : config.path, params)
+  if (!waitLabel && total > items.length) {
+    return (
+      <SearchSelect id={id} config={config} value={value} onChange={onChange} params={params} disabled={disabled}
+        emptyLabel={emptyLabel} ariaLabel={ariaLabel} />
+    )
+  }
   return (
     <select
       id={id}

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
@@ -15,6 +16,7 @@ function RunStatus({ status }) {
 }
 
 export default function DiscoveryJobPage() {
+  const { canEdit } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: job, error, reload } = useApi(`/discovery-jobs/${id}`)
@@ -80,11 +82,15 @@ export default function DiscoveryJobPage() {
           {job.description && <p className="page-intro">{job.description}</p>}
         </div>
         <div className="page-head__actions">
-          <button type="button" className="btn btn--primary" onClick={start} disabled={active}>
-            {active ? 'Scansione in corso…' : 'Avvia scansione'}
-          </button>
-          <button type="button" className="btn" onClick={() => setEditing(true)}>Modifica</button>
-          <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>
+          {canEdit && (
+            <>
+              <button type="button" className="btn btn--primary" onClick={start} disabled={active}>
+                {active ? 'Scansione in corso…' : 'Avvia scansione'}
+              </button>
+              <button type="button" className="btn" onClick={() => setEditing(true)}>Modifica</button>
+              <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>
+            </>
+          )}
         </div>
       </header>
 

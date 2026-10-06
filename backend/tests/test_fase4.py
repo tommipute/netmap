@@ -101,6 +101,9 @@ def test_monitor_aggiorna_stato_e_porte(client, monitored, session_factory):
     assert ports_of(client, sw["id"])["mgmt0"]["oper_status"] == "down"
     summary = client.get("/api/status/summary").json()
     assert (summary["up"], summary["down"], summary["unknown"]) == (1, 1, 1)  # senza-ip: mai controllato
+    # Filtro usato dal riepilogo in alto ("N non rispondono")
+    down = client.get("/api/devices?reachable=false").json()
+    assert [d["name"] for d in down["items"]] == ["sw"]
 
     the_map = create(client, "/maps", {"name": "Sede", "site_id": monitored["site"]["id"]})
     nodes = {n["name"]: n for n in client.get(f"/api/maps/{the_map['id']}/view").json()["nodes"]}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
@@ -8,6 +9,7 @@ import { invalidate, useApi } from '../hooks'
 import { IP_STATUS, IPAM_STATUS } from '../options'
 
 export default function PrefixPage() {
+  const { canEdit } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const { data: prefix, error, reload } = useApi(`/prefixes/${id}`)
@@ -53,8 +55,8 @@ export default function PrefixPage() {
           {prefix.description && <p className="page-intro">{prefix.description}</p>}
         </div>
         <div className="page-head__actions">
-          <button type="button" className="btn" onClick={() => setDialog({ kind: 'edit' })}>Modifica</button>
-          <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>
+          {canEdit && <button type="button" className="btn" onClick={() => setDialog({ kind: 'edit' })}>Modifica</button>}
+          {canEdit && <button type="button" className="btn btn--ghost btn--danger" onClick={remove}>Elimina</button>}
         </div>
       </header>
 
@@ -84,7 +86,7 @@ export default function PrefixPage() {
           <div className="chips">
             {free.data.map((address) => (
               <button key={address} type="button" className="chip chip--action" title="Registra questo indirizzo"
-                onClick={() => setDialog({ kind: 'ip', address })}>
+                disabled={!canEdit} onClick={() => setDialog({ kind: 'ip', address })}>
                 <span className="mono">{address.split('/')[0]}</span>
               </button>
             ))}
@@ -131,9 +133,11 @@ export default function PrefixPage() {
                     <td><Mono>{ip.dns_name}</Mono></td>
                     <td><Badge value={ip.status} options={IP_STATUS} /></td>
                     <td className="table__actions">
-                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'editIp', item: ip })}>
-                        Modifica
-                      </button>
+                      {canEdit && (
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setDialog({ kind: 'editIp', item: ip })}>
+                          Modifica
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

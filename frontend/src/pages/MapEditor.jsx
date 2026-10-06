@@ -9,12 +9,15 @@ import {
   Panel,
   ReactFlow,
   ReactFlowProvider,
+  getNodesBounds,
   useNodesInitialized,
   useNodesState,
   useReactFlow,
 } from '@xyflow/react'
+import { toPng, toSvg } from 'html-to-image'
 import { api } from '../api'
-import { Badge } from '../components/Bits'
+import { useAuth } from '../auth'
+import { Badge, LiveStatus } from '../components/Bits'
 import CableDialog from '../components/CableDialog'
 import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
@@ -24,6 +27,17 @@ import { X_GAP, Y_GAP, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 
 const nodeTypes = { device: DeviceNode }
+const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
+const EXPORT_PADDING = 40
+
+function download(dataUrl, filename) {
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
 
 /** Nodi per React Flow: posizione attuale > posizione salvata > calcolata. */
 function buildFlowNodes(view, previous) {
@@ -78,12 +92,19 @@ function toFlowEdge(edge, levelOf, showLabels, selected) {
   }
 }
 
-function Legend({ edges }) {
+function Legend({ edges, nodes }) {
   const types = [...new Set(edges.map((e) => e.type || ''))]
   const planned = edges.some((e) => e.status === 'planned')
-  if (types.length === 0) return null
+  const live = nodes.some((n) => n.reachable !== null && n.reachable !== undefined)
+  if (types.length === 0 && !live) return null
   return (
     <div className="map-legend">
+      {live && (
+        <>
+          <span className="map-legend__item"><span className="live-dot live-dot--up" />Risponde</span>
+          <span className="map-legend__item"><span className="live-dot live-dot--down" />Non risponde</span>
+        </>
+      )}
       {types.map((type) => {
         const style = cableStyle(type || null)
         return (
@@ -105,7 +126,8 @@ function Legend({ edges }) {
 
 function Editor() {
   const { id } = useParams()
-  const { fitView } = useReactFlow()
+  const { canEdit } = useAuth()
+  const { fitView, getNodes } = useReactFlow()
   const [view, setView] = useState(null)
   const [error, setError] = useState(null)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -114,6 +136,7 @@ function Editor() {
   const [showLabels, setShowLabels] = useState(false)
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id }
   const [connecting, setConnecting] = useState(null) // { a, b } id device
+  const [checking, setChecking] = useState(false)
 
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
@@ -155,16 +178,26 @@ function Editor() {
     }
   }, [nodesInitialized])
 
+  // Stato live: ricarico i dati dei device senza toccare le posizioni
+  const connectingRef = useRef(connecting)
+  connectingRef.current = connecting
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!document.hidden && !connectingRef.current) load(true)
+    }, REFRESH_MS)
+    return () => clearInterval(timer)
+  }, [load])
+
   // Avviso se si chiude la pagina con modifiche non salvate
   useEffect(() => {
-    if (!dirty) return undefined
+    if (!dirty || !canEdit) return undefined
     const handler = (e) => {
       e.preventDefault()
       e.returnValue = ''
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [dirty])
+  }, [dirty, canEdit])
 
   const levelOf = useMemo(() => Object.fromEntries((view?.nodes || []).map((n) => [n.id, n.level])), [view])
   const edges = useMemo(
@@ -226,6 +259,58 @@ function Editor() {
     }
   }
 
+  /** PNG o SVG di tutta la mappa (non solo della parte visibile), con lo sfondo del tema. */
+  const exportImage = async (format) => {
+    const flowNodes = getNodes()
+    if (flowNodes.length === 0) return
+    const bounds = getNodesBounds(flowNodes)
+    const width = Math.ceil(bounds.width + EXPORT_PADDING * 2)
+    const height = Math.ceil(bounds.height + EXPORT_PADDING * 2)
+    const element = document.querySelector('.map-canvas .react-flow__viewport')
+    const background = getComputedStyle(document.body).getPropertyValue('--surface-2').trim() || '#ffffff'
+    const options = {
+      backgroundColor: background,
+      // I pallini per collegare i device servono solo a modificare la mappa
+      filter: (node) => !node.classList?.contains('react-flow__handle'),
+      width,
+      height,
+      style: {
+        width: `${width}px`,
+        height: `${height}px`,
+        transform: `translate(${EXPORT_PADDING - bounds.x}px, ${EXPORT_PADDING - bounds.y}px) scale(1)`,
+      },
+    }
+    try {
+      const dataUrl = format === 'svg' ? await toSvg(element, options) : await toPng(element, { ...options, pixelRatio: 2 })
+      download(dataUrl, `${view.map.name}.${format}`)
+    } catch (err) {
+      setError(`Esportazione non riuscita: ${err.message || err}`)
+    }
+  }
+
+  const print = () => {
+    setSelection(null)
+    fitRef.current({ padding: 0.08 })
+    setTimeout(() => window.print(), 350)
+  }
+
+  const exportAs = (value) => {
+    if (value === 'print') print()
+    else if (value) exportImage(value)
+  }
+
+  const checkNow = async (deviceId) => {
+    setChecking(true)
+    try {
+      await api.post(`/devices/${deviceId}/check`)
+      await load(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setChecking(false)
+    }
+  }
+
   if (!view) {
     return (
       <div className="map-page">
@@ -255,7 +340,8 @@ function Editor() {
           </span>
         </div>
         <div className="map-toolbar__actions">
-          {!view.map.auto_include && view.available.length > 0 && (
+          {liveCount(view.nodes)}
+          {canEdit && !view.map.auto_include && view.available.length > 0 && (
             <select className="input input--sm" value="" onChange={(e) => e.target.value && addDevice(Number(e.target.value))} aria-label="Aggiungi un device alla mappa">
               <option value="">Aggiungi device…</option>
               {view.available.map((d) => (
@@ -267,12 +353,23 @@ function Editor() {
             <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
             Nomi delle porte
           </label>
-          <button type="button" className="btn btn--sm" onClick={arrange} disabled={view.nodes.length === 0}>
-            Disponi automaticamente
-          </button>
-          <button type="button" className="btn btn--sm btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
-            {saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'}
-          </button>
+          <select className="input input--sm" value="" onChange={(e) => exportAs(e.target.value)} aria-label="Esporta o stampa la mappa"
+            disabled={view.nodes.length === 0}>
+            <option value="">Esporta…</option>
+            <option value="png">Immagine PNG</option>
+            <option value="svg">Disegno SVG</option>
+            <option value="print">Stampa o PDF</option>
+          </select>
+          {canEdit && (
+            <>
+              <button type="button" className="btn btn--sm" onClick={arrange} disabled={view.nodes.length === 0}>
+                Disponi automaticamente
+              </button>
+              <button type="button" className="btn btn--sm btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
+                {saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -289,6 +386,7 @@ function Editor() {
           onEdgeClick={(_, edge) => setSelection({ kind: 'edge', id: edge.data.id })}
           onPaneClick={() => setSelection(null)}
           onConnect={({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) })}
+          nodesConnectable={canEdit}
           connectionMode={ConnectionMode.Loose}
           deleteKeyCode={null}
           minZoom={0.15}
@@ -299,9 +397,9 @@ function Editor() {
           <Controls showInteractive={false} />
           <MiniMap pannable zoomable nodeColor={(n) => n.data.color} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
-            <Legend edges={view.edges} />
+            <Legend edges={view.edges} nodes={view.nodes} />
           </Panel>
-          {view.nodes.length > 0 && (
+          {canEdit && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">
               Trascina da un pallino di un device a quello di un altro per collegarli.
             </Panel>
@@ -328,11 +426,22 @@ function Editor() {
               <div><dt>Ruolo</dt><dd>{selectedNode.role || '—'}</dd></div>
               <div><dt>Stato</dt><dd><Badge value={selectedNode.status} options={DEVICE_STATUS} /></dd></div>
               <div><dt>IP di management</dt><dd className="mono">{selectedNode.primary_ip || '—'}</dd></div>
+              {selectedNode.primary_ip && (
+                <div>
+                  <dt>Stato live</dt>
+                  <dd>{selectedNode.reachable === null ? <span className="muted">Non ancora controllato</span> : <LiveStatus device={selectedNode} long />}</dd>
+                </div>
+              )}
               <div><dt>Collegamenti in mappa</dt><dd>{view.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}</dd></div>
             </dl>
             <div className="map-panel__actions">
               <Link className="btn btn--sm btn--primary" to={`/devices/${selectedNode.id}`}>Apri scheda del device</Link>
-              {!view.map.auto_include && (
+              {canEdit && selectedNode.primary_ip && (
+                <button type="button" className="btn btn--sm" disabled={checking} onClick={() => checkNow(selectedNode.id)}>
+                  {checking ? 'Controllo…' : 'Controlla ora'}
+                </button>
+              )}
+              {canEdit && !view.map.auto_include && (
                 <button type="button" className="btn btn--sm btn--ghost" onClick={() => removeFromMap(selectedNode.id)}>
                   Togli dalla mappa
                 </button>
@@ -355,11 +464,13 @@ function Editor() {
               <div><dt>Stato</dt><dd>{labelOf(CABLE_STATUS, selectedEdge.status)}</dd></div>
               <div><dt>Velocità porta</dt><dd>{formatSpeed(selectedEdge.speed_mbps)}</dd></div>
             </dl>
-            <div className="map-panel__actions">
-              <button type="button" className="btn btn--sm btn--ghost btn--danger" onClick={() => deleteCable(selectedEdge)}>
-                Elimina cavo
-              </button>
-            </div>
+            {canEdit && (
+              <div className="map-panel__actions">
+                <button type="button" className="btn btn--sm btn--ghost btn--danger" onClick={() => deleteCable(selectedEdge)}>
+                  Elimina cavo
+                </button>
+              </div>
+            )}
           </aside>
         )}
       </div>
@@ -376,6 +487,19 @@ function Editor() {
         />
       )}
     </div>
+  )
+}
+
+/** "3 su 4 rispondono" nella barra della mappa (solo device controllati dal monitor) */
+function liveCount(nodes) {
+  const checked = nodes.filter((n) => n.reachable !== null && n.reachable !== undefined)
+  if (checked.length === 0) return null
+  const down = checked.filter((n) => !n.reachable).length
+  return (
+    <span className={`map-live${down ? ' map-live--down' : ''}`}>
+      <span className={`live-dot live-dot--${down ? 'down' : 'up'}`} />
+      {down ? `${down} su ${checked.length} non rispondono` : `Tutti i ${checked.length} device rispondono`}
+    </span>
   )
 }
 

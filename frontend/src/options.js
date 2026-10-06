@@ -123,3 +123,20 @@ export function formatDuration(start, end) {
   const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000))
   return seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`
 }
+
+// ---------- Stato live (fase 4) ----------
+export const REACHABLE = [
+  { value: 'true', label: 'Risponde' },
+  { value: 'false', label: 'Non risponde' },
+]
+
+/** "da 5 min", "da 3 ore", "da 2 giorni" */
+export function formatSince(value) {
+  if (!value) return ''
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value)) / 60000))
+  if (minutes < 1) return 'da meno di un minuto'
+  if (minutes < 90) return `da ${minutes} min`
+  const hours = Math.round(minutes / 60)
+  if (hours < 36) return `da ${hours} ore`
+  return `da ${Math.round(hours / 24)} giorni`
+}

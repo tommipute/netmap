@@ -41,6 +41,10 @@ async function request(method, url, body) {
       data = text
     }
   }
+  if (response.status === 401 && !url.startsWith('/auth/')) {
+    // Sessione scaduta: l'app torna alla pagina di login
+    window.dispatchEvent(new Event('netmap:unauthorized'))
+  }
   if (!response.ok) throw new ApiError(formatError(data, response.status), response.status)
   return data
 }

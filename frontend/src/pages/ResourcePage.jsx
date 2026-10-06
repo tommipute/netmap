@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, qs } from '../api'
+import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import DeviceImportDialog from '../components/DeviceImportDialog'
 import RefLabel from '../components/RefLabel'
@@ -54,8 +55,13 @@ function Filter({ filter, value, onChange }) {
 export default function ResourcePage({ resourceKey }) {
   const config = resources[resourceKey]
   const navigate = useNavigate()
+  const { canEdit } = useAuth()
+  const [params] = useSearchParams()
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({})
+  // Filtri iniziali dall'indirizzo, es. /devices?reachable=false
+  const [filters, setFilters] = useState(() =>
+    Object.fromEntries((config.filters || []).filter((f) => params.get(f.name)).map((f) => [f.name, params.get(f.name)])),
+  )
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState(null) // null | 'new' | elemento
   const [importing, setImporting] = useState(false)
@@ -128,19 +134,23 @@ export default function ResourcePage({ resourceKey }) {
               >
                 Esporta JSON
               </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setImporting(true)}
-                title="Importa device da file o testo CSV"
-              >
-                Importa
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setImporting(true)}
+                  title="Importa device da file o testo CSV"
+                >
+                  Importa
+                </button>
+              )}
             </>
           )}
-          <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
-            {config.newLabel}
-          </button>
+          {canEdit && (
+            <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
+              {config.newLabel}
+            </button>
+          )}
         </div>
       </header>
 
@@ -180,9 +190,11 @@ export default function ResourcePage({ resourceKey }) {
           ) : (
             <>
               <p>Non c'è ancora niente qui.</p>
-              <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
-                {config.newLabel}
-              </button>
+              {canEdit && (
+                <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
+                  {config.newLabel}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -207,8 +219,8 @@ export default function ResourcePage({ resourceKey }) {
                   key={item.id}
                   className="table__row--link"
                   tabIndex={0}
-                  onClick={() => open(item)}
-                  onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && open(item)}
+                  onClick={() => (config.detail || canEdit) && open(item)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && (config.detail || canEdit) && open(item)}
                 >
                   {config.columns.map((c) => (
                     <td key={c.name}>
@@ -216,12 +228,16 @@ export default function ResourcePage({ resourceKey }) {
                     </td>
                   ))}
                   <td className="table__actions" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(item)}>
-                      Modifica
-                    </button>
-                    <button type="button" className="btn btn--ghost btn--sm btn--danger" onClick={() => remove(item)}>
-                      Elimina
-                    </button>
+                    {canEdit && (
+                      <>
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(item)}>
+                          Modifica
+                        </button>
+                        <button type="button" className="btn btn--ghost btn--sm btn--danger" onClick={() => remove(item)}>
+                          Elimina
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
