@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, Loading } from '../components/Bits'
+import { IconButton } from '../components/Icon'
 import { RefSelect } from '../components/RefSelect'
 import { invalidate, useApi } from '../hooks'
 import { CHANGE_ACTIONS, CHANGE_STATUS, formatDateTime } from '../options'
@@ -59,12 +60,8 @@ function ChangeRow({ change, busy, onDecide }) {
       </div>
       {pending && canEdit && (
         <div className="change__actions">
-          <button type="button" className="btn btn--sm btn--primary" disabled={busy} onClick={() => onDecide('approve', [change.id])}>
-            Approva
-          </button>
-          <button type="button" className="btn btn--sm btn--ghost" disabled={busy} onClick={() => onDecide('reject', [change.id])}>
-            Rifiuta
-          </button>
+          <IconButton icon="check" label="Approva" small className="btn--primary" disabled={busy} onClick={() => onDecide('approve', [change.id])} />
+          <IconButton icon="close" label="Rifiuta" small className="btn--ghost" disabled={busy} onClick={() => onDecide('reject', [change.id])} />
         </div>
       )}
     </li>
@@ -133,9 +130,10 @@ export default function ChangesPage() {
         </div>
         {canEdit && pendingView && allIds.length > 0 && (
           <div className="page-head__actions">
-            <button type="button" className="btn btn--primary" disabled={busy} onClick={() => decide('approve', allIds)}>
-              Approva tutte ({allIds.length})
-            </button>
+            <IconButton icon="checkAll" label={`Approva tutte (${allIds.length})`} className="btn--primary" disabled={busy}
+              onClick={() => decide('approve', allIds)}>
+              <span className="btn__tag">{allIds.length}</span>
+            </IconButton>
           </div>
         )}
       </header>
@@ -152,9 +150,7 @@ export default function ChangesPage() {
         </div>
         <RefSelect resource="discovery-jobs" value={jobId} onChange={(v) => setFilter('job_id', v)} emptyLabel="Tutte le scansioni" ariaLabel="Scansione" />
         {deviceId && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setFilter('device_id', '')}>
-            Mostra tutti i device
-          </button>
+          <IconButton icon="close" label="Mostra tutti i device (togli il filtro)" small className="btn--ghost" onClick={() => setFilter('device_id', '')} />
         )}
         {data && <span className="toolbar__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>}
       </div>
@@ -202,12 +198,10 @@ export default function ChangesPage() {
             </h2>
             {canEdit && pendingView && group.items.length > 1 && (
               <div className="page-head__actions">
-                <button type="button" className="btn btn--sm" disabled={busy} onClick={() => decide('approve', group.items.map((c) => c.id))}>
-                  Approva tutte
-                </button>
-                <button type="button" className="btn btn--sm btn--ghost" disabled={busy} onClick={() => decide('reject', group.items.map((c) => c.id))}>
-                  Rifiuta tutte
-                </button>
+                <IconButton icon="checkAll" label={`Approva tutte le modifiche di ${group.label}`} small disabled={busy}
+                  onClick={() => decide('approve', group.items.map((c) => c.id))} />
+                <IconButton icon="close" label={`Rifiuta tutte le modifiche di ${group.label}`} small className="btn--ghost" disabled={busy}
+                  onClick={() => decide('reject', group.items.map((c) => c.id))} />
               </div>
             )}
           </header>

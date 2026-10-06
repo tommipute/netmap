@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Icon, IconButton } from './Icon'
+import { IconButton } from './Icon'
 
 /** Editor dei campi personalizzati: coppie nome / valore. */
 export default function KeyValueEditor({ value, onChange }) {
@@ -20,10 +20,7 @@ export default function KeyValueEditor({ value, onChange }) {
           <IconButton icon="close" label="Rimuovi campo" small className="btn--ghost" onClick={() => update(rows.filter((_, j) => j !== i))} />
         </div>
       ))}
-      <button type="button" className="btn btn--ghost btn--sm" onClick={() => update([...rows, { k: '', v: '' }])}>
-        <Icon name="plus" />
-        Aggiungi campo
-      </button>
+      <IconButton icon="plus" label="Aggiungi campo" small className="btn--ghost" onClick={() => update([...rows, { k: '', v: '' }])} />
     </div>
   )
 }

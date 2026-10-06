@@ -233,10 +233,10 @@ bianche, accento acqua come la fibra OM3 (`--accent`). Font IBM Plex Sans + IBM 
 Device in mappa = etichetta da rack con banda colorata del ruolo. Colori cavi da convenzione reale:
 rame blu, fibra multimodale acqua, monomodale gialla, DAC grigio scuro.
 Testi: italiano, sentence case, frasi semplici, pulsanti che dicono cosa fanno ("Salva disposizione", "Crea collegamento").
-**Azioni secondarie con icona** (scelta dell'utente): modifica, elimina, importa, esporta, stampa, collega/scollega,
-controlla ora, password, esci, pagine. Usa `IconButton` di `components/Icon.jsx` (SVG a mano, niente librerie):
-il testo va in `label`, che diventa tooltip e `aria-label`. Le azioni principali (Nuovo…, Salva, Approva, Avvia
-scansione, pulsanti dei moduli) restano con il testo. Icona nuova = un path in `PATHS`.
+**Pulsanti solo con icona** (scelta dell'utente), anche Nuovo…, Salva disposizione, Approva/Rifiuta, Avvia scansione:
+`IconButton` / `IconLink` di `components/Icon.jsx` (SVG a mano, niente librerie); il testo va in `label`, che diventa
+tooltip e `aria-label`. Restano scritti solo i pulsanti dentro le finestre (Annulla, Crea, Salva modifiche, Accedi…).
+Icona nuova = un path in `PATHS`.
 
 ## Decisioni già prese con l'utente (non rimetterle in discussione senza chiedere)
 

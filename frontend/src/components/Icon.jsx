@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 /**
  * Icone a tratto (24x24, colore del testo). Niente librerie: solo i simboli che servono.
  * IconButton: pulsante con solo l'icona; il testo resta come tooltip e per gli screen reader.
@@ -14,6 +16,14 @@ const PATHS = {
   key: <><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9" /><path d="m16 7 3 3" /></>,
   logout: <><path d="M10 4H5v16h5" /><path d="M14 8l4 4-4 4" /><path d="M18 12H9" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  plusMany: <><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M4 16V5a1 1 0 0 1 1-1h11" /><path d="M14.5 11.5v6M11.5 14.5h6" /></>,
+  save: <><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M8 3v5h7V3" /><path d="M8 21v-7h8v7" /></>,
+  check: <path d="m5 12 5 5 9-10" />,
+  checkAll: <><path d="m2 12 5 5 9-10" /><path d="m12 16 1 1 9-10" /></>,
+  play: <path d="M7 4v16l13-8L7 4Z" />,
+  log: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5" /><path d="M9 12h7M9 16h7" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
+  open: <><path d="M14 4h6v6" /><path d="M20 4 10 14" /><path d="M18 14v6H4V6h6" /></>,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   prev: <path d="m15 6-6 6 6 6" />,
   next: <path d="m9 6 6 6-6 6" />,
@@ -27,6 +37,16 @@ export function Icon({ name, size = 16 }) {
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       {PATHS[name]}
     </svg>
+  )
+}
+
+/** Come IconButton, ma è un link (apre un'altra pagina). */
+export function IconLink({ icon, label, to, small = false, className = '' }) {
+  const classes = ['btn', 'btn--icon', small && 'btn--sm', className].filter(Boolean).join(' ')
+  return (
+    <Link className={classes} to={to} title={label} aria-label={label}>
+      <Icon name={icon} />
+    </Link>
   )
 }
 

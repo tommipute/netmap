@@ -101,9 +101,7 @@ export default function EndpointsPage() {
           onChange={(e) => setSearch(e.target.value)}
         />
         {scoped && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setParams(q ? { q } : {})}>
-            Mostra tutte le porte
-          </button>
+          <IconButton icon="close" label="Mostra tutte le porte (togli il filtro)" small className="btn--ghost" onClick={() => setParams(q ? { q } : {})} />
         )}
         {data && <span className="toolbar__count">{data.total === 1 ? '1 endpoint' : `${data.total} endpoint`}</span>}
       </div>

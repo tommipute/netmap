@@ -4,7 +4,7 @@ import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import DeviceImportDialog from '../components/DeviceImportDialog'
-import { Icon, IconButton } from '../components/Icon'
+import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { RefSelect } from '../components/RefSelect'
 import ResourceForm from '../components/ResourceForm'
@@ -129,10 +129,7 @@ export default function ResourcePage({ resourceKey }) {
             </>
           )}
           {canEdit && (
-            <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
-              <Icon name="plus" />
-              {config.newLabel}
-            </button>
+            <IconButton icon="plus" label={config.newLabel} className="btn--primary" onClick={() => setEditing('new')} />
           )}
         </div>
       </header>
@@ -174,9 +171,7 @@ export default function ResourcePage({ resourceKey }) {
             <>
               <p>Non c'è ancora niente qui.</p>
               {canEdit && (
-                <button type="button" className="btn btn--primary" onClick={() => setEditing('new')}>
-                  {config.newLabel}
-                </button>
+                <IconButton icon="plus" label={config.newLabel} className="btn--primary" onClick={() => setEditing('new')} />
               )}
             </>
           )}

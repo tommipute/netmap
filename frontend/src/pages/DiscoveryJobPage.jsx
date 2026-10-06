@@ -85,9 +85,8 @@ export default function DiscoveryJobPage() {
         <div className="page-head__actions">
           {canEdit && (
             <>
-              <button type="button" className="btn btn--primary" onClick={start} disabled={active}>
-                {active ? 'Scansione in corso…' : 'Avvia scansione'}
-              </button>
+              <IconButton icon={active ? 'refresh' : 'play'} label={active ? 'Scansione in corso…' : 'Avvia scansione'}
+                className={`btn--primary${active ? ' is-spinning' : ''}`} onClick={start} disabled={active} />
               <IconButton icon="edit" label="Modifica scansione" onClick={() => setEditing(true)} />
               <IconButton icon="trash" label="Elimina scansione" danger className="btn--ghost" onClick={remove} />
             </>
@@ -152,10 +151,9 @@ export default function DiscoveryJobPage() {
                       <td>{run.changes_proposed}</td>
                       <td>{run.changes_applied}</td>
                       <td className="table__actions">
-                        <button type="button" className="btn btn--ghost btn--sm" aria-expanded={openLog === run.id}
-                          onClick={() => setOpenLog(openLog === run.id ? null : run.id)}>
-                          {openLog === run.id ? 'Nascondi log' : 'Log'}
-                        </button>
+                        <IconButton icon="log" label={openLog === run.id ? 'Nascondi log' : 'Mostra log'} small
+                          className={openLog === run.id ? 'btn--ghost is-on' : 'btn--ghost'} aria-expanded={openLog === run.id}
+                          onClick={() => setOpenLog(openLog === run.id ? null : run.id)} />
                       </td>
                     </tr>
                     {openLog === run.id && (

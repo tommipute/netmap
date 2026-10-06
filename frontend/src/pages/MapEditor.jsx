@@ -19,7 +19,7 @@ import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, LiveStatus } from '../components/Bits'
 import CableDialog from '../components/CableDialog'
-import { IconButton } from '../components/Icon'
+import { IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
 import BusEdge from '../map/BusEdge'
@@ -392,9 +392,10 @@ function Editor() {
           {canEdit && (
             <>
               <IconButton icon="layout" label="Disponi automaticamente" small onClick={arrange} disabled={view.nodes.length === 0} />
-              <button type="button" className="btn btn--sm btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
-                {saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'}
-              </button>
+              <IconButton icon="save" label={saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'} small
+                className="btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
+                {dirty && <span className="btn__dot" aria-hidden="true" />}
+              </IconButton>
             </>
           )}
         </div>
@@ -463,7 +464,7 @@ function Editor() {
               <div><dt>Collegamenti in mappa</dt><dd>{view.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}</dd></div>
             </dl>
             <div className="map-panel__actions">
-              <Link className="btn btn--sm btn--primary" to={`/devices/${selectedNode.id}`}>Apri scheda del device</Link>
+              <IconLink icon="open" label="Apri scheda del device" small className="btn--primary" to={`/devices/${selectedNode.id}`} />
               {canEdit && selectedNode.primary_ip && (
                 <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : 'Controlla ora (ping e SNMP)'} small
                   className={checking ? 'is-spinning' : ''} disabled={checking} onClick={() => checkNow(selectedNode.id)} />

@@ -5,7 +5,7 @@ import { useAuth } from '../auth'
 import { Badge, ErrorBox, LiveStatus, Loading, Mono } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
-import { IconButton } from '../components/Icon'
+import { IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
@@ -169,16 +169,16 @@ export default function DevicePage() {
           </h2>
           <div className="page-head__actions">
             {ports?.some((p) => p.endpoints > 0) && (
-              <Link className="btn btn--sm" to={`/where?device_id=${device.id}`}>Endpoint collegati</Link>
+              <IconLink icon="search" label="Endpoint collegati (dov'è collegato)" small to={`/where?device_id=${device.id}`} />
             )}
-            {canEdit && <button type="button" className="btn btn--sm" onClick={() => setDialog({ kind: 'bulk' })}>Aggiungi in blocco</button>}
-            {canEdit && <button type="button" className="btn btn--sm btn--primary" onClick={() => setDialog({ kind: 'port' })}>Aggiungi porta</button>}
+            {canEdit && <IconButton icon="plusMany" label="Aggiungi porte in blocco (es. Gi1/0/[1-48])" small onClick={() => setDialog({ kind: 'bulk' })} />}
+            {canEdit && <IconButton icon="plus" label="Aggiungi porta" small className="btn--primary" onClick={() => setDialog({ kind: 'port' })} />}
           </div>
         </header>
         <ErrorBox error={portsError} />
         {ports && ports.length === 0 && (
           <div className="empty">
-            <p>Nessuna porta. Per uno switch usa "Aggiungi in blocco" con un intervallo come Gi1/0/[1-48].</p>
+            <p>Nessuna porta. Per uno switch aggiungile in blocco (il pulsante con i due quadrati qui sopra) con un intervallo come Gi1/0/[1-48].</p>
           </div>
         )}
         {ports && ports.length > 0 && (
