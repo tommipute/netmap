@@ -1,7 +1,6 @@
 """Servizio di import ed export per i device e le relative informazioni."""
 import csv
 import io
-import ipaddress
 import json
 from typing import Any
 
@@ -10,7 +9,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.net import normalize_ip_interface
 from app.models import (
     Device,
     DeviceRole,
@@ -22,8 +20,8 @@ from app.models import (
     Rack,
     Site,
 )
-from app.models.enums import DeviceStatus, InterfaceType
-from app.services.rules import device_hook, ip_hook
+from app.models.enums import DeviceStatus
+from app.services.rules import device_hook, set_management_ip
 
 # Mappatura sinonimi/alias per le intestazioni CSV (italiano e inglese)
 HEADER_ALIASES: dict[str, list[str]] = {
@@ -294,9 +292,6 @@ STATUS_ALIASES = {
     "spento": DeviceStatus.OFFLINE.value,
     "dismesso": DeviceStatus.DECOMMISSIONED.value,
 }
-MGMT_NAMES = ["mgmt", "management", "eth0"]
-
-
 class RowError(Exception):
     """Errore di una singola riga: la riga viene saltata, le altre proseguono."""
 
@@ -438,56 +433,6 @@ def _parse_rack_position(value: str) -> int | None:
     return int(value)
 
 
-def _assign_primary_ip(db: Session, device: Device, value: str) -> None:
-    try:
-        address = normalize_ip_interface(value)
-    except ValueError as exc:
-        raise RowError(str(exc)) from exc
-    host = str(ipaddress.ip_interface(address).ip)
-
-    # L'import non ha la colonna VRF: gli IP stanno nella tabella globale
-    ip_obj = db.scalars(select(IPAddress).where(IPAddress.host == host, IPAddress.vrf_id.is_(None))).first()
-    if ip_obj is not None and ip_obj.interface is not None and ip_obj.interface.device_id != device.id:
-        raise RowError(f"L'IP {host} è già assegnato a {ip_obj.interface.device.name} {ip_obj.interface.name}")
-
-    if ip_obj is not None and ip_obj.interface is not None:
-        iface = ip_obj.interface  # già su questo device: resta sulla sua porta
-    else:
-        # Porta dell'IP primario attuale, altrimenti una porta di management, altrimenti ne creo una
-        iface = db.scalars(
-            select(Interface)
-            .join(IPAddress, IPAddress.interface_id == Interface.id)
-            .where(Interface.device_id == device.id, IPAddress.is_primary.is_(True))
-        ).first() or db.scalars(
-            select(Interface)
-            .where(
-                Interface.device_id == device.id,
-                or_(Interface.mgmt_only.is_(True), func.lower(Interface.name).in_(MGMT_NAMES)),
-            )
-            .order_by(Interface.mgmt_only.desc(), Interface.id)
-        ).first()
-        if iface is None:
-            iface = Interface(
-                device_id=device.id,
-                name="mgmt",
-                type=InterfaceType.COPPER.value,
-                mgmt_only=True,
-                description="Porta di management creata dall'import",
-            )
-            db.add(iface)
-            db.flush()
-
-    if ip_obj is None:
-        ip_obj = IPAddress(address=address, interface_id=iface.id, is_primary=True)
-        db.add(ip_obj)
-    else:
-        ip_obj.address = address
-        ip_obj.interface_id = iface.id
-        ip_obj.is_primary = True
-    db.flush()
-    ip_hook(db, ip_obj, {}, False)  # toglie il flag "primario" agli altri IP del device
-
-
 def _import_row(db: Session, row: dict[str, str], update_existing: bool) -> str:
     """Crea o aggiorna il device di una riga. Ritorna 'created', 'updated' o 'skipped'."""
     name = _text(row, "name", "Nome")
@@ -543,7 +488,7 @@ def _import_row(db: Session, row: dict[str, str], update_existing: bool) -> str:
 
     ip_value = row.get("primary_ip", "").strip()
     if ip_value:
-        _assign_primary_ip(db, device, ip_value)
+        set_management_ip(db, device, ip_value)
     return outcome
 
 

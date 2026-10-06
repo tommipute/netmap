@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
-import { invalidate } from '../hooks'
+import { invalidate, useApi } from '../hooks'
 import { resources } from '../resources'
 import InterfacePicker from './InterfacePicker'
 import KeyValueEditor from './KeyValueEditor'
@@ -118,6 +118,26 @@ function FieldControl({ field, value, values, fields, onChange, disabled, editin
   }
 }
 
+/**
+ * Casella sì/no. Con field.lockedBy = { url(values), reason(dati, values, item) } la casella si blocca
+ * (spenta) quando reason restituisce un testo, che compare come spiegazione: es. un solo IP di management.
+ */
+function BoolField({ field, value, values, item, onChange }) {
+  const url = field.lockedBy?.url(values) ?? null
+  const { data } = useApi(url)
+  const reason = url && data ? field.lockedBy.reason(data, values, item) : null
+  return (
+    <div className="field field--wide">
+      <label className={`check${reason ? ' check--locked' : ''}`}>
+        <input type="checkbox" checked={Boolean(value) && !reason} disabled={Boolean(reason)}
+          onChange={(e) => onChange(e.target.checked)} />
+        {field.label}
+      </label>
+      {reason ? <span className="hint">{reason}</span> : field.help && <span className="hint">{field.help}</span>}
+    </div>
+  )
+}
+
 /** Modulo di creazione/modifica generato dalla configurazione in resources.jsx */
 export default function ResourceForm({ resourceKey, item = null, preset = {}, onClose, onSaved }) {
   const config = resources[resourceKey]
@@ -172,15 +192,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
             const disabled = isEdit && f.createOnly
             const wide = WIDE_TYPES.has(f.type)
             if (f.type === 'bool') {
-              return (
-                <div key={f.name} className="field field--wide">
-                  <label className="check">
-                    <input type="checkbox" checked={Boolean(values[f.name])} onChange={(e) => setValue(f.name, e.target.checked)} />
-                    {f.label}
-                  </label>
-                  {f.help && <span className="hint">{f.help}</span>}
-                </div>
-              )
+              return <BoolField key={f.name} field={f} value={values[f.name]} values={values} item={item} onChange={(v) => setValue(f.name, v)} />
             }
             const labelIsElement = !['interface', 'refmulti', 'kv'].includes(f.type)
             const Label = labelIsElement ? 'label' : 'span'

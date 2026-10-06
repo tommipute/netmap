@@ -167,6 +167,11 @@ class Interface(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     def device_name(self) -> str | None:
         return self.device.name if self.device else None
 
+    @property
+    def device_management_ip(self) -> str | None:
+        """IP di management del device di questa porta (ce n'è uno solo per device)."""
+        return self.device.management_ip if self.device else None
+
 
 class Cable(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     """Collegamento fisico tra due interfacce. La mappa di rete è costruita da qui."""

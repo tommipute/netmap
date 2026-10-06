@@ -153,6 +153,11 @@ class DeviceBase(InputSchema):
     sys_descr: str | None = None
     description: str | None = None
     custom_fields: dict[str, Any] = Field(default_factory=dict)
+    management_ip: str | None = Field(
+        None,
+        description="IP di management con maschera (es. 10.10.99.55/24): va sulla porta di management, "
+        "creata se manca. Vuoto = il device non ha più un IP di management (l'IP resta sulla sua porta)",
+    )
 
 
 class DeviceCreate(DeviceBase):
@@ -197,6 +202,7 @@ InterfaceUpdate = make_partial(InterfaceBase, "InterfaceUpdate")
 
 class InterfaceRead(InterfaceCreate, DiscoveryRead, ReadSchema):
     device_name: str | None = None
+    device_management_ip: str | None = None  # per bloccare nel modulo un secondo IP di management
     if_index: int | None = None
     oper_status: str | None = None
 

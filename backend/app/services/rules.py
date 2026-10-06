@@ -2,10 +2,13 @@
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+import ipaddress
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import hash_password
+from app.core.net import normalize_ip_interface
 from app.core.secrets import SecretError, encrypt
 from app.models import VLAN, Cable, Device, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, User
 from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole
@@ -45,6 +48,84 @@ def device_hook(db: Session, device: Device, data: dict[str, Any], is_create: bo
         _fail("La posizione appartiene a un'altra sede")
     if device.rack_id is not None and db.get(Rack, device.rack_id).site_id != device.site_id:
         _fail("Il rack appartiene a un'altra sede")
+    # Campo "IP di management" del modulo: assente = invariato, vuoto = il device non ne ha più uno
+    if "management_ip" in data:
+        db.flush()  # un device nuovo deve avere l'id prima di creargli la porta
+        set_management_ip(db, device, (data["management_ip"] or "").strip())
+
+
+# ---------------------------------------------------------------- IP di management (uno per device)
+MGMT_NAMES = ["mgmt", "management", "eth0"]
+
+
+def _management_ips(db: Session, device_id: int):
+    return (
+        select(IPAddress)
+        .join(Interface, IPAddress.interface_id == Interface.id)
+        .where(Interface.device_id == device_id, IPAddress.is_primary.is_(True))
+    )
+
+
+def set_management_ip(db: Session, device: Device, value: str) -> None:
+    """Imposta l'IP di management di un device (modulo del device e import CSV).
+
+    L'IP resta sulla sua porta se è già del device; altrimenti va sulla porta dell'IP di management attuale,
+    poi su una porta di management (mgmt_only o di nome mgmt/management/eth0), altrimenti se ne crea una "mgmt".
+    Valore vuoto: l'IP attuale resta sulla sua porta ma non è più quello di management.
+    """
+    current = db.scalars(_management_ips(db, device.id)).first()
+    if not value:
+        if current is not None:
+            current.is_primary = False
+        return
+    try:
+        address = normalize_ip_interface(value)
+    except ValueError as exc:
+        _fail(str(exc))
+    host = str(ipaddress.ip_interface(address).ip)
+    if current is not None and current.host == host:
+        current.address = address  # stesso IP (al massimo cambia la maschera): resta dov'è, VRF compresa
+        db.flush()
+        return
+
+    # Il modulo del device non ha la VRF: l'IP di management sta nella tabella globale
+    ip_obj = db.scalars(select(IPAddress).where(IPAddress.host == host, IPAddress.vrf_id.is_(None))).first()
+    if ip_obj is not None and ip_obj.interface is not None and ip_obj.interface.device_id != device.id:
+        _fail(f"L'IP {host} è già assegnato a {ip_obj.interface.device.name} {ip_obj.interface.name}")
+
+    if ip_obj is not None and ip_obj.interface is not None:
+        iface = ip_obj.interface  # già su questo device: resta sulla sua porta
+    else:
+        iface = (current.interface if current is not None else None) or db.scalars(
+            select(Interface)
+            .where(
+                Interface.device_id == device.id,
+                or_(Interface.mgmt_only.is_(True), func.lower(Interface.name).in_(MGMT_NAMES)),
+            )
+            .order_by(Interface.mgmt_only.desc(), Interface.id)
+        ).first()
+        if iface is None:
+            iface = Interface(
+                device_id=device.id,
+                name="mgmt",
+                type=InterfaceType.COPPER.value,
+                mgmt_only=True,
+                description="Porta di management creata da NetMap",
+            )
+            db.add(iface)
+            db.flush()
+
+    if current is not None and current is not ip_obj:
+        current.is_primary = False  # l'IP di management è uno solo: il vecchio resta, senza il flag
+    if ip_obj is None:
+        ip_obj = IPAddress(address=address, interface_id=iface.id, is_primary=True)
+        db.add(ip_obj)
+    else:
+        ip_obj.address = address
+        ip_obj.interface_id = iface.id
+        ip_obj.is_primary = True
+    db.flush()
+    ip_hook(db, ip_obj, {}, False)
 
 
 def interface_hook(db: Session, iface: Interface, data: dict[str, Any], is_create: bool) -> None:
@@ -121,18 +202,17 @@ def ip_hook(db: Session, ip: IPAddress, data: dict[str, Any], is_create: bool) -
     if ip.interface_id is None:
         ip.is_primary = False  # un IP non assegnato non può essere il primario di un device
     elif ip.is_primary:
-        # Un solo IP primario per device: gli altri perdono il flag
+        # Un solo IP di management per device: non lo si toglie di nascosto a un altro IP
         device_id = db.scalar(select(Interface.device_id).where(Interface.id == ip.interface_id))
-        others = (
-            select(IPAddress)
-            .select_from(IPAddress)
-            .join(Interface, IPAddress.interface_id == Interface.id)
-            .where(Interface.device_id == device_id, IPAddress.is_primary.is_(True))
-        )
+        others = _management_ips(db, device_id)
         if ip.id is not None:
             others = others.where(IPAddress.id != ip.id)
-        for other in db.scalars(others):
-            other.is_primary = False
+        existing = db.scalars(others).first()
+        if existing is not None:
+            _fail(
+                f"Il device ha già un IP di management ({existing.address}): ce n'è uno solo. "
+                "Cambialo dalla scheda del device, oppure togli prima il flag all'IP attuale"
+            )
 
 
 def map_hook(db: Session, network_map, data: dict[str, Any], is_create: bool) -> None:

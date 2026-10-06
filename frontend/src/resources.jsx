@@ -73,6 +73,12 @@ export const resources = {
       { name: 'rack_position', label: 'Unità nel rack (U)', type: 'number', showIf: (v) => !!v.rack_id, hiddenValue: null },
       { name: 'role_id', label: 'Ruolo', type: 'ref', ref: 'device-roles' },
       { name: 'device_type_id', label: 'Modello', type: 'ref', ref: 'device-types' },
+      {
+        name: 'management_ip',
+        label: 'IP di management',
+        placeholder: '10.10.99.55/24',
+        help: "Quello per SSH, web e SNMP. Va sulla porta di management (se manca si crea \"mgmt\"). Vuoto: nessuno.",
+      },
       { name: 'serial', label: 'Numero di serie' },
       { name: 'asset_tag', label: 'Asset tag' },
       description,
@@ -359,6 +365,14 @@ export const resources = {
         type: 'bool',
         showIf: (v) => !!v.interface_id,
         hiddenValue: false,
+        // Uno solo per device: se il device ne ha già un altro la casella è bloccata
+        lockedBy: {
+          url: (v) => (v.interface_id ? `/interfaces/${v.interface_id}` : null),
+          reason: (iface, v, item) =>
+            iface.device_management_ip && !(item?.is_primary && item.interface_id === Number(v.interface_id))
+              ? `${iface.device_name} ha già l'IP di management ${iface.device_management_ip}: ce n'è uno solo per device. Per cambiarlo usa il campo nella scheda del device.`
+              : null,
+        },
       },
       { name: 'dns_name', label: 'Nome DNS' },
       { name: 'vrf_id', label: 'VRF', type: 'ref', ref: 'vrfs', emptyLabel: 'Globale' },

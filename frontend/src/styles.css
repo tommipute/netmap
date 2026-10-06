@@ -157,6 +157,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.check--locked { color: var(--muted); cursor: not-allowed; }
 .check--inline { font-size: 13px; }
 
 .badge {

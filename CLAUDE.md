@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (36 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (39 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -92,8 +92,13 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
   `source` (`manual`/`snmp`) e `last_seen_at`, usati dalla scansione: non toglierli.
 - **IP**: `address` con maschera (`10.0.0.5/24`), `host` senza, `sort_key` binaria (versione + 16 byte) per ordinare
   correttamente e cercare per intervallo (`between`) sia su Postgres che su SQLite.
-- **IP primario**: niente FK `devices.primary_ip_id` (creava un ciclo di FK). C'è `IPAddress.is_primary`;
-  l'hook garantisce un solo primario per device togliendo il flag agli altri.
+- **IP di management** (= primario): niente FK `devices.primary_ip_id` (creava un ciclo di FK). C'è
+  `IPAddress.is_primary`, **uno solo per device**: `ip_hook` rifiuta (422) un secondo flag invece di spostarlo.
+  Si cambia dal campo `management_ip` del device (input non colonna; assente = invariato, vuoto = nessuno):
+  `rules.set_management_ip`, usata anche dall'import CSV, mette l'IP sulla porta di quello attuale, poi su una
+  porta di management, altrimenti crea "mgmt"; il vecchio IP resta senza flag. In lettura `Device.management_ip`
+  è una `column_property` (definita in `models/__init__.py`) e le interfacce espongono `device_management_ip`,
+  che nel modulo degli IP blocca la casella (`lockedBy` dei campi bool in ResourceForm).
 - **Unicità con NULL** (VLAN globale, VRF globale): Postgres considera i NULL diversi, quindi i controlli sono negli hook.
 - **Eliminazioni**: sede/ruolo/modello/VRF in uso → RESTRICT (l'API risponde 409). Device → porte → cavi in CASCADE.
   IP di una porta eliminata → `interface_id` NULL. Mappe di una sede eliminata → CASCADE.
