@@ -71,6 +71,29 @@ vedi cosa succederebbe senza scrivere niente; le righe sbagliate vengono elencat
 La chiave che cifra le credenziali sta in `SECRETS_KEY` (file `.env`) oppure, se è vuota, in `backend/.secrets_key`
 creato al primo uso: non cancellarlo, altrimenti i profili SNMP vanno reinseriti.
 
+### Rete di laboratorio (apparati finti)
+
+Per provare scansione, cavi trovati da soli, "Dov'è collegato?" e stato live senza toccare la rete vera:
+
+```powershell
+docker compose --profile lab up -d                  # 5 apparati finti nella rete 172.31.250.0/24
+docker compose exec api python -m app.lab prepara   # sede, profilo SNMP, scansione e mappa "Laboratorio"
+docker compose exec api python -m app.lab elenco    # apparati e IP
+```
+
+| Apparato | IP | Cosa simula |
+|---|---|---|
+| fw-lab-01 | 172.31.250.10 | FortiGate 100F, collegato al core (LLDP) |
+| core-lab-01 | 172.31.250.11 | Catalyst 9300, VLAN 10/20/99, tabella ARP di PC, telefono, stampante, AP |
+| sw-lab-p1 | 172.31.250.21 | HPE 2930F: due PC e una stampante |
+| sw-lab-p2 | 172.31.250.22 | HPE 2930F: telefono IP con un PC dietro (due MAC sulla stessa porta) |
+| sw-lab-p3 | 172.31.250.23 | Catalyst 1000 visto solo via CDP: un PC e un access point con tre client Wi-Fi |
+
+Poi in NetMap: **Scansioni → Laboratorio di rete → Avvia scansione**, approva i 5 device, scansiona di nuovo e
+approva i 4 cavi. Un guasto si simula fermando un apparato (`docker compose stop lab-sw-p3`, oppure Stop in
+Docker Desktop): entro un minuto risulta "Non risponde". `docker compose start lab-sw-p3` lo riaccende.
+Senza `--profile lab` gli apparati non partono; per spegnerli tutti: `docker compose --profile lab stop`.
+
 ## Test del backend
 
 ```powershell

@@ -1,5 +1,16 @@
 name: netmap
 
+# Rete di laboratorio (backend/app/lab): apparati finti che rispondono a SNMP e ping.
+# Partono solo con: docker compose --profile lab up -d   (poi: docker compose exec api python -m app.lab prepara)
+# Per simulare un guasto basta fermarne uno: docker compose stop lab-sw-p3
+x-lab-device: &lab-device
+  image: netmap-worker      # stessa immagine del worker (ha snmpsim): niente build in più
+  pull_policy: never
+  profiles: ["lab"]
+  restart: unless-stopped
+  volumes:
+    - ./backend:/app
+
 services:
   db:
     image: postgres:16
@@ -21,6 +32,7 @@ services:
 
   api:
     build: ./backend
+    networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -42,6 +54,7 @@ services:
   # Esegue le scansioni SNMP in coda (stessa immagine dell'API, comando diverso)
   worker:
     build: ./backend
+    networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
     # watchfiles riavvia il worker quando cambia il codice (come --reload per l'API)
     command: watchfiles --filter python "python -m app.worker" app
@@ -61,6 +74,7 @@ services:
   # Stato live: ping e SNMP periodici sui device con IP di management (stessa immagine dell'API)
   monitor:
     build: ./backend
+    networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
     command: watchfiles --filter python "python -m app.monitor" app
     environment:
@@ -93,6 +107,35 @@ services:
     volumes:
       - ./frontend:/app
       - web_node_modules:/app/node_modules
+
+  lab-fw:
+    <<: *lab-device
+    command: python -m app.lab agent fw-lab-01
+    networks: { lab: { ipv4_address: 172.31.250.10 } }
+  lab-core:
+    <<: *lab-device
+    command: python -m app.lab agent core-lab-01
+    networks: { lab: { ipv4_address: 172.31.250.11 } }
+  lab-sw-p1:
+    <<: *lab-device
+    command: python -m app.lab agent sw-lab-p1
+    networks: { lab: { ipv4_address: 172.31.250.21 } }
+  lab-sw-p2:
+    <<: *lab-device
+    command: python -m app.lab agent sw-lab-p2
+    networks: { lab: { ipv4_address: 172.31.250.22 } }
+  lab-sw-p3:
+    <<: *lab-device
+    command: python -m app.lab agent sw-lab-p3
+    networks: { lab: { ipv4_address: 172.31.250.23 } }
+
+networks:
+  default: {}
+  lab:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+          ip_range: 172.31.250.128/25   # indirizzi automatici (api, worker, monitor) lontani dagli apparati
 
 volumes:
   pgdata:

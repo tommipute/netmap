@@ -170,6 +170,13 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   `test_discovery.py` usa un collector finto; `test_snmp_collect.py` avvia snmpsim su 127.0.0.1/.2:11161
   (snmpsim non gira come root: `--process-user=nobody` e dati in una cartella leggibile; gli serve `pysmi`;
   in SNMPv3 sceglie i dati dal context name, quindi nel test `context="public"`).
+- **Rete di laboratorio** (`app/lab/`, profilo compose `lab`): un container per apparato (`lab-fw`, `lab-core`,
+  `lab-sw-p1..p3`, stessa immagine del worker) con IP fisso in 172.31.250.0/24; ognuno esegue
+  `python -m app.lab agent <nome>` = snmpsim su 0.0.0.0:161, community `public`, e risponde al ping.
+  Dati in `app/lab/devices.py` (stesso formato di `tests/snmp_devices.py`; il generatore `.snmprec` è
+  `app/lab/snmprec.py`). api, worker e monitor sono anche sulla rete `lab`. `python -m app.lab prepara` crea sede,
+  profilo, scansione (172.31.250.10-30, .1 è il gateway) e mappa. Verificato: lettura identica ai dati, 5 device,
+  4 cavi (anche da CDP), endpoint con VLAN, guasto simulato con `docker compose stop lab-sw-p3`.
 - Prova dal vivo: nel DB c'è la sede "Laboratorio SNMP (simulato)" con profilo, job e mappa di prova; i due switch
   simulati si avviano nel container worker (snmpsim su 127.0.0.1/.2:11161) e si fermano al riavvio del container.
 
