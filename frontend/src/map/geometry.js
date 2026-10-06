@@ -3,10 +3,10 @@
  * delle porte devono conoscere quelle degli altri cavi per non sovrapporsi.
  *
  * 1. punti di attacco (anchors.js), 2. percorso di ogni cavo (routing.js, oppure linea dritta),
- * 3. etichette: una alla volta, dai cavi più corti (hanno meno posto), ognuna nel primo punto libero lungo il
- *    proprio cavo, fuori dal tratto che il cavo condivide con altri (lì non si capirebbe di chi è).
- *    Se le due porte non stanno separate provo un'etichetta unica "Gi1/0/1 – 49"; se non sta nemmeno quella,
- *    il nome resta visibile solo cliccando il cavo.
+ * 3. etichette: una per cavo, "Gi1/0/1 – 49" (porta di partenza – porta di arrivo), una alla volta dai cavi più
+ *    corti (hanno meno posto): dal centro del cavo verso le estremità, sulla linea o appena accanto, prima fuori
+ *    dal tratto che il cavo condivide con altri. Non si sovrappone a device e altre etichette; se non c'è nessun
+ *    posto libero si accetta di toccare un'altra etichetta, mai un device (sotto un device non si leggerebbe).
  */
 import { OUTWARD, assignAnchors, rectOf } from './anchors'
 import { MARGIN, STUB, routeOrthogonal } from './routing'
@@ -93,12 +93,29 @@ function boxAt(point, text) {
 }
 const hit = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t
 
-/** Primo punto libero lungo il percorso (dall'inizio), tra le distanze from e to. */
-function findSpot(points, text, from, to, isFree) {
-  for (let d = from; d <= to; d += LABEL_STEP) {
-    const point = pointAt(points, d)
-    const box = boxAt(point, text)
-    if (isFree(box)) return { point, box }
+/**
+ * Posto libero per l'etichetta tra le distanze lo e hi lungo il percorso, partendo da start (il centro) e
+ * allontanandosi: prima sulla linea, poi appena accanto (sopra/sotto un tratto orizzontale, a lato di uno verticale).
+ */
+function findLabelSpot(points, text, start, lo, hi, isFree) {
+  if (hi < lo) return null
+  const width = labelWidth(text)
+  for (let k = 0; start - k * LABEL_STEP >= lo || start + k * LABEL_STEP <= hi; k++) {
+    for (const d of k ? [start + k * LABEL_STEP, start - k * LABEL_STEP] : [Math.min(hi, Math.max(lo, start))]) {
+      if (d < lo || d > hi) continue
+      const point = pointAt(points, d)
+      const ahead = pointAt(points, Math.min(d + 1, lengthOf(points)))
+      const horizontal = Math.abs(ahead.x - point.x) >= Math.abs(ahead.y - point.y)
+      // Sulla linea, poi sempre più lontano ai due lati (tra due device vicini l'etichetta sale sopra di loro)
+      const unit = horizontal ? { x: 0, y: 1 } : { x: 1, y: 0 }
+      const first = horizontal ? LABEL_H / 2 + 3 : width / 2 + 3
+      const offsets = [0, ...[0, 1, 2, 3, 4, 5].flatMap((i) => [-(first + i * 10), first + i * 10])]
+      for (const offset of offsets) {
+        const candidate = { x: point.x + unit.x * offset, y: point.y + unit.y * offset }
+        const box = boxAt(candidate, text)
+        if (isFree(box)) return { point: candidate, box }
+      }
+    }
   }
   return null
 }
@@ -174,44 +191,28 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
     const width = (String(bubble.data.name).length + 5) * 7 + 12
     placed.push({ l: bubble.position.x + 8, r: bubble.position.x + 8 + width, t: bottom - 24, b: bottom - 2 })
   }
+  const deviceBoxes = placed.length
   const isFree = (box) => !placed.some((p) => hit(p, box))
+  const clearOfDevices = (box) => !placed.slice(0, deviceBoxes).some((p) => hit(p, box))
   const order = edges
     .filter((e) => result[e.id] && e.data?.sourceLabel && e.data?.targetLabel)
     .sort((a, b) => lengthOf(result[a.id].points) - lengthOf(result[b.id].points))
   for (const e of order) {
     const { points } = result[e.id]
+    const text = `${e.data.sourceLabel} – ${e.data.targetLabel}`
     const total = lengthOf(points)
     const shared = sharedFrom[e.id] || {}
-    const startS = (shared.source || 0) + LABEL_FROM_END
-    const startT = (shared.target || 0) + LABEL_FROM_END
     const half = total / 2
-    // Le due porte separate, ognuna dalla parte del suo device (al massimo fino a metà cavo)
-    const s = findSpot(points, e.data.sourceLabel, startS, Math.max(startS, half), isFree)
-    if (s) placed.push(s.box)
-    const t = s && findSpot(reversed(points), e.data.targetLabel, startT, Math.max(startT, half), isFree)
-    if (s && t) {
-      placed.push(t.box)
-      result[e.id].labels = [{ ...s.point, text: e.data.sourceLabel }, { ...t.point, text: e.data.targetLabel }]
-      continue
-    }
-    if (s) placed.pop()
-    // Etichetta unica, nella parte non condivisa, partendo dal centro
-    const text = `${e.data.sourceLabel} – ${e.data.targetLabel}`
-    const lo = startS
-    const hi = total - startT
-    let spot = null
-    for (let k = 0; !spot && (half - k * LABEL_STEP >= lo || half + k * LABEL_STEP <= hi); k++) {
-      for (const d of [half + k * LABEL_STEP, half - k * LABEL_STEP]) {
-        if (spot || d < lo || d > hi) continue
-        const point = pointAt(points, d)
-        const box = boxAt(point, text)
-        if (isFree(box)) spot = { point, box }
-      }
-    }
-    if (spot) {
-      placed.push(spot.box)
-      result[e.id].labels = [{ ...spot.point, text }]
-    }
+    // Prima nella parte che il cavo non condivide con altri (lì si capisce di chi è), poi ovunque sul cavo
+    const spot =
+      findLabelSpot(points, text, half, (shared.source || 0) + LABEL_FROM_END, total - (shared.target || 0) - LABEL_FROM_END, isFree) ||
+      findLabelSpot(points, text, half, LABEL_FROM_END, total - LABEL_FROM_END, isFree)
+    // Mai nascosta: senza un posto libero almeno fuori dai device (sotto un device non si leggerebbe),
+    // altrimenti a metà cavo
+    const fallback = spot || findLabelSpot(points, text, half, LABEL_FROM_END, total - LABEL_FROM_END, clearOfDevices)
+    const point = fallback ? fallback.point : pointAt(points, half)
+    placed.push(fallback ? fallback.box : boxAt(point, text))
+    result[e.id].labels = [{ ...point, text }]
   }
   return result
 }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Logo NetMap: due porte collegate da un cavo, come nella barra laterale -->
+  <rect width="32" height="32" rx="7" fill="#0f2a2e"/>
+  <path d="M10 16h12" stroke="#2bbdc6" stroke-width="3" stroke-linecap="round"/>
+  <rect x="4" y="11" width="10" height="10" rx="2" fill="#0f2a2e" stroke="#2bbdc6" stroke-width="3"/>
+  <rect x="18" y="11" width="10" height="10" rx="2" fill="#0f2a2e" stroke="#2bbdc6" stroke-width="3"/>
+</svg>

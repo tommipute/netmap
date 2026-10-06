@@ -199,25 +199,27 @@ export default function ResourcePage({ resourceKey }) {
             }}
           />
         ))}
-        {data && <span className="toolbar__count">{data.total === 1 ? '1 elemento' : `${data.total} elementi`}</span>}
+        {/* Con una selezione, al posto del conteggio compaiono le azioni: la tabella non si sposta */}
+        {canEdit && selected.size > 0 ? (
+          <div className="toolbar__count bulk-actions" role="region" aria-label="Elementi selezionati">
+            <strong>{selected.size === 1 ? '1 selezionato' : `${selected.size} selezionati`}</strong>
+            {bulkBusy ? (
+              <span className="muted">{bulkBusy}</span>
+            ) : (
+              <>
+                {config.bulkFields && (
+                  <IconButton icon="edit" label="Modifica i selezionati" small onClick={() => setBulkEditing(true)} />
+                )}
+                <IconButton icon="trash" label="Elimina i selezionati" small danger onClick={removeSelected} />
+                <IconButton icon="close" label="Togli la selezione" small className="btn--ghost" onClick={() => toggleAll(false)} />
+              </>
+            )}
+          </div>
+        ) : (
+          data && <span className="toolbar__count">{data.total === 1 ? '1 elemento' : `${data.total} elementi`}</span>
+        )}
       </div>
 
-      {canEdit && selected.size > 0 && (
-        <div className="bulk-bar" role="region" aria-label="Elementi selezionati">
-          <strong>{selected.size === 1 ? '1 selezionato' : `${selected.size} selezionati`}</strong>
-          {bulkBusy ? (
-            <span className="muted">{bulkBusy}</span>
-          ) : (
-            <>
-              {config.bulkFields && (
-                <IconButton icon="edit" label="Modifica i selezionati" small onClick={() => setBulkEditing(true)} />
-              )}
-              <IconButton icon="trash" label="Elimina i selezionati" small danger onClick={removeSelected} />
-              <IconButton icon="close" label="Togli la selezione" small className="btn--ghost" onClick={() => toggleAll(false)} />
-            </>
-          )}
-        </div>
-      )}
       {bulkResult && (
         <div className={`notice${bulkResult.failed.length ? ' notice--warn' : ''}`} role="status">
           {bulkResult.done === 1 ? '1 elemento' : `${bulkResult.done} elementi`} {bulkResult.verb}.

@@ -220,7 +220,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   `showIf(values)` + `hiddenValue` (valore inviato quando il campo è nascosto), `freeOnly` (solo porte libere),
   `ordered` (refmulti con numero d'ordine), `savedHint(item)` (segnaposto dei campi `secret` già salvati).
   `NAV` accetta chiavi di risorse oppure pagine speciali `{ to, title, badge }`.
-- Elenchi (`ResourcePage`): selezione multipla con eliminazione in blocco; modifica in blocco se la risorsa ha
+- Elenchi (`ResourcePage`): selezione multipla (le azioni prendono il posto del conteggio nella riga dei filtri,
+  così la tabella non si sposta) con eliminazione in blocco; modifica in blocco se la risorsa ha
   `bulkFields` (`components/BulkEditDialog.jsx`, una PATCH per elemento, riusa `FieldControl` del modulo).
 - `components/ResourceForm.jsx`: in creazione non invia i `null` (valgono i default del backend),
   in modifica li invia per svuotare i campi; un `secret` vuoto in modifica non viene inviato.
@@ -247,9 +248,10 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   hanno punti separati). Ad angolo (predefinito) con `map/routing.js`: A* su griglia, **mai sotto un device né
   dentro la bolla di un altro rack**, riga orizzontale preferita 28 px sopra il device di arrivo; tratti di
   uscita/entrata più corti tra device vicini. Oppure dritti (scelta in localStorage).
-  **Nomi delle porte mai sovrapposti**: piazzati uno alla volta (prima i cavi corti), ognuno vicino al suo device
-  fuori dal tratto condiviso; se non c'è posto un'etichetta unica "porta – porta", altrimenti niente (si vede
-  cliccando il cavo). Ostacoli per le etichette: device, altre etichette, nome del rack nella bolla.
+  **Nomi delle porte**: un'etichetta per cavo "porta – porta", sempre visibile. Piazzate una alla volta (prima i
+  cavi corti) dal centro del cavo verso le estremità, sulla linea o spostate ai lati fino a ~60 px, prima fuori dal
+  tratto condiviso; ostacoli: device, altre etichette, nome del rack nella bolla. Senza posto libero può toccare
+  un'altra etichetta, mai un device (verrebbe coperta).
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   I pallini (4, per collegare trascinando) si vedono solo passando sopra il device o se è selezionato.
   I cavi partono dal device di livello più alto; colore per tipo (`map/cables.js`), spessore per velocità ≥10G,

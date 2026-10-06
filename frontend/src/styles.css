@@ -446,11 +446,8 @@ textarea.input { resize: vertical; min-height: 72px; }
 .table__select { width: 1%; padding-right: 0; }
 .table__select input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }
 .table tr.is-selected td { background: var(--accent-soft); }
-.bulk-bar {
-  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
-  padding: 8px 12px; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius);
-}
-.bulk-bar strong { margin-right: 8px; font-weight: 600; }
+.bulk-actions { display: inline-flex; align-items: center; gap: 6px; }
+.bulk-actions strong { margin-right: 4px; font-weight: 600; color: var(--accent); white-space: nowrap; }
 .notice { position: relative; }
 .notice__close { position: absolute; top: 4px; right: 4px; }
 .bulk-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
