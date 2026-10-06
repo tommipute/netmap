@@ -414,6 +414,24 @@ textarea.input { resize: vertical; min-height: 72px; }
 .map-live { display: inline-flex; align-items: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .map-live--down { color: var(--danger); font-weight: 500; }
 
+/* ---------- Bolle dei rack in mappa ---------- */
+.react-flow__node-rack { pointer-events: none !important; }
+.rack-bubble {
+  width: 100%; height: 100%; position: relative; border-radius: 14px;
+  border: 1.5px dashed var(--line-strong); background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.rack-bubble__label {
+  pointer-events: all; position: absolute; left: 10px; bottom: 5px; max-width: calc(50% - 16px);
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: none; border: 0; padding: 2px 4px;
+  border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rack-bubble__label::before { content: 'Rack '; font-weight: 400; }
+.rack-bubble__label:hover { color: var(--ink); background: var(--surface); }
+.map-legend__rack {
+  display: inline-block; width: 18px; height: 11px; margin-right: 6px; vertical-align: middle; border-radius: 4px;
+  border: 1.5px dashed var(--line-strong); background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
 /* ---------- Dov'è collegato ---------- */
 .toolbar__search--wide { width: 420px; max-width: 100%; }
 .answer {

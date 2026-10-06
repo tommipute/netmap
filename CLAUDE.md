@@ -215,16 +215,23 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   mentre una scansione è in corso), `ChangesPage` (Da approvare, raggruppata per device; filtri in query string
   `status`, `job_id`, `device_id`).
 - **Mappa** (`pages/MapEditor.jsx`, `map/`): posizione = quella corrente > quella salvata > calcolata.
-  Se nessun device ha una posizione salvata parte la disposizione gerarchica (`map/layout.js`: una riga per
-  `DeviceRole.level`, ordinamento per baricentro dei vicini, massimo 8 per riga; una fila che va a capo lascia un
-  corridoio libero sotto i device sopra, dove scendono i cavi). I device nuovi finiscono in fila sotto.
+  Se nessun device ha una posizione salvata parte la disposizione gerarchica (`map/layout.js`): i device dello
+  stesso rack formano un blocco, impilati per unità (la più alta in cima); un blocco per colonna, una riga per
+  `DeviceRole.level` del suo device più in alto, ordinamento per baricentro dei vicini, massimo 8 blocchi per riga;
+  una riga che va a capo lascia un corridoio libero sotto i device sopra. I device nuovi finiscono in fila sotto.
+  **Bolle dei rack** (`map/RackNode.jsx`, `rackBubbles()` in MapEditor): nodi `type: 'rack'` calcolati a ogni render
+  dai device con `rack_id` (non stanno nello stato `nodes`, quindi non si salvano), `zIndex: -1`, nome in basso
+  (in alto c'è la linea dei cavi). Clic sul nome = seleziona i device del rack per spostarli insieme.
   Spostamenti → `dirty` → "Salva disposizione". Aggiungere/togliere un device (mappe manuali) salva subito.
   Collegamento trascinando tra due device → `CableDialog` per scegliere le porte.
-  Cavi **ad angolo** (predefinito, `map/BusEdge.jsx`: giù dal device sopra, linea orizzontale appena sopra la fila
-  sotto, giù sul device; i cavi verso la stessa fila la condividono) oppure dritti: scelta nel browser (localStorage).
+  Cavi **ad angolo** (predefinito, `map/BusEdge.jsx` + `map/routing.js`): A* su una griglia fatta dai bordi dei
+  device; **non passano mai sotto un device né dentro la bolla di un altro rack**; il tratto orizzontale preferito
+  è 28 px sopra il device di arrivo, così i cavi verso la stessa fila si sovrappongono. Se non trova strada usa il
+  percorso semplice. Oppure cavi dritti: scelta nel browser (localStorage).
   I cavi partono dal device di livello più alto; colore per tipo (`map/cables.js`), spessore per velocità ≥10G,
   tratteggio se pianificati. `deleteKeyCode={null}`: niente cancellazioni accidentali da tastiera.
-  `fitView` parte quando `useNodesInitialized()` diventa vero (con un timer fisso non scattava a pagina nascosta).
+  `fitView` parte quando tutti i device hanno `measured` (con un timer fisso non scattava a pagina nascosta;
+  `useNodesInitialized()` non va bene perché le bolle dei rack hanno già le misure).
 
 ### Stile
 

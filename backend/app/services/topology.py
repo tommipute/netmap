@@ -36,9 +36,10 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
     if not device_ids:
         return []
     rows = db.execute(
-        select(Device, DeviceRole)
+        select(Device, DeviceRole, Rack.name)
         .select_from(Device)
         .outerjoin(DeviceRole, Device.role_id == DeviceRole.id)
+        .outerjoin(Rack, Device.rack_id == Rack.id)
         .where(Device.id.in_(device_ids))
         .order_by(Device.name)
     ).all()
@@ -65,8 +66,11 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
             "last_check_at": device.last_check_at,
             "reachable_changed_at": device.reachable_changed_at,
             "rtt_ms": device.rtt_ms,
+            "rack_id": device.rack_id,
+            "rack_name": rack_name,
+            "rack_position": device.rack_position,
         }
-        for device, role in rows
+        for device, role, rack_name in rows
     ]
 
 

@@ -208,3 +208,10 @@ def test_vista_frontale_del_rack(client):
     assert devices["router"]["u_height"] == 2 and devices["router"]["color"] == "#3366CC"
     assert devices["router"]["conflict"] and devices["switch"]["conflict"] and not devices["patch"]["conflict"]
     assert [d["name"] for d in view["unplaced"]] == ["da-sistemare"]
+
+    # In mappa ogni device porta con sé il suo rack, per disegnare la "bolla" del rack
+    create(client, "/devices", {"site_id": site["id"], "name": "fuori-rack"})
+    the_map = create(client, "/maps", {"name": "CED", "site_id": site["id"]})
+    nodes = {n["name"]: n for n in client.get(f"/api/maps/{the_map['id']}/view").json()["nodes"]}
+    assert (nodes["router"]["rack_id"], nodes["router"]["rack_name"], nodes["router"]["rack_position"]) == (rack["id"], "R01", 10)
+    assert nodes["fuori-rack"]["rack_id"] is None and nodes["fuori-rack"]["rack_name"] is None

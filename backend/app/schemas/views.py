@@ -36,6 +36,9 @@ class TopologyNode(BaseModel):
     last_check_at: datetime | None = None
     reachable_changed_at: datetime | None = None
     rtt_ms: float | None = None
+    rack_id: int | None = None             # per raggruppare in mappa i device dello stesso rack
+    rack_name: str | None = None
+    rack_position: int | None = None
 
 
 class TopologyEdge(BaseModel):

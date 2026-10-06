@@ -10,7 +10,6 @@ import {
   ReactFlow,
   ReactFlowProvider,
   getNodesBounds,
-  useNodesInitialized,
   useNodesState,
   useReactFlow,
 } from '@xyflow/react'
@@ -25,10 +24,11 @@ import { invalidate } from '../hooks'
 import BusEdge from '../map/BusEdge'
 import { cableStyle } from '../map/cables'
 import DeviceNode from '../map/DeviceNode'
+import RackNode from '../map/RackNode'
 import { X_GAP, Y_GAP, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 
-const nodeTypes = { device: DeviceNode }
+const nodeTypes = { device: DeviceNode, rack: RackNode }
 const edgeTypes = { bus: BusEdge }
 const EDGE_STYLE_KEY = 'netmap.map.edgeStyle'
 
@@ -89,6 +89,40 @@ function buildFlowNodes(view, previous) {
   }
 }
 
+// Margini della bolla di un rack attorno ai suoi device. In alto poco spazio, così la linea comune dei cavi
+// (28 px sopra i device, vedi BusEdge) resta fuori; in basso c'è il nome del rack.
+const RACK_PAD = { top: 10, side: 16, bottom: 30 }
+
+/** Bolle dei rack: rettangoli sotto i device dello stesso rack, ricalcolati a ogni spostamento. */
+function rackBubbles(nodes, onSelect) {
+  const groups = new Map()
+  for (const n of nodes) {
+    if (!n.data.rack_id || !n.measured?.width) continue
+    if (!groups.has(n.data.rack_id)) groups.set(n.data.rack_id, [])
+    groups.get(n.data.rack_id).push(n)
+  }
+  return [...groups.entries()].map(([rackId, members]) => {
+    const left = Math.min(...members.map((n) => n.position.x)) - RACK_PAD.side
+    const top = Math.min(...members.map((n) => n.position.y)) - RACK_PAD.top
+    const right = Math.max(...members.map((n) => n.position.x + n.measured.width)) + RACK_PAD.side
+    const bottom = Math.max(...members.map((n) => n.position.y + n.measured.height)) + RACK_PAD.bottom
+    const ids = members.map((n) => n.id)
+    return {
+      id: `rack-${rackId}`,
+      type: 'rack',
+      position: { x: left, y: top },
+      width: right - left,
+      height: bottom - top,
+      data: { name: members[0].data.rack_name, count: members.length, ids, onSelect: () => onSelect(ids) },
+      selectable: false,
+      draggable: false,
+      connectable: false,
+      focusable: false,
+      zIndex: -1,
+    }
+  })
+}
+
 function toFlowEdge(edge, levelOf, showLabels, selected, edgeType) {
   // Il cavo parte sempre dal device più in alto nella gerarchia
   const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
@@ -116,13 +150,14 @@ function toFlowEdge(edge, levelOf, showLabels, selected, edgeType) {
   }
 }
 
-function Legend({ edges, nodes }) {
+function Legend({ edges, nodes, racks }) {
   const types = [...new Set(edges.map((e) => e.type || ''))]
   const planned = edges.some((e) => e.status === 'planned')
   const live = nodes.some((n) => n.reachable !== null && n.reachable !== undefined)
-  if (types.length === 0 && !live) return null
+  if (types.length === 0 && !live && !racks) return null
   return (
     <div className="map-legend">
+      {racks && <span className="map-legend__item"><span className="map-legend__rack" />Rack</span>}
       {live && (
         <>
           <span className="map-legend__item"><span className="live-dot live-dot--up" />Risponde</span>
@@ -167,8 +202,9 @@ function Editor() {
   nodesRef.current = nodes
   const fitRef = useRef(fitView)
   fitRef.current = fitView
-  // fitView funziona solo dopo che React Flow ha misurato i nodi: lo chiedo e lo eseguo appena sono pronti
-  const nodesInitialized = useNodesInitialized()
+  // fitView funziona solo dopo che React Flow ha misurato i device: lo chiedo e lo eseguo appena sono pronti.
+  // Non uso useNodesInitialized: le bolle dei rack hanno già le misure e lo farebbero scattare troppo presto.
+  const devicesMeasured = nodes.length > 0 && nodes.every((n) => n.measured?.width)
   const fitPending = useRef(false)
 
   const load = useCallback(
@@ -197,11 +233,12 @@ function Editor() {
   }, [load])
 
   useEffect(() => {
-    if (nodesInitialized && fitPending.current) {
+    if (devicesMeasured && fitPending.current) {
       fitPending.current = false
-      fitRef.current({ padding: 0.25 })
+      // Al fotogramma dopo: nel frattempo compaiono le bolle dei rack, calcolate dai device appena misurati
+      requestAnimationFrame(() => fitRef.current({ padding: 0.25 }))
     }
-  }, [nodesInitialized])
+  }, [devicesMeasured])
 
   // Stato live: ricarico i dati dei device senza toccare le posizioni
   const connectingRef = useRef(connecting)
@@ -230,6 +267,16 @@ function Editor() {
       (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle)),
     [view, levelOf, showLabels, selection, edgeStyle],
   )
+
+  // Clic sul nome di un rack: seleziono i suoi device, trascinandone uno si spostano tutti
+  const selectRack = useCallback(
+    (ids) => {
+      setSelection(null)
+      setNodes((current) => current.map((n) => ({ ...n, selected: ids.includes(n.id) })))
+    },
+    [setNodes],
+  )
+  const displayNodes = useMemo(() => [...rackBubbles(nodes, selectRack), ...nodes], [nodes, selectRack])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -405,7 +452,7 @@ function Editor() {
 
       <div className="map-canvas">
         <ReactFlow
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
@@ -424,9 +471,9 @@ function Editor() {
         >
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable nodeColor={(n) => n.data.color} nodeStrokeWidth={2} />
+          <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
-            <Legend edges={view.edges} nodes={view.nodes} />
+            <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)} />
           </Panel>
           {canEdit && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">
