@@ -94,18 +94,19 @@ class Heap {
 
 /**
  * from/to: { x, y, side } punti di attacco sui bordi. rects: [{ x, y, width, height, margin? }] degli ostacoli.
- * preferY: riga preferita per i tratti orizzontali; stub: lunghezza dei tratti dritti alle estremità.
+ * preferY: riga preferita per i tratti orizzontali; stub (o stubFrom/stubTo): lunghezza dei tratti dritti alle
+ * estremità.
  * Restituisce i punti del percorso (angoli compresi) o null.
  */
-export function routeOrthogonal(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB } = {}) {
+export function routeOrthogonal(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubFrom = stub, stubTo = stub } = {}) {
   // Tutto a mezzo pixel: le coordinate dei bordi devono coincidere con le linee della griglia
   const from = { x: half(rawFrom.x), y: half(rawFrom.y) }
   const to = { x: half(rawTo.x), y: half(rawTo.y) }
   const preferY = Number.isFinite(rawPreferY) ? half(rawPreferY) : null
   const startDir = OUT_DIR[rawFrom.side] ?? 1
   const arriveDir = ((OUT_DIR[rawTo.side] ?? 3) + 2) & 3 // si entra nel lato andando verso l'interno
-  const start = { x: from.x + DX[startDir] * stub, y: from.y + DY[startDir] * stub }
-  const end = { x: to.x - DX[arriveDir] * stub, y: to.y - DY[arriveDir] * stub }
+  const start = { x: from.x + DX[startDir] * stubFrom, y: from.y + DY[startDir] * stubFrom }
+  const end = { x: to.x - DX[arriveDir] * stubTo, y: to.y - DY[arriveDir] * stubTo }
   const minX = Math.min(start.x, end.x) - NEAR
   const maxX = Math.max(start.x, end.x) + NEAR
   const minY = Math.min(start.y, end.y) - NEAR

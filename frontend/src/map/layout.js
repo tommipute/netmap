@@ -1,5 +1,6 @@
 export const X_GAP = 240
 export const Y_GAP = 170
+const Y_GAP_WITH_PORTS = 260 // con i nomi delle porte sui cavi serve più spazio tra le righe
 const NODE_H = 64 // altezza di riferimento di un device in mappa per lo spazio tra le righe
 // Altezza stimata quando il device non è ancora misurato: con l'IP di management c'è una riga in più
 const estimatedHeight = (n) => (n.primary_ip ? 76 : 58)
@@ -23,7 +24,57 @@ function wrappedSlots(trunks, count) {
   return slots
 }
 
-const levelOf = (n) => (Number.isFinite(n.level) ? n.level : 2)
+/**
+ * Livello di ogni device (0 = in alto). Con un ruolo vale il livello del ruolo. Senza ruolo lo ricavo dai
+ * collegamenti: un device sta un livello sotto il più vicino device con ruolo; in un gruppo di device tutti
+ * senza ruolo, in alto va quello con più collegamenti (di solito il core) e gli altri scendono di un livello per
+ * ogni cavo di distanza. Un device senza ruolo e senza cavi va al livello degli switch (2).
+ * nodes: [{ id, name, role, level }], edges: [{ source, target }] -> { "id": livello }
+ */
+export function effectiveLevels(nodes, edges) {
+  const ids = nodes.map((n) => String(n.id))
+  const neighbors = new Map(ids.map((id) => [id, []]))
+  for (const e of edges) {
+    const s = String(e.source)
+    const t = String(e.target)
+    if (neighbors.has(s) && neighbors.has(t) && s !== t) {
+      neighbors.get(s).push(t)
+      neighbors.get(t).push(s)
+    }
+  }
+  const level = {}
+  for (const n of nodes) if (n.role && Number.isFinite(n.level)) level[String(n.id)] = n.level
+
+  // Dai device con ruolo verso quelli senza: livello del ruolo + distanza (il più piccolo vince)
+  const spread = (start) => {
+    const queue = [...start]
+    while (queue.length) {
+      const id = queue.shift()
+      for (const next of neighbors.get(id)) {
+        const fixed = nodes.find((n) => String(n.id) === next)?.role
+        if (fixed) continue
+        if (level[next] === undefined || level[next] > level[id] + 1) {
+          level[next] = level[id] + 1
+          queue.push(next)
+        }
+      }
+    }
+  }
+  spread(Object.keys(level))
+
+  // Gruppi senza nessun ruolo: in alto il device con più collegamenti
+  const nameOf = new Map(nodes.map((n) => [String(n.id), n.name || '']))
+  for (;;) {
+    const free = ids.filter((id) => level[id] === undefined && neighbors.get(id).length > 0)
+    if (free.length === 0) break
+    free.sort((a, b) => neighbors.get(b).length - neighbors.get(a).length ||
+      nameOf.get(a).localeCompare(nameOf.get(b), 'it', { numeric: true }))
+    level[free[0]] = 0
+    spread([free[0]])
+  }
+  for (const id of ids) if (level[id] === undefined) level[id] = 2
+  return level
+}
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'it', { numeric: true })
 
 /**
@@ -31,7 +82,7 @@ const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'it', { nume
  * (unità più alta in cima); un device senza rack è un blocco da solo. Il blocco sta nella riga
  * del suo device più in alto nella gerarchia.
  */
-function buildBlocks(nodes, heights) {
+function buildBlocks(nodes, heights, levels) {
   const groups = new Map()
   for (const n of nodes) {
     const key = n.rack_id ? `rack-${n.rack_id}` : `device-${n.id}`
@@ -47,20 +98,22 @@ function buildBlocks(nodes, heights) {
       ids: members.map((m) => String(m.id)),
       offsets,
       name: members[0].rack_name || members[0].name || '',
-      level: Math.min(...members.map(levelOf)),
+      level: Math.min(...members.map((m) => levels[String(m.id)])),
       height: offsets[offsets.length - 1] + sizes[sizes.length - 1],
     }
   })
 }
 
 /**
- * Disposizione gerarchica: una riga per livello del ruolo (0 in alto).
+ * Disposizione gerarchica: una riga per livello (0 in alto, vedi effectiveLevels).
  * Dentro una riga i blocchi stanno vicino ai device a cui sono collegati sopra
  * (media delle x dei vicini già posizionati). Righe troppo lunghe vanno a capo.
  * nodes: [{ id, name, level, rack_id, rack_name, rack_position, primary_ip }], edges: [{ source, target }],
- * heights: { id: altezza misurata } se disponibili -> { "id": { x, y } }
+ * heights: { id: altezza misurata } se disponibili; withPorts: righe più distanti per i nomi delle porte
+ * -> { "id": { x, y } }
  */
-export function hierarchicalLayout(nodes, edges, heights = {}) {
+export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = false } = {}) {
+  const rowGap = (withPorts ? Y_GAP_WITH_PORTS : Y_GAP) - NODE_H
   const neighbors = new Map(nodes.map((n) => [String(n.id), []]))
   for (const e of edges) {
     const s = String(e.source)
@@ -70,7 +123,7 @@ export function hierarchicalLayout(nodes, edges, heights = {}) {
       neighbors.get(t).push(s)
     }
   }
-  const blocks = buildBlocks(nodes, heights)
+  const blocks = buildBlocks(nodes, heights, effectiveLevels(nodes, edges))
   const levels = [...new Set(blocks.map((b) => b.level))].sort((a, b) => a - b)
 
   const positions = {}
@@ -85,7 +138,7 @@ export function hierarchicalLayout(nodes, edges, heights = {}) {
         positions[id] = { x: xs[j], y: y + block.offsets[k] }
       })
     })
-    y += Math.max(...chunk.map((b) => b.height)) + Y_GAP - NODE_H
+    y += Math.max(...chunk.map((b) => b.height)) + rowGap
   }
 
   for (const level of levels) {

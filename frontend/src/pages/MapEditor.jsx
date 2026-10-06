@@ -26,7 +26,7 @@ import { cableStyle } from '../map/cables'
 import { cableGeometry } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
 import RackNode from '../map/RackNode'
-import { X_GAP, Y_GAP, hierarchicalLayout } from '../map/layout'
+import { X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 
 const nodeTypes = { device: DeviceNode, rack: RackNode }
@@ -299,7 +299,8 @@ function Editor() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty, canEdit])
 
-  const levelOf = useMemo(() => Object.fromEntries((view?.nodes || []).map((n) => [n.id, n.level])), [view])
+  // Livelli anche per i device senza ruolo (ricavati dai collegamenti): il cavo parte dal device più in alto
+  const levelOf = useMemo(() => effectiveLevels(view?.nodes || [], view?.edges || []), [view])
   const baseEdges = useMemo(
     () =>
       (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle)),
@@ -376,7 +377,7 @@ function Editor() {
 
   const arrange = () => {
     const heights = Object.fromEntries(nodesRef.current.map((n) => [n.id, n.measured?.height]))
-    const layout = hierarchicalLayout(view.nodes, view.edges, heights)
+    const layout = hierarchicalLayout(view.nodes, view.edges, heights, { withPorts: showLabels })
     setNodes((current) => current.map((n) => ({ ...n, position: layout[n.id] ?? n.position })))
     setDirty(true)
     setTimeout(() => fitRef.current({ padding: 0.25, duration: 300 }), 50)

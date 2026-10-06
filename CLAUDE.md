@@ -233,6 +233,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   mentre una scansione è in corso), `ChangesPage` (Da approvare, raggruppata per device; filtri in query string
   `status`, `job_id`, `device_id`).
 - **Mappa** (`pages/MapEditor.jsx`, `map/`): posizione = quella corrente > quella salvata > calcolata.
+  Livelli (`effectiveLevels` in layout.js, usati anche per il verso dei cavi): quello del ruolo; senza ruolo un
+  livello sotto il device con ruolo più vicino, e in un gruppo tutto senza ruoli in alto va il device con più cavi.
   Se nessun device ha una posizione salvata parte la disposizione gerarchica (`map/layout.js`): i device dello
   stesso rack formano un blocco, impilati per unità (la più alta in cima); un blocco per colonna, una riga per
   `DeviceRole.level` del suo device più in alto, ordinamento per baricentro dei vicini, massimo 8 blocchi per riga;
@@ -248,10 +250,11 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   hanno punti separati). Ad angolo (predefinito) con `map/routing.js`: A* su griglia, **mai sotto un device né
   dentro la bolla di un altro rack**, riga orizzontale preferita 28 px sopra il device di arrivo; tratti di
   uscita/entrata più corti tra device vicini. Oppure dritti (scelta in localStorage).
-  **Nomi delle porte**: un'etichetta per cavo "porta – porta", sempre visibile. Piazzate una alla volta (prima i
-  cavi corti) dal centro del cavo verso le estremità, sulla linea o spostate ai lati fino a ~60 px, prima fuori dal
-  tratto condiviso; ostacoli: device, altre etichette, nome del rack nella bolla. Senza posto libero può toccare
-  un'altra etichetta, mai un device (verrebbe coperta).
+  **Nomi delle porte** (`map/geometry.js`): sul bordo del device, non a metà cavo. Con i nomi attivi ogni cavo ha il
+  suo punto di attacco; il tratto dritto in uscita si allunga quanto il nome, scritto lungo il tratto (verticale se
+  il cavo esce da sopra/sotto, `CableEdge` lo ruota). Tra due device vicini e allineati i nomi vanno in orizzontale
+  accanto al cavo. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
+  (`sideIfBlocked` in anchors.js).
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   I pallini (4, per collegare trascinando) si vedono solo passando sopra il device o se è selezionato.
   I cavi partono dal device di livello più alto; colore per tipo (`map/cables.js`), spessore per velocità ≥10G,

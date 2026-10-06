@@ -6,9 +6,11 @@
  * punto e si uniscono (il core con 20 switch in fibra resta un albero ordinato); cavi di tipo diverso partono da
  * punti diversi, distribuiti lungo il bordo in ordine di posizione dell'altro capo (così non si incrociano).
  * Due cavi verso lo stesso device (es. un LAG) non si uniscono mai: sembrerebbero uno solo.
+ * Con separate (nomi delle porte visibili) ogni cavo ha il suo punto: ogni porta ha il suo posto per il nome.
  */
 const MIN_GAP = 24 // sotto questa distanza verticale due device si considerano affiancati
 const STRAIGHT_INSET = 12 // un cavo raddrizzato resta almeno a questa distanza dagli angoli
+const CLEARANCE = 90 // spazio libero che serve sopra/sotto un device per far uscire un cavo (e il nome della porta)
 
 export const OUTWARD = { top: { x: 0, y: -1 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }
 
@@ -42,12 +44,26 @@ function pointOn(r, side, f) {
   }
 }
 
+/** Lato sopra/sotto di un device coperto da un altro device vicino (non l'altro capo del cavo) -> lato sinistro/destro. */
+function sideIfBlocked(rects, ownId, otherId, side) {
+  if (side !== 'top' && side !== 'bottom') return side
+  const r = rects.get(ownId)
+  const blocked = [...rects].some(([id, o]) => {
+    if (id === ownId || id === otherId) return false
+    const overlapX = o.x < r.x + r.w && o.x + o.w > r.x
+    const gap = side === 'bottom' ? o.y - (r.y + r.h) : r.y - (o.y + o.h)
+    return overlapX && gap >= 0 && gap < CLEARANCE
+  })
+  if (!blocked) return side
+  return center(rects.get(otherId)).x < center(r).x ? 'left' : 'right'
+}
+
 /**
  * nodes: nodi React Flow dei device (misurati), edges: [{ id, source, target, data: { type } }].
  * Restituisce { [edgeId]: { source: { x, y, side, shared }, target: { ... } } }; i cavi tra device non ancora
  * misurati mancano. shared = il punto è in comune con altri cavi.
  */
-export function assignAnchors(nodes, edges) {
+export function assignAnchors(nodes, edges, { separate = false } = {}) {
   const rects = new Map()
   for (const n of nodes) {
     const r = rectOf(n)
@@ -59,7 +75,10 @@ export function assignAnchors(nodes, edges) {
     const a = rects.get(e.source)
     const b = rects.get(e.target)
     if (!a || !b) continue
-    const [sa, sb] = chooseSides(a, b)
+    let [sa, sb] = chooseSides(a, b)
+    // Sopra/sotto c'è subito un altro device (es. impilati nello stesso rack): il cavo esce di lato, verso l'altro capo
+    sa = sideIfBlocked(rects, e.source, e.target, sa)
+    sb = sideIfBlocked(rects, e.target, e.source, sb)
     result[e.id] = { source: { side: sa }, target: { side: sb } }
     const kind = e.data?.type || ''
     for (const [nodeId, side, end, otherId, other] of [[e.source, sa, 'source', e.target, b], [e.target, sb, 'target', e.source, a]]) {
@@ -75,7 +94,7 @@ export function assignAnchors(nodes, edges) {
     // Punti condivisi: stesso tipo di cavo, mai due cavi verso lo stesso device nello stesso punto
     const slots = []
     for (const item of list) {
-      let slot = slots.find((s) => s.kind === item.kind && !s.others.has(item.otherId))
+      let slot = separate ? null : slots.find((s) => s.kind === item.kind && !s.others.has(item.otherId))
       if (!slot) {
         slot = { kind: item.kind, others: new Set(), items: [] }
         slots.push(slot)
