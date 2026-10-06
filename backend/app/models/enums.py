@@ -106,6 +106,7 @@ class ChangeObject(StrEnum):
     INTERFACE = "interface"
     IP = "ip"
     CABLE = "cable"
+    VLAN = "vlan"
 
 
 # ---------- Login (fase 4) ----------

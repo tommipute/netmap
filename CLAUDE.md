@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (39 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (41 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -152,7 +152,10 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   installa il vecchio `pysnmp-lextudio` in conflitto; usare `snmpsim` >= 1.2.
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
-- `planner.py`: regole. **Silenziosi**: last_seen_at, oper_status, if_index, sys_name, sys_descr.
+- `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:
+  CISCO-VTP-MIB nomi e trunk, CISCO-VLAN-MEMBERSHIP-MIB access; 1 e 1002-1005 ignorate) diventano VLAN della sede
+  (`vlan/create`, automatiche con `auto_new_interfaces`); le porte prendono modo access/trunk, untagged e tagged
+  (proposta `interface:vlans:<id>` con i VID, risolti in VLAN all'applicazione). **Silenziosi**: last_seen_at, oper_status, if_index, sys_name, sys_descr.
   **Automatici se attivati nel job**: porte nuove su device noti, IP nuovi su porte note.
   **Automatici**: campi di oggetti con `source = snmp`. **Sempre da approvare**: device nuovi (porte e IP compresi,
   in un'unica modifica), cavi nuovi o diversi (verso fisso: porta con id minore = lato A), porte sparite
@@ -217,6 +220,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   `showIf(values)` + `hiddenValue` (valore inviato quando il campo è nascosto), `freeOnly` (solo porte libere),
   `ordered` (refmulti con numero d'ordine), `savedHint(item)` (segnaposto dei campi `secret` già salvati).
   `NAV` accetta chiavi di risorse oppure pagine speciali `{ to, title, badge }`.
+- Elenchi (`ResourcePage`): selezione multipla con eliminazione in blocco; modifica in blocco se la risorsa ha
+  `bulkFields` (`components/BulkEditDialog.jsx`, una PATCH per elemento, riusa `FieldControl` del modulo).
 - `components/ResourceForm.jsx`: in creazione non invia i `null` (valgono i default del backend),
   in modifica li invia per svuotare i campi; un `secret` vuoto in modifica non viene inviato.
 - `hooks.js`: `useApi(url)` con `reload`, `useOptions(path, params)` per i menu a tendina (cache condivisa),
@@ -282,5 +287,5 @@ negli aggiornamenti, IP spostati in silenzio da un altro device) e `remote_inter
 ## Limiti noti
 
 - Login senza HTTPS: prima di esporre l'app fuori dalla rete interna mettere un reverse proxy HTTPS e `COOKIE_SECURE=true`.
-- Scansione: le VLAN lette servono solo agli endpoint (non creano VLAN); i device scoperti restano senza ruolo;
+- Scansione: i device scoperti restano senza ruolo; un trunk Cisco senza VTP mostra solo le VLAN che lo switch conosce;
   rame o fibra non si ricava dall'ifType.

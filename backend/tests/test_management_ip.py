@@ -53,3 +53,11 @@ def test_un_solo_ip_di_management_per_device(client):
     ip = create(client, "/ip-addresses", {"address": "10.10.20.1/24", "interface_id": port["id"]})
     assert client.patch(f"/api/ip-addresses/{ip['id']}", json={"is_primary": True}).status_code == 422
     assert client.get(f"/api/devices/{sw['id']}").json()["management_ip"] == "10.10.99.55/24"
+
+
+def test_ricerca_device_per_ip_di_management(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    create(client, "/devices", {"name": "sw-a", "site_id": site["id"], "management_ip": "10.10.99.55/24"})
+    create(client, "/devices", {"name": "sw-b", "site_id": site["id"]})
+    found = client.get("/api/devices", params={"q": "99.55"}).json()
+    assert [d["name"] for d in found["items"]] == ["sw-a"]

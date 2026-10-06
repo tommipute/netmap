@@ -16,6 +16,16 @@ def ip_arcs(address: str) -> str:
     return ".".join(str(b) for b in ipaddress.ip_address(address).packed)
 
 
+def bitmap(positions, size: int | None = None) -> str:
+    """Bitmap SNMP (PortList) in esadecimale: posizione 1 = bit più significativo del primo byte."""
+    positions = list(positions)
+    length = size or max(1, (max(positions, default=1) + 7) // 8)
+    data = bytearray(length)
+    for p in positions:
+        data[(p - 1) // 8] |= 0x80 >> ((p - 1) % 8)
+    return data.hex()
+
+
 def snmprec(device: dict) -> str:
     rows: list[tuple[str, str, str]] = []
     add = lambda oid, kind, value: rows.append((oid, kind, str(value)))  # noqa: E731
@@ -90,6 +100,20 @@ def snmprec(device: dict) -> str:
             add(f"1.3.6.1.2.1.17.4.3.1.3.{arcs}", INT, status)
     for vid, name in device["vlans"].items():
         add(f"1.3.6.1.2.1.17.7.1.4.3.1.1.{vid}", STR, name)
+    # Q-BRIDGE: porte bridge in cui esce ogni VLAN e dove esce senza tag
+    for vid, (egress, untagged) in device.get("vlan_ports", {}).items():
+        add(f"1.3.6.1.2.1.17.7.1.4.3.1.2.{vid}", HEX, bitmap(egress))
+        add(f"1.3.6.1.2.1.17.7.1.4.3.1.4.{vid}", HEX, bitmap(untagged))
+    # Cisco: nomi VTP, VLAN delle porte access, trunk con VLAN nativa e VLAN permesse
+    cisco = device.get("cisco", {})
+    for vid, name in cisco.get("names", {}).items():
+        add(f"1.3.6.1.4.1.9.9.46.1.3.1.1.4.1.{vid}", STR, name)
+    for if_index, vid in cisco.get("access", {}).items():
+        add(f"1.3.6.1.4.1.9.9.68.1.2.2.1.2.{if_index}", INT, vid)
+    for if_index, (native, allowed) in cisco.get("trunks", {}).items():
+        add(f"1.3.6.1.4.1.9.9.46.1.6.1.1.4.{if_index}", HEX, bitmap([v + 1 for v in allowed], size=128))
+        add(f"1.3.6.1.4.1.9.9.46.1.6.1.1.5.{if_index}", INT, native)
+        add(f"1.3.6.1.4.1.9.9.46.1.6.1.1.14.{if_index}", INT, 1)
     for if_index, address, mac in device["arp"]:
         add(f"1.3.6.1.2.1.4.22.1.2.{if_index}.{address}", HEX, mac_hex(mac))
         add(f"1.3.6.1.2.1.4.22.1.4.{if_index}.{address}", INT, 3)

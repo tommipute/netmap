@@ -48,6 +48,8 @@ export const resources = {
     editLabel: 'Modifica device',
     label: (o) => o.name,
     detail: (o) => `/devices/${o.id}`,
+    // Modifica in blocco dall'elenco (selezione multipla)
+    bulkFields: ['status', 'site_id', 'location_id', 'rack_id', 'role_id', 'device_type_id'],
     filters: [
       { name: 'site_id', label: 'Sede', ref: 'sites' },
       { name: 'role_id', label: 'Ruolo', ref: 'device-roles' },
@@ -58,6 +60,11 @@ export const resources = {
       { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
       { name: 'status', label: 'Stato', type: 'badge', options: O.DEVICE_STATUS },
       { name: 'reachable', label: 'Stato live', render: (o) => <LiveStatus device={o} /> },
+      {
+        name: 'management_ip',
+        label: 'IP',
+        render: (o) => (o.management_ip ? <Mono>{o.management_ip.split('/')[0]}</Mono> : <span className="muted">—</span>),
+      },
       { name: 'role_id', label: 'Ruolo', type: 'ref', ref: 'device-roles' },
       { name: 'site_id', label: 'Sede', type: 'ref', ref: 'sites' },
       { name: 'location_id', label: 'Posizione', type: 'ref', ref: 'locations' },

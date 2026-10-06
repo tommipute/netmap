@@ -33,6 +33,10 @@ WIFI = [(f"00:50:56:b2:00:0{i}", f"10.10.10.15{i}") for i in range(1, 4)]
 
 LEARNED, SELF = 3, 4
 VLANS = {1: "DEFAULT_VLAN", 10: "UFFICI", 20: "VOCE", 99: "MGMT"}
+# Cisco: nomi VTP (le 1002-1005 ci sono sempre e NetMap deve ignorarle), trunk con nativa 1 che permette tutto
+CISCO_VLANS = {1: "default", 10: "UFFICI", 20: "VOCE", 99: "MGMT",
+               1002: "fddi-default", 1003: "token-ring-default", 1004: "fddinet-default", 1005: "trnet-default"}
+TRUNK = (1, list(range(1, 1024)))
 
 
 def _port_mac(chassis: str, index: int) -> str:
@@ -102,6 +106,7 @@ CORE = {
     },
     # Lo switch Cisco del piano 3 si vede solo via CDP
     "cdp": {(11, 1): ("sw-lab-p3", "GigabitEthernet1/0/25", P3_IP)},
+    "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {9: TRUNK, 10: TRUNK, 11: TRUNK}},
     "qbridge": False,
     "bridge_ports": {1: 1, 2: 2, 9: 9, 10: 10, 11: 11},
     "pvid": {},
@@ -148,6 +153,15 @@ def _hpe(name, ip, chassis, serial, core_port, access):
             *[(10, mac, 49, LEARNED) for mac in uplink_macs if mac not in local],
         ],
         "vlans": VLANS,
+        # Porte di accesso: untagged la VLAN del PC (PVID), tagged le altre (es. voce del telefono);
+        # uplink 49: untagged la VLAN 1, tagged tutte le altre
+        "vlan_ports": {
+            vid: (
+                {p for p, macs in access.items() if vid in {v for v, _ in macs}} | {49},
+                {p for p, macs in access.items() if macs[-1][0] == vid} | ({49} if vid == 1 else set()),
+            )
+            for vid in VLANS
+        },
         "arp": [],
     }
 
@@ -179,6 +193,7 @@ P3 = {
     "lldp_local": {},
     "lldp_remote": {},
     "cdp": {(25, 1): ("core-lab-01.lab.local", "TenGigabitEthernet1/1/3", CORE_IP)},
+    "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {25: TRUNK}},
     "qbridge": False,
     "bridge_ports": {1: 1, 2: 2, 25: 25},
     "pvid": {},

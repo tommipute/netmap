@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
+import BulkEditDialog from '../components/BulkEditDialog'
 import DeviceImportDialog from '../components/DeviceImportDialog'
 import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
@@ -66,12 +67,53 @@ export default function ResourcePage({ resourceKey }) {
   const [offset, setOffset] = useState(0)
   const [editing, setEditing] = useState(null) // null | 'new' | elemento
   const [importing, setImporting] = useState(false)
+  const [selected, setSelected] = useState(() => new Map()) // id -> elemento, solo nella pagina visibile
+  const [bulkEditing, setBulkEditing] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(null) // "Elimino 3 di 10…"
+  const [bulkResult, setBulkResult] = useState(null) // { done, failed: [{ label, error }], verb }
   const q = useDebounced(search)
 
   const { data, error, loading, reload } = useApi(`/${config.path}${qs({ limit: LIMIT, offset, q, ...filters })}`)
   const filtered = Boolean(q) || Object.values(filters).some((v) => v !== '' && v !== undefined)
 
   const open = (item) => (config.detail ? navigate(config.detail(item)) : setEditing(item))
+
+  // Cambiando pagina, ricerca o filtri la selezione riparte da zero
+  useEffect(() => setSelected(new Map()), [q, filters, offset])
+  const items = data?.items || []
+  const allSelected = items.length > 0 && items.every((item) => selected.has(item.id))
+  const toggleItem = (item, on) =>
+    setSelected((prev) => {
+      const next = new Map(prev)
+      if (on) next.set(item.id, item)
+      else next.delete(item.id)
+      return next
+    })
+  const toggleAll = (on) => setSelected(on ? new Map(items.map((item) => [item.id, item])) : new Map())
+
+  const bulkDone = (result) => {
+    setBulkEditing(false)
+    setBulkBusy(null)
+    setBulkResult(result)
+    setSelected(new Map())
+    reload()
+  }
+
+  const removeSelected = async () => {
+    const chosen = [...selected.values()]
+    if (!window.confirm(`Eliminare ${chosen.length === 1 ? '1 elemento' : `${chosen.length} elementi`}? Non si può annullare.`)) return
+    const failed = []
+    for (let i = 0; i < chosen.length; i++) {
+      setBulkBusy(`Elimino ${i + 1} di ${chosen.length}…`)
+      try {
+        await api.del(`/${config.path}/${chosen[i].id}`)
+      } catch (err) {
+        failed.push({ label: config.label(chosen[i]), error: err.message })
+      }
+    }
+    invalidate()
+    bulkDone({ done: chosen.length - failed.length, failed, verb: 'eliminati' })
+  }
 
   const handleExport = async (format = 'csv') => {
     try {
@@ -160,6 +202,37 @@ export default function ResourcePage({ resourceKey }) {
         {data && <span className="toolbar__count">{data.total === 1 ? '1 elemento' : `${data.total} elementi`}</span>}
       </div>
 
+      {canEdit && selected.size > 0 && (
+        <div className="bulk-bar" role="region" aria-label="Elementi selezionati">
+          <strong>{selected.size === 1 ? '1 selezionato' : `${selected.size} selezionati`}</strong>
+          {bulkBusy ? (
+            <span className="muted">{bulkBusy}</span>
+          ) : (
+            <>
+              {config.bulkFields && (
+                <IconButton icon="edit" label="Modifica i selezionati" small onClick={() => setBulkEditing(true)} />
+              )}
+              <IconButton icon="trash" label="Elimina i selezionati" small danger onClick={removeSelected} />
+              <IconButton icon="close" label="Togli la selezione" small className="btn--ghost" onClick={() => toggleAll(false)} />
+            </>
+          )}
+        </div>
+      )}
+      {bulkResult && (
+        <div className={`notice${bulkResult.failed.length ? ' notice--warn' : ''}`} role="status">
+          {bulkResult.done === 1 ? '1 elemento' : `${bulkResult.done} elementi`} {bulkResult.verb}.
+          {bulkResult.failed.length > 0 && (
+            <>
+              {' '}Non riusciti:
+              <ul>
+                {bulkResult.failed.map((f) => <li key={f.label}>{f.label}: {f.error}</li>)}
+              </ul>
+            </>
+          )}
+          <IconButton icon="close" label="Chiudi il messaggio" small className="btn--ghost notice__close" onClick={() => setBulkResult(null)} />
+        </div>
+      )}
+
       <ErrorBox error={error} />
       {!data && loading && <Loading />}
 
@@ -183,6 +256,12 @@ export default function ResourcePage({ resourceKey }) {
           <table className="table">
             <thead>
               <tr>
+                {canEdit && (
+                  <th className="table__select">
+                    <input type="checkbox" checked={allSelected} aria-label="Seleziona tutti quelli della pagina"
+                      onChange={(e) => toggleAll(e.target.checked)} />
+                  </th>
+                )}
                 {config.columns.map((c) => (
                   <th key={c.name}>{c.label}</th>
                 ))}
@@ -195,11 +274,17 @@ export default function ResourcePage({ resourceKey }) {
               {data.items.map((item) => (
                 <tr
                   key={item.id}
-                  className="table__row--link"
+                  className={`table__row--link${selected.has(item.id) ? ' is-selected' : ''}`}
                   tabIndex={0}
                   onClick={() => (config.detail || canEdit) && open(item)}
                   onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && (config.detail || canEdit) && open(item)}
                 >
+                  {canEdit && (
+                    <td className="table__select" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selected.has(item.id)} aria-label={`Seleziona ${item.name || item.id}`}
+                        onChange={(e) => toggleItem(item, e.target.checked)} />
+                    </td>
+                  )}
                   {config.columns.map((c) => (
                     <td key={c.name}>
                       <Cell column={c} row={item} />
@@ -232,6 +317,10 @@ export default function ResourcePage({ resourceKey }) {
 
       {editing && (
         <ResourceForm resourceKey={resourceKey} item={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={saved} />
+      )}
+
+      {bulkEditing && (
+        <BulkEditDialog resourceKey={resourceKey} items={[...selected.values()]} onClose={() => setBulkEditing(false)} onDone={bulkDone} />
       )}
 
       {importing && (

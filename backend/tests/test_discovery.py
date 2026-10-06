@@ -135,15 +135,15 @@ def test_pianificazione_e_worker(client, setup, session_factory):
 def test_device_nuovi_poi_cavo_poi_niente(client, setup, session_factory):
     job_id = setup["job"]["id"]
 
-    # 1) Due device sconosciuti: si propone di crearli, niente viene scritto da solo
+    # 1) Due device sconosciuti (e la VLAN 99 "LAB" di sw-sim-02): si propone di crearli, niente viene scritto da solo
     result = scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))
-    assert result == {**result, "proposed": 2, "applied": 0}
+    assert result == {**result, "proposed": 3, "applied": 0}
     changes = pending(client)
     assert {(c["object_type"], c["action"], c["device_label"]) for c in changes} == {
-        ("device", "create", "sw-sim-01"), ("device", "create", "sw-sim-02"),
+        ("device", "create", "sw-sim-01"), ("device", "create", "sw-sim-02"), ("vlan", "create", "sw-sim-02"),
     }
     assert client.get("/api/devices").json()["total"] == 0
-    assert client.get("/api/discovery-changes/count").json() == {"pending": 2}
+    assert client.get("/api/discovery-changes/count").json() == {"pending": 3}
 
     approve_all(client)
     sw1, sw2 = device_named(client, "sw-sim-01"), device_named(client, "sw-sim-02")
@@ -169,6 +169,12 @@ def test_device_nuovi_poi_cavo_poi_niente(client, setup, session_factory):
     approve_all(client)
     cable = client.get("/api/cables").json()["items"][0]
     assert {cable["a_device_name"], cable["b_device_name"]} == {"sw-sim-01", "sw-sim-02"} and cable["source"] == "snmp"
+    # Le porte di sw-sim-02 (create dalla scansione) prendono da sole la VLAN 99 letta come PVID
+    vlan = client.get("/api/vlans", params={"vid": 99}).json()["items"][0]
+    assert (vlan["name"], vlan["site_id"]) == ("LAB", setup["site"]["id"])
+    sw2_ports = ports_of(client, sw2["id"])
+    assert sw2_ports["1"]["mode"] == "access" and sw2_ports["1"]["untagged_vlan"] == 99
+    assert sw2_ports["49"]["mode"] is None  # VLAN 1 di default: niente da assegnare
 
     # 3) Tutto allineato: nessuna modifica
     result = scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))
@@ -272,3 +278,15 @@ def test_porte_nuove_automatiche_ma_ip_da_approvare(client, setup, session_facto
     assert result["applied"] == 1 and "Gi1/0/3" in ports_of(client, sw1["id"])
     applied = client.get("/api/discovery-changes", params={"status": "applied"}).json()["items"]
     assert any(c["auto"] and "Gi1/0/3" in c["summary"] for c in applied)
+
+
+def test_ip_libero_assegnato_al_device_nuovo(client, setup, session_factory):
+    # L'IP di sw-sim-02 è già registrato ma libero (es. in IPAM, o rimasto da un device eliminato)
+    free = create(client, "/ip-addresses", {"address": "10.99.0.2/24", "dns_name": "sw-sim-02.lab.local"})
+    scan(client, session_factory, setup["job"]["id"], (SW2, SW2_HOST))
+    approve_all(client)
+    sw2 = device_named(client, "sw-sim-02")
+    ip = client.get(f"/api/ip-addresses/{free['id']}").json()
+    assert ip["device_name"] == "sw-sim-02" and ip["interface_name"] == "VLAN99" and ip["is_primary"] is True
+    assert ip["dns_name"] == "sw-sim-02.lab.local"  # resta lo stesso oggetto, con i suoi dati
+    assert sw2["management_ip"] == "10.99.0.2/24"

@@ -189,16 +189,21 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
     ).unique():
         ips[ip.interface_id].append({"id": ip.id, "address": ip.address, "is_primary": ip.is_primary})
 
-    endpoint_counts = dict(db.execute(
-        select(Endpoint.interface_id, func.count(Endpoint.id)).where(Endpoint.interface_id.in_(ids)).group_by(Endpoint.interface_id)
-    ).all())
+    # Endpoint visti su ogni porta: il numero e i primi tre, da mostrare nella tabella delle porte
+    endpoints: dict[int, list[Endpoint]] = defaultdict(list)
+    for e in db.scalars(
+        select(Endpoint).where(Endpoint.interface_id.in_(ids)).order_by(Endpoint.ip.is_(None), Endpoint.ip, Endpoint.mac)
+    ).unique():
+        endpoints[e.interface_id].append(e)
 
     untagged_ids = {i.untagged_vlan_id for i in interfaces if i.untagged_vlan_id}
-    vids = dict(db.execute(select(VLAN.id, VLAN.vid).where(VLAN.id.in_(untagged_ids))).all()) if untagged_ids else {}
+    untagged = {v.id: v for v in db.scalars(select(VLAN).where(VLAN.id.in_(untagged_ids)))} if untagged_ids else {}
 
     result = []
     for iface in sorted(interfaces, key=lambda i: natural_key(i.name)):
         cable, remote = links.get(iface.id, (None, None))
+        native = untagged.get(iface.untagged_vlan_id)
+        vlan_names = {v.vid: v.name for v in [*iface.tagged_vlans, *([native] if native else [])]}
         result.append({
             "id": iface.id,
             "name": iface.name,
@@ -211,7 +216,7 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
             "mac_address": iface.mac_address,
             "description": iface.description,
             "lag_id": iface.lag_id,
-            "untagged_vlan": vids.get(iface.untagged_vlan_id),
+            "untagged_vlan": native.vid if native else None,
             "tagged_vlans": [v.vid for v in iface.tagged_vlans],
             "cableable": iface.type not in NON_CABLEABLE_TYPES,
             "cable_id": cable.id if cable else None,
@@ -222,7 +227,11 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
             "remote_interface_id": remote.id if remote else None,
             "remote_interface": remote.name if remote else None,
             "ips": ips.get(iface.id, []),
-            "endpoints": endpoint_counts.get(iface.id, 0),
+            "vlan_names": vlan_names,
+            "endpoints": len(endpoints.get(iface.id, [])),
+            "endpoint_preview": [
+                {"mac": e.mac, "ip": e.ip, "vlan": e.vlan} for e in endpoints.get(iface.id, [])[:3]
+            ],
         })
     return result
 

@@ -442,6 +442,36 @@ textarea.input { resize: vertical; min-height: 72px; }
   border: 1.5px dashed var(--line-strong); background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
+/* ---------- Selezione multipla negli elenchi ---------- */
+.table__select { width: 1%; padding-right: 0; }
+.table__select input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }
+.table tr.is-selected td { background: var(--accent-soft); }
+.bulk-bar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  padding: 8px 12px; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius);
+}
+.bulk-bar strong { margin-right: 8px; font-weight: 600; }
+.notice { position: relative; }
+.notice__close { position: absolute; top: 4px; right: 4px; }
+.bulk-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.bulk-field { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+.bulk-field--on { border-color: var(--accent); }
+.bulk-field { min-width: 0; }
+.bulk-field .input, .bulk-field .combo { width: 100%; min-width: 0; }
+.facts .live { white-space: normal; }
+@media (max-width: 860px) { .bulk-fields { grid-template-columns: 1fr; } }
+
+/* ---------- VLAN ed endpoint nella tabella delle porte ---------- */
+.vlan-list { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.vlan-tag {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 0 6px; border-radius: 4px; font-size: 12px;
+  background: var(--accent-soft); color: var(--ink); white-space: nowrap;
+}
+.vlan-tag--native { background: transparent; border: 1px dashed var(--line-strong); }
+.vlan-tag__name { color: var(--muted); font-size: 11px; }
+.endpoint-list { display: flex; flex-direction: column; gap: 1px; }
+.endpoint-list__item { white-space: nowrap; }
+
 /* ---------- Dov'è collegato ---------- */
 .toolbar__search--wide { width: 420px; max-width: 100%; }
 .answer {

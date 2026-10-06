@@ -71,6 +71,12 @@ class PortIP(BaseModel):
     is_primary: bool
 
 
+class PortEndpoint(BaseModel):
+    mac: str
+    ip: str | None
+    vlan: int | None
+
+
 class Port(BaseModel):
     """Interfaccia di un device con cosa c'è collegato dall'altra parte."""
 
@@ -96,7 +102,9 @@ class Port(BaseModel):
     remote_interface_id: int | None
     remote_interface: str | None
     ips: list[PortIP]
+    vlan_names: dict[int, str] = {}  # VID -> nome, per le VLAN della porta
     endpoints: int = 0  # MAC visti su questa porta nelle tabelle degli switch
+    endpoint_preview: list[PortEndpoint] = []  # i primi tre (prima quelli con IP)
 
 
 class DeviceImportRequest(BaseModel):

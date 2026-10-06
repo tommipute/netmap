@@ -122,7 +122,19 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         for (if_index, _i), (dev_id, port, addr) in sorted(device["cdp"].items())
     ]
     bridge, pvid = device["bridge_ports"], device["pvid"]
-    port_vlans = {bridge[bp]: vid for bp, vid in pvid.items()}
+    cisco = device.get("cisco", {})
+    names = {vid: name for vid, name in cisco.get("names", {}).items() if vid not in range(1002, 1006)}  # di sistema
+    port_vlans = {
+        **cisco.get("access", {}),
+        **{idx: native for idx, (native, _allowed) in cisco.get("trunks", {}).items()},
+        **{bridge[bp]: vid for bp, vid in pvid.items()},
+    }
+    port_tagged = {idx: sorted(v for v in allowed if v in names and v != native)
+                   for idx, (native, allowed) in cisco.get("trunks", {}).items()}
+    for vid, (egress, untagged) in device.get("vlan_ports", {}).items():
+        for bp in set(egress) - set(untagged):
+            port_tagged.setdefault(bridge[bp], []).append(vid)
+    port_tagged = {idx: sorted(vids) for idx, vids in port_tagged.items()}
     fdb = sorted(
         {
             (mac.upper(), bridge[bp], vlan if device["qbridge"] else port_vlans.get(bridge[bp]))
@@ -139,5 +151,5 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         sys_location=system["location"], serial=chassis[0][1] if chassis else None,
         model=chassis[0][2] if chassis else None, interfaces=interfaces, ips=ips, neighbors=neighbors,
         fdb=[FdbEntry(mac=m, if_index=i, vlan=v) for m, i, v in fdb], arp=arp,
-        vlans=dict(device["vlans"]), port_vlans=port_vlans,
+        vlans={**names, **device["vlans"]}, port_vlans=port_vlans, port_tagged=port_tagged,
     )

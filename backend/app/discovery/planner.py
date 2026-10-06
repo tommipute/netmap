@@ -5,6 +5,8 @@ Regole (docs/roadmap.md):
 - automatici se attivati nel job: porte nuove su device esistenti, IP nuovi su porte note
 - automatici: campi di oggetti creati dalla scansione (source = snmp)
 - sempre da approvare: device nuovi, cavi nuovi o diversi, oggetti eliminati, campi di oggetti inseriti a mano
+- VLAN: quelle lette dallo switch diventano VLAN della sede (automatiche se il job aggiunge da solo le porte
+  nuove); VLAN untagged, modo access/trunk e VLAN tagged delle porte seguono la regola dei campi delle porte
 """
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -16,11 +18,12 @@ from sqlalchemy.orm import Session
 from app.discovery.matching import find_device, find_port, interface_type, norm_ifname, short_name
 from app.discovery.snmp import HostData, IfData
 from app.discovery.vendors import vendor_name
-from app.models import Cable, Device, DeviceType, DiscoveryJob, Interface, IPAddress
+from app.models import VLAN, Cable, Device, DeviceType, DiscoveryJob, Interface, IPAddress
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
     ChangeAction,
     ChangeObject,
+    InterfaceMode,
     InterfaceType,
     Source,
 )
@@ -59,7 +62,12 @@ class Planner:
             ips=[hd.host, *(ip.address for ip in hd.ips)],
         )
         if device is None:
-            return [self._new_device(hd)]
+            new = self._new_device(hd)
+            proposals = [new]
+            self._vlans(self.job.site_id, hd, proposals)
+            for p in proposals:
+                p.device_label = new.device_label
+            return proposals
 
         device.sys_name = hd.sys_name or device.sys_name
         device.sys_descr = hd.sys_descr or device.sys_descr
@@ -68,7 +76,9 @@ class Planner:
 
         proposals: list[Proposal] = []
         self._device_update(device, hd, proposals)
+        vlans = self._vlans(device.site_id, hd, proposals)
         ports = self._interfaces(device, hd, proposals)
+        self._port_vlans(device, hd, ports, vlans, proposals)
         self._ips(device, hd, ports, proposals)
         self._neighbors(device, hd, ports, proposals)
         for p in proposals:
@@ -270,6 +280,66 @@ class Planner:
             )
         ).all()
         return {i for row in rows for i in row} & set(interface_ids)
+
+    # ------------------------------------------------------------ VLAN
+    def _vlans(self, site_id: int, hd: HostData, out: list[Proposal]) -> set[int]:
+        """Propone le VLAN che lo switch ha e NetMap no (della sede o globali). Ritorna i VID disponibili:
+        quelli che esistono già e quelli appena proposti (le porte li usano dopo che la VLAN è stata creata)."""
+        used = set(hd.port_vlans.values()) | {vid for vids in hd.port_tagged.values() for vid in vids}
+        wanted = {vid: hd.vlans.get(vid) or f"VLAN{vid}" for vid in set(hd.vlans) | used if 2 <= vid <= 4094}
+        if not wanted:
+            return set()
+        existing = set(self.db.scalars(
+            select(VLAN.vid).where(VLAN.vid.in_(wanted), or_(VLAN.site_id == site_id, VLAN.site_id.is_(None)))
+        ))
+        for vid in sorted(set(wanted) - existing):
+            out.append(Proposal(
+                key=f"vlan:create:{site_id}:{vid}",
+                object_type=ChangeObject.VLAN.value,
+                action=ChangeAction.CREATE.value,
+                summary=f"Nuova VLAN {vid} {wanted[vid]}",
+                data={"site_id": site_id, "vid": vid, "name": wanted[vid]},
+                diff={"VLAN": [None, vid], "Nome": [None, wanted[vid]]},
+                auto=self.job.auto_new_interfaces,
+            ))
+        return set(wanted)
+
+    def _port_vlans(self, device: Device, hd: HostData, ports: dict[int, Interface], vlans: set[int],
+                    out: list[Proposal]) -> None:
+        """VLAN untagged, modo (trunk se ha VLAN tagged, altrimenti access) e VLAN tagged delle porte."""
+        current_vids = dict(self.db.execute(
+            select(VLAN.id, VLAN.vid).where(VLAN.id.in_([p.untagged_vlan_id for p in ports.values() if p.untagged_vlan_id]))
+        ).all())
+        for if_index, iface in ports.items():
+            if iface.type == InterfaceType.VIRTUAL.value:
+                continue
+            untagged = hd.port_vlans.get(if_index)
+            untagged = untagged if untagged in vlans else None  # VLAN 1 di default: niente
+            tagged = sorted(v for v in hd.port_tagged.get(if_index, []) if v in vlans)
+            if untagged is None and not tagged:
+                continue
+            mode = InterfaceMode.TRUNK.value if tagged else InterfaceMode.ACCESS.value
+            now_untagged = current_vids.get(iface.untagged_vlan_id)
+            now_tagged = sorted(v.vid for v in iface.tagged_vlans)
+            if (iface.mode, now_untagged, now_tagged) == (mode, untagged, tagged):
+                continue
+            diff = {}
+            if iface.mode != mode:
+                diff["Modo"] = [iface.mode, mode]
+            if now_untagged != untagged:
+                diff["VLAN untagged"] = [now_untagged, untagged]
+            if now_tagged != tagged:
+                diff["VLAN tagged"] = [", ".join(map(str, now_tagged)) or None, ", ".join(map(str, tagged)) or None]
+            out.append(Proposal(
+                key=f"interface:vlans:{iface.id}",
+                object_type=ChangeObject.INTERFACE.value,
+                action=ChangeAction.UPDATE.value,
+                object_id=iface.id,
+                summary=f"Porta {_port_label(device, iface)}: VLAN lette dallo switch",
+                data={"mode": mode, "untagged_vid": untagged, "tagged_vids": tagged, "vlan_site_id": device.site_id},
+                diff=diff,
+                auto=iface.source == SNMP,
+            ))
 
     # ------------------------------------------------------------ IP
     def _ips(self, device: Device, hd: HostData, ports: dict[int, Interface], out: list[Proposal]) -> None:

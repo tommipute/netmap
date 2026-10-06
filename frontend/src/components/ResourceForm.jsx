@@ -9,7 +9,7 @@ import { RefMulti, RefSelect } from './RefSelect'
 
 const WIDE_TYPES = new Set(['textarea', 'lines', 'kv', 'refmulti', 'interface', 'bool'])
 
-function emptyValue(field) {
+export function emptyValue(field) {
   if (field.type === 'bool') return false
   if (field.type === 'refmulti') return []
   if (field.type === 'kv') return {}
@@ -27,12 +27,12 @@ function initialValues(fields, item, preset) {
   return values
 }
 
-function isEmpty(value) {
+export function isEmpty(value) {
   return value === '' || value === null || value === undefined
 }
 
 /** Valore del modulo -> valore da mandare all'API (undefined = non inviare) */
-function convert(field, value, isEdit) {
+export function convert(field, value, isEdit) {
   switch (field.type) {
     case 'secret':
       // In modifica un campo vuoto lascia il segreto salvato com'è
@@ -56,7 +56,7 @@ function convert(field, value, isEdit) {
   }
 }
 
-function FieldControl({ field, value, values, fields, onChange, disabled, editingId, item }) {
+export function FieldControl({ field, value, values, fields, onChange, disabled, editingId, item }) {
   const id = `field-${field.name}`
   switch (field.type) {
     case 'textarea':

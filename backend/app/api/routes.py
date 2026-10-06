@@ -55,7 +55,7 @@ _routers = [
     dict(model=Device, create_schema=d.DeviceCreate, update_schema=d.DeviceUpdate, read_schema=d.DeviceRead,
          path="/devices", tag="Device",
          filters=("site_id", "location_id", "rack_id", "role_id", "device_type_id", "status", "source", "reachable"),
-         search=("name", "serial", "asset_tag", "sys_name"), order_by=(Device.name,), hook=rules.device_hook),
+         search=("name", "serial", "asset_tag", "sys_name", "management_ip"), order_by=(Device.name,), hook=rules.device_hook),
     dict(model=Interface, create_schema=d.InterfaceCreate, update_schema=d.InterfaceUpdate,
          read_schema=d.InterfaceRead, path="/interfaces", tag="Interfacce",
          filters=("device_id", "type", "mode", "enabled", "untagged_vlan_id", "source"),

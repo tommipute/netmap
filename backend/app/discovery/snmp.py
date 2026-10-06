@@ -86,6 +86,16 @@ DOT1Q_TP_FDB_PORT = "1.3.6.1.2.1.17.7.1.2.2.1.2"      # indice: fdbId (di solito
 DOT1Q_TP_FDB_STATUS = "1.3.6.1.2.1.17.7.1.2.2.1.3"
 DOT1Q_PVID = "1.3.6.1.2.1.17.7.1.4.5.1.1"             # VLAN untagged della porta bridge
 DOT1Q_VLAN_STATIC_NAME = "1.3.6.1.2.1.17.7.1.4.3.1.1" # indice: VID
+DOT1Q_VLAN_STATIC_EGRESS = "1.3.6.1.2.1.17.7.1.4.3.1.2"    # indice: VID, valore: bitmap delle porte bridge
+DOT1Q_VLAN_STATIC_UNTAGGED = "1.3.6.1.2.1.17.7.1.4.3.1.4"  # porte dove la VLAN esce senza tag
+# I Cisco non usano Q-BRIDGE per le VLAN delle porte: CISCO-VLAN-MEMBERSHIP-MIB e CISCO-VTP-MIB
+CISCO_VM_VLAN = "1.3.6.1.4.1.9.9.68.1.2.2.1.2"         # VLAN di una porta access, indice: ifIndex
+CISCO_TRUNK_ENABLED = "1.3.6.1.4.1.9.9.46.1.6.1.1.4"   # bitmap delle VLAN 0-1023 permesse sul trunk
+CISCO_TRUNK_NATIVE = "1.3.6.1.4.1.9.9.46.1.6.1.1.5"
+CISCO_TRUNK_STATUS = "1.3.6.1.4.1.9.9.46.1.6.1.1.14"   # 1 = la porta è in trunk
+CISCO_VTP_VLAN_NAME = "1.3.6.1.4.1.9.9.46.1.3.1.1.4"   # indice: dominio VTP . VID
+CISCO_TRUNKING = 1
+CISCO_RESERVED_VLANS = range(1002, 1006)               # fddi/token ring di default, sempre presenti
 IP_NET_TO_MEDIA_PHYS = "1.3.6.1.2.1.4.22.1.2"         # ARP IPv4, indice: ifIndex . indirizzo
 IP_NET_TO_MEDIA_TYPE = "1.3.6.1.2.1.4.22.1.4"
 IP_NET_TO_PHYSICAL_PHYS = "1.3.6.1.2.1.4.35.1.4"      # ARP/ND, indice: ifIndex . tipo . lunghezza . indirizzo
@@ -200,7 +210,8 @@ class HostData:
     fdb: list[FdbEntry] = field(default_factory=list)
     arp: list[ArpEntry] = field(default_factory=list)
     vlans: dict[int, str] = field(default_factory=dict)       # VID -> nome
-    port_vlans: dict[int, int] = field(default_factory=dict)  # ifIndex -> VLAN untagged (PVID)
+    port_vlans: dict[int, int] = field(default_factory=dict)  # ifIndex -> VLAN untagged (PVID / access / nativa)
+    port_tagged: dict[int, list[int]] = field(default_factory=dict)  # ifIndex -> VLAN tagged (trunk)
 
 
 # ---------------------------------------------------------------- conversioni
@@ -511,10 +522,22 @@ def _mac_from_index(index: tuple[int, ...]) -> str | None:
     return ":".join(f"{b:02X}" for b in index)
 
 
-async def _bridge(s: _Session) -> tuple[list[FdbEntry], dict[int, int]]:
-    """Tabella MAC: prima Q-BRIDGE (con la VLAN), altrimenti BRIDGE-MIB. Ritorna anche il PVID delle porte."""
-    base_ports = {index[0]: value for index, value in (await s.walk(DOT1D_BASE_PORT_IF_INDEX)).items()
-                  if len(index) == 1 and isinstance(value, int)}
+def bitmap_positions(raw: Any) -> list[int]:
+    """Posizioni (da 1) dei bit accesi in una bitmap SNMP (PortList): il primo bit è il più significativo."""
+    if not isinstance(raw, bytes):
+        return []
+    return [i * 8 + bit + 1 for i, byte in enumerate(raw) for bit in range(8) if byte & (0x80 >> bit)]
+
+
+async def _base_ports(s: _Session) -> dict[int, int]:
+    """Porta bridge -> ifIndex"""
+    return {index[0]: value for index, value in (await s.walk(DOT1D_BASE_PORT_IF_INDEX)).items()
+            if len(index) == 1 and isinstance(value, int)}
+
+
+async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int, int]) -> tuple[list[FdbEntry], dict[int, int]]:
+    """Tabella MAC: prima Q-BRIDGE (con la VLAN), altrimenti BRIDGE-MIB (VLAN presa da port_vlans, es. Cisco).
+    Ritorna anche il PVID delle porte."""
     if not base_ports:
         return [], {}
     pvids = {base_ports[index[0]]: value for index, value in (await s.walk(DOT1Q_PVID)).items()
@@ -540,8 +563,46 @@ async def _bridge(s: _Session) -> tuple[list[FdbEntry], dict[int, int]]:
         for index, port in ports.items():
             mac = _mac_from_index(index)
             if_index = base_ports.get(port) if isinstance(port, int) else None
-            add(mac, port, status.get(index), pvids.get(if_index))
+            add(mac, port, status.get(index), pvids.get(if_index, port_vlans.get(if_index)))
     return sorted(entries.values(), key=lambda e: (e.mac, e.if_index, e.vlan or 0)), pvids
+
+
+async def _qbridge_tagged(s: _Session, base_ports: dict[int, int]) -> dict[int, list[int]]:
+    """VLAN tagged di ogni porta da Q-BRIDGE: porte in cui la VLAN esce, meno quelle dove esce senza tag."""
+    egress = await s.walk(DOT1Q_VLAN_STATIC_EGRESS)
+    if not egress:
+        return {}
+    untagged = await s.walk(DOT1Q_VLAN_STATIC_UNTAGGED)
+    tagged: dict[int, list[int]] = {}
+    for index, raw in egress.items():
+        if len(index) != 1:
+            continue
+        for port in set(bitmap_positions(raw)) - set(bitmap_positions(untagged.get(index))):
+            if port in base_ports:
+                tagged.setdefault(base_ports[port], []).append(index[0])
+    return {if_index: sorted(vids) for if_index, vids in tagged.items()}
+
+
+async def _cisco_vlans(s: _Session) -> tuple[dict[int, str], dict[int, int], dict[int, list[int]]]:
+    """Nomi delle VLAN (VTP), VLAN untagged (access o nativa del trunk) e VLAN tagged dei trunk."""
+    names = {index[1]: _text(value) or str(index[1]) for index, value in (await s.walk(CISCO_VTP_VLAN_NAME)).items()
+             if len(index) == 2 and index[1] not in CISCO_RESERVED_VLANS}
+    untagged = {index[0]: value for index, value in (await s.walk(CISCO_VM_VLAN)).items()
+                if len(index) == 1 and isinstance(value, int)}
+    tagged: dict[int, list[int]] = {}
+    trunks = [index[0] for index, value in (await s.walk(CISCO_TRUNK_STATUS)).items()
+              if len(index) == 1 and value == CISCO_TRUNKING]
+    if trunks:
+        native = await s.walk(CISCO_TRUNK_NATIVE)
+        enabled = await s.walk(CISCO_TRUNK_ENABLED)
+        for if_index in trunks:
+            native_vid = native.get((if_index,))
+            if isinstance(native_vid, int):
+                untagged[if_index] = native_vid
+            # Spesso il trunk "permette tutto" (1-4094): contano solo le VLAN che esistono sullo switch
+            allowed = [p - 1 for p in bitmap_positions(enabled.get((if_index,)))]
+            tagged[if_index] = sorted(v for v in allowed if v in names and v != native_vid)
+    return names, untagged, tagged
 
 
 async def _vlan_names(s: _Session) -> dict[int, str]:
@@ -582,8 +643,12 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data.ips = await _ips(s)
     data.serial, data.model = await _chassis(s)
     data.neighbors = await _lldp(s, data.interfaces) + await _cdp(s)
-    data.fdb, data.port_vlans = await _bridge(s)
-    data.vlans = await _vlan_names(s)
+    cisco_names, cisco_untagged, cisco_tagged = await _cisco_vlans(s)
+    base_ports = await _base_ports(s)
+    data.fdb, pvids = await _bridge(s, base_ports, cisco_untagged)
+    data.port_vlans = {**cisco_untagged, **pvids}
+    data.port_tagged = {**cisco_tagged, **await _qbridge_tagged(s, base_ports)}
+    data.vlans = {**cisco_names, **await _vlan_names(s)}
     data.arp = await _arp(s)
     return data
 

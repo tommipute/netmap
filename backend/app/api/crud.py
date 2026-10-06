@@ -105,7 +105,8 @@ def build_crud_router(
             if value is not None:
                 stmt = stmt.where(columns[name] == value)
         if q and search:
-            stmt = stmt.where(or_(*(columns[f].ilike(f"%{q}%") for f in search)))
+            # Anche campi calcolati (column_property), es. l'IP di management del device
+            stmt = stmt.where(or_(*((columns[f] if f in columns else getattr(model, f)).ilike(f"%{q}%") for f in search)))
 
         total = db.scalar(select(func.count()).select_from(stmt.subquery()))
         rows = db.scalars(stmt.order_by(*ordering).limit(limit).offset(offset)).all()

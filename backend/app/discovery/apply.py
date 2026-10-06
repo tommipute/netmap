@@ -6,12 +6,12 @@ Ogni funzione solleva ApplyError con un messaggio leggibile se la modifica non �
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Cable, Device, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile
+from app.models import VLAN, Cable, Device, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
-from app.services.rules import cable_hook, interface_hook, ip_hook
+from app.services.rules import cable_hook, interface_hook, ip_hook, vlan_hook
 
 SNMP = Source.SNMP.value
 INTERFACE_FIELDS = ("name", "if_index", "type", "speed_mbps", "mac_address", "mtu", "enabled", "description", "oper_status")
@@ -109,9 +109,21 @@ def _create_device(db: Session, data: dict, change: DiscoveryChange) -> None:
     ports = {i["if_index"]: _new_interface(db, device.id, i) for i in data.get("interfaces", [])}
     for ip in data.get("ips", []):
         port = ports.get(ip["if_index"])
-        taken = db.scalar(select(IPAddress.id).where(IPAddress.host == ip["address"].split("/")[0], IPAddress.vrf_id.is_(None)))
-        if port is not None and not taken:  # un IP già registrato altrove lo propone la prossima scansione
+        if port is None:
+            continue
+        existing = db.scalars(
+            select(IPAddress).where(IPAddress.host == ip["address"].split("/")[0], IPAddress.vrf_id.is_(None))
+        ).first()
+        if existing is None:
             _new_ip(db, ip["address"], port.id, ip.get("is_primary", False))
+        elif existing.interface_id is None:
+            # Registrato ma libero (es. in IPAM o rimasto da un device eliminato): ora è di questa porta
+            existing.address, existing.interface_id = ip["address"], port.id
+            existing.is_primary = ip.get("is_primary", False)
+            existing.last_seen_at = _now()
+            db.flush()
+            _hooked(ip_hook, db, existing, {}, False)
+        # assegnato a un'altra porta: lo propone la prossima scansione, che lo confronta con il database
     change.device_id = device.id
 
 
@@ -129,10 +141,26 @@ def _create_interface(db: Session, data: dict, change: DiscoveryChange) -> None:
     _new_interface(db, data["device_id"], data)
 
 
+def _vlan_id(db: Session, site_id: int | None, vid: int) -> int:
+    """VLAN della sede (o globale) con quel numero: deve esistere già."""
+    vlans = db.scalars(select(VLAN).where(VLAN.vid == vid, or_(VLAN.site_id == site_id, VLAN.site_id.is_(None))))
+    found = sorted(vlans, key=lambda v: v.site_id is None)  # prima quella della sede
+    if not found:
+        raise ApplyError(f"La VLAN {vid} non esiste ancora: approva prima la sua creazione")
+    return found[0].id
+
+
 def _update_interface(db: Session, data: dict, change: DiscoveryChange) -> None:
     iface = _get(db, Interface, change.object_id, "La porta")
+    data = dict(data)
+    if "tagged_vids" in data:  # VLAN lette dallo switch: numeri da trasformare nelle VLAN della sede
+        site_id = data.pop("vlan_site_id", None)
+        untagged = data.pop("untagged_vid", None)
+        data["untagged_vlan_id"] = _vlan_id(db, site_id, untagged) if untagged else None
+        data["tagged_vlan_ids"] = [_vlan_id(db, site_id, vid) for vid in data.pop("tagged_vids")]
     for key, value in data.items():
-        setattr(iface, key, value)
+        if key != "tagged_vlan_ids":  # le gestisce l'hook
+            setattr(iface, key, value)
     _hooked(interface_hook, db, iface, data, False)
 
 
@@ -154,6 +182,20 @@ def _update_ip(db: Session, data: dict, change: DiscoveryChange) -> None:
         setattr(ip, key, value)
     db.flush()
     _hooked(ip_hook, db, ip, data, False)
+
+
+# ---------------------------------------------------------------- VLAN
+def _create_vlan(db: Session, data: dict, change: DiscoveryChange) -> None:
+    exists = db.scalar(
+        select(VLAN.id).where(VLAN.vid == data["vid"], or_(VLAN.site_id == data["site_id"], VLAN.site_id.is_(None)))
+    )
+    if exists:
+        return  # creata nel frattempo (a mano o da un'altra modifica)
+    vlan = VLAN(site_id=data["site_id"], vid=data["vid"], name=data["name"][:100],
+                description="Trovata dalla scansione SNMP")
+    db.add(vlan)
+    _hooked(vlan_hook, db, vlan, data, True)
+    db.flush()
 
 
 # ---------------------------------------------------------------- cavi
@@ -189,10 +231,17 @@ HANDLERS = {
     (ChangeObject.IP.value, ChangeAction.UPDATE.value): _update_ip,
     (ChangeObject.CABLE.value, ChangeAction.CREATE.value): _create_cable,
     (ChangeObject.CABLE.value, ChangeAction.UPDATE.value): _update_cable,
+    (ChangeObject.VLAN.value, ChangeAction.CREATE.value): _create_vlan,
 }
 
 # Ordine sicuro per approvazioni in blocco: prima i device, poi porte, IP e cavi
-APPLY_ORDER = {ChangeObject.DEVICE.value: 0, ChangeObject.INTERFACE.value: 1, ChangeObject.IP.value: 2, ChangeObject.CABLE.value: 3}
+APPLY_ORDER = {
+    ChangeObject.DEVICE.value: 0,
+    ChangeObject.VLAN.value: 1,  # prima delle porte, che le usano
+    ChangeObject.INTERFACE.value: 2,
+    ChangeObject.IP.value: 3,
+    ChangeObject.CABLE.value: 4,
+}
 
 
 def apply_change(db: Session, change: DiscoveryChange) -> None:

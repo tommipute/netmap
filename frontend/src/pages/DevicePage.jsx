@@ -11,13 +11,50 @@ import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, SOURCES, formatDateTime, formatSpeed, labelOf } from '../options'
 
-function vlanText(port) {
-  if (port.mode === 'access') return port.untagged_vlan ? String(port.untagged_vlan) : '—'
-  if (port.mode === 'trunk') {
-    const tagged = port.tagged_vlans.length ? port.tagged_vlans.join(', ') : 'nessuna'
-    return `Trunk ${tagged}${port.untagged_vlan ? ` (nativa ${port.untagged_vlan})` : ''}`
+/** Una VLAN come etichetta: numero e nome (es. "10 UFFICI") */
+function VlanTag({ vid, port, native = false }) {
+  const name = port.vlan_names?.[vid]
+  return (
+    <span className={`vlan-tag${native ? ' vlan-tag--native' : ''}`} title={native ? 'Untagged (nativa)' : name || undefined}>
+      <span className="mono">{vid}</span>
+      {name && <span className="vlan-tag__name">{name}</span>}
+    </span>
+  )
+}
+
+/** Access: la sua VLAN. Trunk: VLAN tagged, più la nativa (untagged) se c'è. */
+function PortVlans({ port }) {
+  if (port.mode === 'access') {
+    return port.untagged_vlan ? <VlanTag vid={port.untagged_vlan} port={port} /> : <span className="muted">—</span>
   }
-  return '—'
+  if (port.mode === 'trunk') {
+    return (
+      <div className="vlan-list">
+        <span className="tag">trunk</span>
+        {port.untagged_vlan && <VlanTag vid={port.untagged_vlan} port={port} native />}
+        {port.tagged_vlans.map((vid) => <VlanTag key={vid} vid={vid} port={port} />)}
+        {port.tagged_vlans.length === 0 && <span className="muted">nessuna tagged</span>}
+      </div>
+    )
+  }
+  return <span className="muted">—</span>
+}
+
+/** Endpoint visti sulla porta: i primi con IP e MAC, poi il link a tutti */
+function PortEndpoints({ port }) {
+  if (!port.endpoints) return <span className="muted">—</span>
+  const more = port.endpoints - port.endpoint_preview.length
+  return (
+    <div className="endpoint-list">
+      {port.endpoint_preview.map((e) => (
+        <Link key={e.mac} to={`/where?q=${encodeURIComponent(e.mac)}`} className="endpoint-list__item" title={`MAC ${e.mac}`}>
+          <Mono>{e.ip || e.mac}</Mono>
+          {e.vlan && <span className="muted"> · VLAN {e.vlan}</span>}
+        </Link>
+      ))}
+      {more > 0 && <Link to={`/where?interface_id=${port.id}`} className="hint">e altri {more}</Link>}
+    </div>
+  )
 }
 
 /** Carica l'interfaccia completa e apre il modulo di modifica. */
@@ -208,7 +245,7 @@ export default function DevicePage() {
                       {!p.enabled && <span className="tag">disabilitata</span>}
                     </td>
                     <td>{labelOf(INTERFACE_TYPES, p.type)}</td>
-                    <td>{vlanText(p)}</td>
+                    <td><PortVlans port={p} /></td>
                     <td>{formatSpeed(p.speed_mbps)}</td>
                     <td>
                       {p.cable_id ? (
@@ -226,13 +263,7 @@ export default function DevicePage() {
                         <div key={ip.id}><Mono>{ip.address}</Mono></div>
                       ))}
                     </td>
-                    <td>
-                      {p.endpoints > 0 ? (
-                        <Link to={`/where?interface_id=${p.id}`}>{p.endpoints === 1 ? '1 MAC' : `${p.endpoints} MAC`}</Link>
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
+                    <td><PortEndpoints port={p} /></td>
                     <td className="table__actions">
                       {!canEdit ? null : p.cable_id ? (
                         <IconButton icon="unlink" label={`Scollega ${p.name}`} small className="btn--ghost"
