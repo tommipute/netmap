@@ -421,7 +421,6 @@ textarea.input { resize: vertical; min-height: 72px; }
 .live-chip:hover { text-decoration: none; border-color: var(--line-strong); }
 .live-chip__item { display: inline-flex; align-items: center; color: var(--muted); }
 .live-chip__item--down { color: var(--danger); font-weight: 500; }
-.dnode--down { border-color: var(--danger); box-shadow: 0 0 0 2px var(--danger-soft); }
 .map-live { display: inline-flex; align-items: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .map-live--down { color: var(--danger); font-weight: 500; }
 
