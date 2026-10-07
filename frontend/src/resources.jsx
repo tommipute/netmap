@@ -282,6 +282,7 @@ export const resources = {
       { name: 'manufacturer_id', label: 'Produttore', type: 'ref', ref: 'manufacturers' },
       { name: 'part_number', label: 'Part number', type: 'mono' },
       { name: 'u_height', label: 'Altezza (U)' },
+      { name: 'default_role_id', label: 'Ruolo predefinito', type: 'ref', ref: 'device-roles', empty: '—' },
     ],
     fields: [
       { name: 'manufacturer_id', label: 'Produttore', type: 'ref', ref: 'manufacturers', required: true },
@@ -289,6 +290,14 @@ export const resources = {
       { name: 'part_number', label: 'Part number' },
       { name: 'u_height', label: 'Altezza (U)', type: 'number', default: 1 },
       { name: 'sys_object_id', label: 'sysObjectID SNMP', help: 'Serve alla scansione per riconoscere il modello.' },
+      {
+        name: 'default_role_id',
+        label: 'Ruolo predefinito',
+        type: 'ref',
+        ref: 'device-roles',
+        emptyLabel: 'Nessuno',
+        help: 'Lo prendono i device di questo modello senza ruolo: quelli già presenti, i nuovi e quelli trovati dalla scansione.',
+      },
       description,
       customFields,
     ],

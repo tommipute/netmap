@@ -80,6 +80,8 @@ class DeviceType(TimestampMixin, CustomFieldsMixin, Base):
     u_height: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     # sysObjectID SNMP: in fase 3 serve a riconoscere il modello in automatico
     sys_object_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    # Ruolo dei device di questo modello che non ne hanno uno (anche quelli trovati dalla scansione)
+    default_role_id: Mapped[int | None] = mapped_column(ForeignKey("device_roles.id", ondelete="SET NULL"))
     description: Mapped[str | None] = mapped_column(Text)
 
 

@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (44 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (47 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -150,6 +150,9 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   locali si abbinano per nome/MAC perché `lldpLocPortNum` non sempre è l'ifIndex; il mgmt address sta nell'indice)
   e CDP. Restituisce `HostData` (dataclass) e non tocca il database. Attenzione: il pacchetto `snmpsim-lextudio`
   installa il vecchio `pysnmp-lextudio` in conflitto; usare `snmpsim` >= 1.2.
+- **Ruolo**: `DeviceType.default_role_id`; `device_hook` lo dà ai device senza ruolo alla creazione o quando cambia
+  il modello; `device_type_hook` lo dà ai device esistenti senza ruolo quando lo si imposta. Per i modelli nuovi la
+  scansione lo indovina (`services/roles.py`: parole della sysDescr -> ruoli esistenti per nome).
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:
@@ -304,5 +307,5 @@ negli aggiornamenti, IP spostati in silenzio da un altro device) e `remote_inter
 ## Limiti noti
 
 - Login senza HTTPS: prima di esporre l'app fuori dalla rete interna mettere un reverse proxy HTTPS e `COOKIE_SECURE=true`.
-- Scansione: i device scoperti restano senza ruolo; un trunk Cisco senza VTP mostra solo le VLAN che lo switch conosce;
+- Scansione: un trunk Cisco senza VTP mostra solo le VLAN che lo switch conosce;
   rame o fibra non si ricava dall'ifType.

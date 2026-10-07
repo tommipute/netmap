@@ -48,7 +48,7 @@ _routers = [
          order_by=(Manufacturer.name,)),
     dict(model=DeviceType, create_schema=d.DeviceTypeCreate, update_schema=d.DeviceTypeUpdate,
          read_schema=d.DeviceTypeRead, path="/device-types", tag="Modelli", filters=("manufacturer_id",),
-         search=("model", "part_number"), order_by=(DeviceType.model,)),
+         search=("model", "part_number"), order_by=(DeviceType.model,), hook=rules.device_type_hook),
     dict(model=DeviceRole, create_schema=d.DeviceRoleCreate, update_schema=d.DeviceRoleUpdate,
          read_schema=d.DeviceRoleRead, path="/device-roles", tag="Ruoli", search=("name",),
          order_by=(DeviceRole.level, DeviceRole.name)),

@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 from app.discovery.matching import find_device, find_port, interface_type, norm_ifname, short_name
 from app.discovery.snmp import HostData, IfData
 from app.discovery.vendors import vendor_name
-from app.models import VLAN, Cable, Device, DeviceType, DiscoveryJob, Interface, IPAddress
+from app.services.roles import guess_role
+from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
     ChangeAction,
@@ -93,12 +94,17 @@ class Planner:
             return None
         known = self.db.scalars(select(DeviceType).where(DeviceType.sys_object_id == hd.sys_object_id)).first()
         if known:
-            return {"id": known.id, "label": known.model}
+            role = self.db.get(DeviceRole, known.default_role_id) if known.default_role_id else None
+            return {"id": known.id, "label": known.model, "role": role.name if role else None}
         model = (hd.model or hd.sys_object_id)[:100]
         manufacturer = vendor_name(hd.sys_object_id)
+        # Modello nuovo: ruolo indovinato dalla descrizione SNMP (diventa il suo ruolo predefinito)
+        role = guess_role(self.db, hd.sys_descr, manufacturer, model)
         return {
-            "create": {"manufacturer": manufacturer, "model": model, "sys_object_id": hd.sys_object_id},
+            "create": {"manufacturer": manufacturer, "model": model, "sys_object_id": hd.sys_object_id,
+                       "default_role_id": role.id if role else None},
             "label": f"{manufacturer} {model} (nuovo modello)",
+            "role": role.name if role else None,
         }
 
     def _new_device(self, hd: HostData) -> Proposal:
@@ -113,6 +119,7 @@ class Planner:
         details = {
             "Indirizzo scansionato": [None, hd.host],
             "Modello": [None, type_ref["label"] if type_ref else None],
+            "Ruolo": [None, type_ref.get("role") if type_ref else None],
             "Numero di serie": [None, hd.serial],
             "Porte": [None, len(hd.interfaces)],
             "IP": [None, ", ".join(ip["address"] for ip in ips) or None],

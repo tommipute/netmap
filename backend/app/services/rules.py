@@ -1,16 +1,15 @@
 """Regole di coerenza dei dati, eseguite prima del salvataggio (hook dei router CRUD)."""
+import ipaddress
 from typing import Any
 
 from fastapi import HTTPException
-import ipaddress
-
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, inspect, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import hash_password
 from app.core.net import normalize_ip_interface
 from app.core.secrets import SecretError, encrypt
-from app.models import VLAN, Cable, Device, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, User
+from app.models import VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, User
 from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole
 
 
@@ -48,10 +47,24 @@ def device_hook(db: Session, device: Device, data: dict[str, Any], is_create: bo
         _fail("La posizione appartiene a un'altra sede")
     if device.rack_id is not None and db.get(Rack, device.rack_id).site_id != device.site_id:
         _fail("Il rack appartiene a un'altra sede")
+    # Senza ruolo: quello predefinito del modello (alla creazione o quando cambia il modello)
+    type_changed = is_create or inspect(device).attrs.device_type_id.history.has_changes()
+    if device.role_id is None and device.device_type_id and type_changed:
+        device.role_id = db.scalar(select(DeviceType.default_role_id).where(DeviceType.id == device.device_type_id))
     # Campo "IP di management" del modulo: assente = invariato, vuoto = il device non ne ha più uno
     if "management_ip" in data:
         db.flush()  # un device nuovo deve avere l'id prima di creargli la porta
         set_management_ip(db, device, (data["management_ip"] or "").strip())
+
+
+def device_type_hook(db: Session, device_type: DeviceType, data: dict[str, Any], is_create: bool) -> None:
+    """Ruolo predefinito impostato o cambiato: lo prendono anche i device di questo modello ancora senza ruolo."""
+    if is_create or device_type.default_role_id is None:
+        return
+    if inspect(device_type).attrs.default_role_id.history.has_changes():
+        db.flush()
+        for device in db.scalars(select(Device).where(Device.device_type_id == device_type.id, Device.role_id.is_(None))):
+            device.role_id = device_type.default_role_id  # uno per uno: così finiscono nello storico
 
 
 # ---------------------------------------------------------------- IP di management (uno per device)

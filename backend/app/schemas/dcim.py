@@ -101,6 +101,9 @@ class DeviceTypeBase(InputSchema):
     sys_object_id: str | None = Field(
         None, max_length=255, description="sysObjectID SNMP, per riconoscere il modello in automatico"
     )
+    default_role_id: int | None = Field(
+        None, description="Ruolo dei device di questo modello che non ne hanno uno (anche quelli già presenti)"
+    )
     description: str | None = None
     custom_fields: dict[str, Any] = Field(default_factory=dict)
 

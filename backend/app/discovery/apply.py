@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import VLAN, Cable, Device, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile
+from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
 from app.services.rules import cable_hook, interface_hook, ip_hook, vlan_hook
 
@@ -60,7 +60,9 @@ def _device_type_id(db: Session, ref: dict | None) -> int | None:
         select(DeviceType).where(DeviceType.manufacturer_id == manufacturer.id, DeviceType.model == spec["model"])
     ).first()
     if dev_type is None:
-        dev_type = DeviceType(manufacturer_id=manufacturer.id, model=spec["model"])
+        role_id = spec.get("default_role_id")
+        dev_type = DeviceType(manufacturer_id=manufacturer.id, model=spec["model"],
+                              default_role_id=role_id if role_id and db.get(DeviceRole, role_id) else None)
         db.add(dev_type)
     if dev_type.sys_object_id is None:
         dev_type.sys_object_id = spec["sys_object_id"]
@@ -92,10 +94,12 @@ def _create_device(db: Session, data: dict, change: DiscoveryChange) -> None:
     name = data["name"]
     if db.scalar(select(Device.id).where(Device.site_id == data["site_id"], func.lower(Device.name) == name.lower())):
         raise ApplyError(f"Esiste già un device {name} in questa sede")
+    type_id = _device_type_id(db, data.get("device_type"))
     device = Device(
         name=name,
         site_id=data["site_id"],
-        device_type_id=_device_type_id(db, data.get("device_type")),
+        device_type_id=type_id,
+        role_id=db.scalar(select(DeviceType.default_role_id).where(DeviceType.id == type_id)) if type_id else None,
         status=DeviceStatus.ACTIVE.value,
         serial=data.get("serial"),
         sys_name=data.get("sys_name"),
