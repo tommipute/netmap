@@ -678,3 +678,7 @@ a.tile:hover { border-color: var(--accent); }
 .plain-list { list-style: none; margin: 0; padding: 0; }
 .plain-list li { padding: 5px 0; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .plain-list li:last-child { border-bottom: 0; }
+.link-button { font: inherit; font-size: 13px; color: var(--accent); background: none; border: 0; padding: 6px 0 0; cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+button.tile { font: inherit; text-align: left; cursor: pointer; }
+button.tile:hover { border-color: var(--accent); }

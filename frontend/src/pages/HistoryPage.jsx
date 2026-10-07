@@ -6,6 +6,7 @@ import HistoryList, { OBJECT_TYPES, SOURCES } from '../components/HistoryList'
 import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { useApi, useDebounced } from '../hooks'
+import { formatDateTime } from '../options'
 
 const LIMIT = 50
 
@@ -18,6 +19,7 @@ export default function HistoryPage() {
   const deviceId = params.get('device_id')
   const objectType = params.get('object_type') || ''
   const source = params.get('source') || ''
+  const since = params.get('since') || '' // da "Cosa è cambiato": solo le modifiche del periodo
 
   const setFilter = (name, value) =>
     setParams((prev) => {
@@ -28,10 +30,10 @@ export default function HistoryPage() {
     }, { replace: true })
 
   useEffect(() => setFilter('q', q), [q]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => setOffset(0), [q, deviceId, objectType, source])
+  useEffect(() => setOffset(0), [q, deviceId, objectType, source, since])
 
   const { data, error, loading } = useApi(
-    `/audit-log${qs({ q, device_id: deviceId, object_type: objectType, source, limit: LIMIT, offset })}`,
+    `/audit-log${qs({ q, device_id: deviceId, object_type: objectType, source, since, limit: LIMIT, offset })}`,
   )
 
   return (
@@ -61,6 +63,12 @@ export default function HistoryPage() {
           <span className="filter-chip">
             Device <RefLabel resource="devices" id={Number(deviceId)} />
             <IconButton icon="close" label="Togli il filtro del device" small className="btn--ghost" onClick={() => setFilter('device_id', '')} />
+          </span>
+        )}
+        {since && (
+          <span className="filter-chip">
+            Dal {formatDateTime(since)}
+            <IconButton icon="close" label="Togli il filtro della data" small className="btn--ghost" onClick={() => setFilter('since', '')} />
           </span>
         )}
         {data && <span className="toolbar__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>}

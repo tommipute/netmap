@@ -258,6 +258,10 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - **Cosa è cambiato** (`services/summary.py`, `GET /api/whats-changed?hours=|since=`, pagina `/whats-changed`):
   conteggi dello storico per origine e azione, device creati/eliminati, giù adesso (`new` = caduti nel periodo),
   tornati su, endpoint nuovi (`first_seen_at`) e spostati (`moved_at`), scansioni (fallite) e modifiche da approvare.
+  Nella pagina le liste dei device mostrano gli ultimi 5 ("Mostra tutti"); i riquadri portano alla pagina giusta
+  (Modifiche → `/history?since=` dello stesso periodo) o scorrono alla loro sezione.
+- Vite in sviluppo a volte resta con una versione a metà di un file modificato più volte di fila ("does not provide
+  an export named 'default'", pagina bianca): `docker compose restart web`.
 
 ## Avvisi (`services/alerts.py`, tabelle `alert_channels`, `alert_states`)
 

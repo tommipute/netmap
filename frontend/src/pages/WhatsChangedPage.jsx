@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { qs } from '../api'
 import { ErrorBox, Loading, Mono } from '../components/Bits'
@@ -11,7 +12,10 @@ const PERIODS = [
   { hours: 24 * 30, label: 'Ultimi 30 giorni' },
 ]
 
-function Tile({ value, label, detail, to, tone }) {
+const SHOWN = 5 // nelle liste dei device: gli ultimi 5, gli altri con "Mostra tutti"
+
+/** Riquadro con il numero: porta a un'altra pagina (to) o alla sua sezione in questa pagina (section). */
+function Tile({ value, label, detail, to, section, tone }) {
   const body = (
     <>
       <span className="tile__value">{value}</span>
@@ -20,17 +24,36 @@ function Tile({ value, label, detail, to, tone }) {
     </>
   )
   const className = `tile${tone && value ? ` tile--${tone}` : ''}`
-  return to ? <Link to={to} className={className}>{body}</Link> : <div className={className}>{body}</div>
+  if (to) return <Link to={to} className={className}>{body}</Link>
+  if (section) {
+    return (
+      <button type="button" className={className}
+        onClick={() => document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+        {body}
+      </button>
+    )
+  }
+  return <div className={className}>{body}</div>
 }
 
+/** Elenco dei device, dal più recente: i primi 5 e "Mostra tutti" per il resto. */
 function DeviceList({ items, empty, render }) {
+  const [all, setAll] = useState(false)
   if (items.length === 0) return <p className="muted">{empty}</p>
+  const shown = all ? items : items.slice(0, SHOWN)
   return (
-    <ul className="plain-list">
-      {items.map((d) => (
-        <li key={`${d.id}-${d.at}`}>{render(d)}</li>
-      ))}
-    </ul>
+    <>
+      <ul className="plain-list">
+        {shown.map((d) => (
+          <li key={`${d.id}-${d.at}`}>{render(d)}</li>
+        ))}
+      </ul>
+      {items.length > SHOWN && (
+        <button type="button" className="link-button" onClick={() => setAll((v) => !v)}>
+          {all ? 'Mostra solo gli ultimi 5' : `Mostra tutti (${items.length})`}
+        </button>
+      )}
+    </>
   )
 }
 
@@ -77,6 +100,7 @@ export default function WhatsChangedPage() {
   const { data, error, loading } = useApi(`/whats-changed${qs({ hours })}`)
   const since = data?.since
   const recent = useApi(since ? `/audit-log${qs({ since, limit: 15 })}` : null)
+  const historyLink = since ? `/history${qs({ since })}` : '/history' // storico dello stesso periodo
 
   const sourceText = data
     ? SOURCES.filter((s) => data.changes.by_source[s.value]).map((s) => `${s.label.toLowerCase()} ${data.changes.by_source[s.value]}`).join(', ')
@@ -114,10 +138,10 @@ export default function WhatsChangedPage() {
             <Tile value={data.devices_down.length} label="Non rispondono" tone="danger"
               detail={data.devices_down.some((d) => d.new) ? `${data.devices_down.filter((d) => d.new).length} nel periodo` : null}
               to="/devices?reachable=false" />
-            <Tile value={data.devices_back.length} label="Tornati a rispondere" tone="ok" />
-            <Tile value={data.changes.total} label="Modifiche" detail={sourceText || null} to="/history" />
-            <Tile value={data.endpoints_new.total} label="Apparecchi nuovi in rete" tone="info" />
-            <Tile value={data.endpoints_moved.total} label="Apparecchi spostati" tone="warn" />
+            <Tile value={data.devices_back.length} label="Tornati a rispondere" tone="ok" section="tornati" />
+            <Tile value={data.changes.total} label="Modifiche" detail={sourceText || null} to={historyLink} />
+            <Tile value={data.endpoints_new.total} label="Apparecchi nuovi in rete" tone="info" section="nuovi" />
+            <Tile value={data.endpoints_moved.total} label="Apparecchi spostati" tone="warn" section="spostati" />
             <Tile value={data.runs.total} label="Scansioni"
               detail={data.runs.failed.length ? `${data.runs.failed.length} non riuscite` : null} tone={data.runs.failed.length ? 'danger' : null} to="/discovery-jobs" />
             <Tile value={data.pending_changes} label="Da approvare" tone="warn" to="/discovery/changes" />
@@ -134,7 +158,7 @@ export default function WhatsChangedPage() {
                   </>
                 )} />
             </section>
-            <section className="section">
+            <section className="section" id="tornati">
               <h2>Tornati a rispondere</h2>
               <DeviceList items={data.devices_back} empty="Nessuno nel periodo."
                 render={(d) => (
@@ -177,7 +201,7 @@ export default function WhatsChangedPage() {
             </section>
           )}
 
-          <section className="section">
+          <section className="section" id="nuovi">
             <h2>Apparecchi nuovi in rete</h2>
             {data.endpoints_new.total === 0 ? (
               <p className="muted">Nessun MAC nuovo nelle tabelle degli switch.</p>
@@ -191,7 +215,7 @@ export default function WhatsChangedPage() {
             )}
           </section>
 
-          <section className="section">
+          <section className="section" id="spostati">
             <h2>Apparecchi spostati</h2>
             {data.endpoints_moved.total === 0 ? (
               <p className="muted">Nessun MAC ha cambiato porta.</p>
@@ -206,7 +230,7 @@ export default function WhatsChangedPage() {
               <>
                 <HistoryList entries={recent.data.items} />
                 {recent.data.total > recent.data.items.length && (
-                  <p className="hint"><Link to="/history">Tutto lo storico ({recent.data.total} modifiche nel periodo)</Link></p>
+                  <p className="hint"><Link to={historyLink}>Tutto lo storico ({recent.data.total} modifiche nel periodo)</Link></p>
                 )}
               </>
             ) : (
