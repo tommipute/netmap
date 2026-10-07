@@ -428,12 +428,12 @@ textarea.input { resize: vertical; min-height: 72px; }
 .react-flow__node, .react-flow__edge { transition: opacity 0.15s; }
 .react-flow__node.is-faded { opacity: 0.22; }
 .react-flow__edge.cable--faded { opacity: 0.12; }
-.cable-handle { cursor: grab; pointer-events: all; }
-.cable-handle:active { cursor: grabbing; }
-.cable-handle--point { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
-.cable-handle--add circle { fill: var(--accent); opacity: 0.85; }
-.cable-handle--add path { stroke: var(--accent-ink); stroke-width: 1.6; }
-.cable-handle--add:hover circle { opacity: 1; }
+.cable-handle { pointer-events: all; fill: var(--surface); stroke: var(--accent); stroke-width: 1.8; }
+.cable-handle--ns { cursor: ns-resize; }
+.cable-handle--ew { cursor: ew-resize; }
+.cable-handle--end { cursor: move; fill: var(--accent); }
+.cable-handle:hover { fill: var(--accent-soft); }
+.cable-handle--end:hover { fill: var(--accent); stroke-width: 3; }
 .map-panel__hint { margin: 10px 0 12px; }
 .react-flow__edge.cable--vlan .react-flow__edge-path { stroke-width: 4.5px !important; filter: drop-shadow(0 0 3px var(--accent)); }
 

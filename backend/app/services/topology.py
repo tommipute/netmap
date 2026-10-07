@@ -186,7 +186,7 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
     edges = _edges(db, ids)
     cable_ids = {e["id"] for e in edges}
     routes = [
-        {"cable_id": r.cable_id, "points": r.points}
+        {"cable_id": r.cable_id, "points": r.points, "a_end": (r.ends or {}).get("a"), "b_end": (r.ends or {}).get("b")}
         for r in db.scalars(select(MapCableRoute).where(MapCableRoute.map_id == network_map.id))
         if r.cable_id in cable_ids
     ]
@@ -211,8 +211,8 @@ def save_map_positions(db: Session, network_map: NetworkMap, positions: list) ->
 
 
 def save_map_routes(db: Session, network_map: NetworkMap, routes: list) -> int:
-    """Sostituisce i punti di ancoraggio dei cavi della mappa; un cavo senza punti torna al percorso automatico."""
-    by_cable = {r.cable_id: r for r in routes if r.points}
+    """Sostituisce i percorsi sistemati a mano; un cavo senza spigoli né estremità fissate torna automatico."""
+    by_cable = {r.cable_id: r for r in routes if r.points or r.a_end or r.b_end}
     if by_cable:
         a_side, b_side = aliased(Interface), aliased(Interface)
         valid = set(
@@ -229,7 +229,12 @@ def save_map_routes(db: Session, network_map: NetworkMap, routes: list) -> int:
             raise HTTPException(422, f"Cavi inesistenti o di un'altra sede: {sorted(invalid)}")
     db.execute(delete(MapCableRoute).where(MapCableRoute.map_id == network_map.id))
     db.add_all(
-        MapCableRoute(map_id=network_map.id, cable_id=c, points=[{"x": round(p.x, 1), "y": round(p.y, 1)} for p in r.points])
+        MapCableRoute(
+            map_id=network_map.id,
+            cable_id=c,
+            points=[{"x": round(p.x, 1), "y": round(p.y, 1)} for p in r.points],
+            ends={k: v.model_dump() for k, v in (("a", r.a_end), ("b", r.b_end)) if v} or None,
+        )
         for c, r in by_cable.items()
     )
     db.commit()

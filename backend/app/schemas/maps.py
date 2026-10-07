@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.common import InputSchema, Name, ReadSchema, make_partial
@@ -38,9 +40,16 @@ class RoutePoint(BaseModel):
     y: float
 
 
+class RouteEnd(BaseModel):
+    side: Literal["top", "bottom", "left", "right"]
+    f: float = Field(ge=0, le=1, description="Posizione lungo il lato (0 = inizio, 1 = fine)")
+
+
 class CableRoute(BaseModel):
     cable_id: int
-    points: list[RoutePoint] = Field(max_length=50, description="Punti di ancoraggio, dal lato A al lato B del cavo")
+    points: list[RoutePoint] = Field([], max_length=50, description="Spigoli del percorso, dal lato A al lato B del cavo")
+    a_end: RouteEnd | None = Field(None, description="Dove si attacca il lato A (vuoto = automatico)")
+    b_end: RouteEnd | None = None
 
 
 class MapView(BaseModel):

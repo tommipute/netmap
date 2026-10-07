@@ -31,10 +31,15 @@ class MapNode(Base):
 
 
 class MapCableRoute(Base):
-    """Punti di ancoraggio disegnati a mano per un cavo su una mappa: il cavo passa da lì invece del percorso automatico."""
+    """Percorso di un cavo sistemato a mano su una mappa.
+
+    points: spigoli del percorso ad angolo (vuoto = percorso automatico); ends: dove si attacca il cavo ai due
+    device, {"a": {"side": "bottom", "f": 0.3}, "b": ...} (f = posizione lungo il lato, da 0 a 1; assente = automatico).
+    """
 
     __tablename__ = "map_cable_routes"
 
     map_id: Mapped[int] = mapped_column(ForeignKey("maps.id", ondelete="CASCADE"), primary_key=True)
     cable_id: Mapped[int] = mapped_column(ForeignKey("cables.id", ondelete="CASCADE"), primary_key=True)
     points: Mapped[list] = mapped_column(JSON)  # [{"x": .., "y": ..}] nell'ordine dal lato A al lato B del cavo
+    ends: Mapped[dict | None] = mapped_column(JSON)

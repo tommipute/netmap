@@ -288,13 +288,16 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   accanto al cavo. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
   `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
-  **Punti di ancoraggio** (tabella `map_cable_routes`, per mappa e cavo, punti dal lato A al lato B; `view.routes`,
-  `PUT /api/maps/{id}/routes` insieme a "Salva disposizione"): il cavo passa dai punti ad angolo retto
-  (`throughCorners` in geometry.js) o dritto, ed esce dal lato rivolto verso il primo punto (`sideToward` in
-  anchors.js). Cavo selezionato (solo editor): `CableEdge` disegna i punti da trascinare (doppio clic = via) e i "+"
-  per aggiungerne (`geometry.edit`); su un cavo automatico i punti sono gli spigoli del percorso calcolato, così il
-  primo spostamento non cambia il resto. Il cavo selezionato ha `zIndex` 10 (sopra i cavi che passano di lì).
-  "Torna al percorso automatico" nel pannello. In `toFlowEdge` i punti si girano se il cavo è disegnato al contrario.
+  **Cavi sistemati a mano** (tabella `map_cable_routes`, per mappa e cavo: `points` = spigoli dal lato A al lato B,
+  `ends` = `{a, b: {side, f}}`; `view.routes` con `a_end`/`b_end`, `PUT /api/maps/{id}/routes` insieme a "Salva
+  disposizione"). Scelta dell'utente: niente punti liberi né "+" (provati e scartati), si **spostano i tratti**.
+  Cavo selezionato (solo editor, `zIndex` 10): `CableEdge` disegna una barretta su ogni tratto interno (si sposta
+  solo di traverso: `moveSegment`, i tratti attaccati ai device restano lunghi almeno quanto il nome della porta)
+  e un pallino su ogni estremità (scorre sul bordo del device, anche su un altro lato: `endOnRect` → anchors.js
+  la tiene fissa). Su un cavo automatico i tratti sono quelli del percorso calcolato. Con spigoli salvati il
+  percorso è `connect` in geometry.js (primo/ultimo spigolo riallineati al lato; se stanno dietro il lato il cavo
+  esce dritto e gira attorno). Solo estremità spostate = percorso ancora automatico. Con i cavi dritti si spostano
+  solo le estremità. Il clic che chiude un trascinamento non arriva alla mappa. "Torna al percorso automatico".
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,
   endpoint; i risultati hanno `interface_id`); il risultato seleziona il cavo della porta trovata (o il device),

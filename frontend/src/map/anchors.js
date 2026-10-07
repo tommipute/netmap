@@ -7,8 +7,9 @@
  * punti diversi, distribuiti lungo il bordo in ordine di posizione dell'altro capo (così non si incrociano).
  * Due cavi verso lo stesso device (es. un LAG) non si uniscono mai: sembrerebbero uno solo.
  * Con separate (nomi delle porte visibili) ogni cavo ha il suo punto: ogni porta ha il suo posto per il nome.
- * Un cavo con punti di ancoraggio disegnati a mano (data.waypoints) esce dal lato rivolto verso il suo primo punto
- * ed entra da quello rivolto verso l'ultimo.
+ * Un cavo con il percorso sistemato a mano (data.waypoints = spigoli) esce dal lato rivolto verso il suo primo
+ * spigolo ed entra da quello rivolto verso l'ultimo. Un'estremità spostata a mano (data.sourceEnd/targetEnd =
+ * { side, f }) resta lì: non entra nella distribuzione dei punti sul lato.
  */
 const MIN_GAP = 24 // sotto questa distanza verticale due device si considerano affiancati
 const STRAIGHT_INSET = 12 // un cavo raddrizzato resta almeno a questa distanza dagli angoli
@@ -33,7 +34,7 @@ export function chooseSides(a, b) {
   return right >= left ? ['right', 'left'] : ['left', 'right']
 }
 
-function pointOn(r, side, f) {
+export function pointOn(r, side, f) {
   switch (side) {
     case 'top':
       return { x: r.x + r.w * f, y: r.y }
@@ -99,9 +100,15 @@ export function assignAnchors(nodes, edges, { separate = false } = {}) {
       towardA = center(b)
       towardB = center(a)
     }
-    result[e.id] = { source: { side: sa }, target: { side: sb } }
+    const fixedA = e.data?.sourceEnd
+    const fixedB = e.data?.targetEnd
+    result[e.id] = {
+      source: fixedA ? { ...pointOn(a, fixedA.side, fixedA.f), side: fixedA.side, fixed: true } : { side: sa },
+      target: fixedB ? { ...pointOn(b, fixedB.side, fixedB.f), side: fixedB.side, fixed: true } : { side: sb },
+    }
     const kind = e.data?.type || ''
     for (const [nodeId, side, end, otherId, other] of [[e.source, sa, 'source', e.target, towardA], [e.target, sb, 'target', e.source, towardB]]) {
+      if (result[e.id][end].fixed) continue
       const key = `${nodeId}|${side}`
       if (!sides.has(key)) sides.set(key, [])
       sides.get(key).push({ edgeId: e.id, end, kind, otherId, other })

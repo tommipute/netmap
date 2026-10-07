@@ -7,10 +7,10 @@
  *    si allunga quanto il nome e il nome ci sta sopra, in verticale se il cavo esce da sopra o da sotto (così
  *    tante porte stanno una accanto all'altra), in orizzontale se esce di lato. A metà cavo non si scrive niente.
  *    Tra due device troppo vicini e allineati i nomi non ci stanno in fila: si scrivono in orizzontale accanto al cavo.
- * 4. punti di ancoraggio disegnati a mano (data.waypoints): il cavo passa da lì, ad angolo retto (o dritto da un
- *    punto all'altro con i cavi dritti), senza percorso automatico. Per modificarli ogni cavo ha `edit`:
- *    corners = i punti da trascinare (per un cavo automatico gli spigoli del percorso calcolato, così il primo
- *    spostamento non cambia la forma del resto), inserts = dove aggiungere un punto ({ x, y, index }).
+ * 4. percorso sistemato a mano (data.waypoints = spigoli, solo con i cavi ad angolo): il cavo passa da lì
+ *    (connect), senza percorso automatico. Per modificarlo ogni cavo ha `edit` (editInfo): tratti da spostare di
+ *    traverso (moveSegment) ed estremità da spostare sul bordo del device (endOnRect). Su un cavo automatico i
+ *    tratti sono quelli del percorso calcolato: spostandone uno il resto non cambia.
  */
 import { OUTWARD, assignAnchors, rectOf } from './anchors'
 import { MARGIN, STUB, routeOrthogonal } from './routing'
@@ -43,14 +43,6 @@ function fallback(from, to, stubFrom, stubTo) {
 
 const out = (end, length) => ({ x: end.x + OUTWARD[end.side].x * length, y: end.y + OUTWARD[end.side].y * length })
 
-/** Il punto c sta sul tratto dritto che esce da end (lungo al massimo length)? */
-function onStub(end, c, length) {
-  const o = OUTWARD[end.side]
-  const along = (c.x - end.x) * o.x + (c.y - end.y) * o.y
-  const across = Math.abs((c.x - end.x) * o.y - (c.y - end.y) * o.x)
-  return across < 0.5 && along >= -0.5 && along <= length + 0.5
-}
-
 /** Toglie punti doppi e punti in mezzo a un tratto dritto. */
 function tidy(points) {
   const result = []
@@ -65,43 +57,93 @@ function tidy(points) {
 }
 
 /**
- * Cavo ad angolo che passa dai punti di ancoraggio: esce dritto dal device, poi tra un punto e l'altro fa uno
- * spigolo (prima di traverso rispetto al tratto precedente), entra dritto nel device di arrivo.
- * Restituisce { points, keys } con keys = [fine tratto di uscita, ...punti, inizio tratto di entrata].
+ * Percorso sistemato a mano: passa dagli spigoli salvati. Il primo spigolo si rimette sulla linea che esce dal
+ * device (e l'ultimo su quella che entra), così spostando un device il cavo resta ad angolo retto. Se lo spigolo
+ * sta dietro il lato di uscita (estremità spostata su un altro lato) il cavo prima esce dritto di min e poi gira
+ * attorno al device. Dove due punti non sono allineati aggiungo uno spigolo.
  */
-function throughCorners(from, to, corners, stubFrom, stubTo) {
-  const inner = corners.filter((c) => !onStub(from, c, stubFrom) && !onStub(to, c, stubTo))
-  const keys = [out(from, stubFrom), ...inner, out(to, stubTo)]
-  const path = [from, keys[0]]
-  let vertical = OUTWARD[from.side].y !== 0 // direzione dell'ultimo tratto
-  for (let i = 1; i < keys.length; i++) {
-    const p = keys[i - 1]
-    const q = keys[i]
-    if (p.x === q.x || p.y === q.y) {
-      vertical = p.x === q.x
-    } else {
+function connect(from, corners, to, minFrom, minTo) {
+  const pts = corners.map((c) => ({ x: c.x, y: c.y }))
+  const ahead = (end, c, min) => {
+    const o = OUTWARD[end.side]
+    return (c.x - end.x) * o.x + (c.y - end.y) * o.y >= min
+  }
+  const onLine = (end, c) => {
+    if (OUTWARD[end.side].y !== 0) c.x = end.x
+    else c.y = end.y
+  }
+  if (pts.length) {
+    if (ahead(from, pts[0], minFrom)) onLine(from, pts[0])
+    else pts.unshift(out(from, minFrom))
+    if (ahead(to, pts[pts.length - 1], minTo)) onLine(to, pts[pts.length - 1])
+    else pts.push(out(to, minTo))
+  }
+  const raw = [{ x: from.x, y: from.y }, ...pts, { x: to.x, y: to.y }]
+  const path = [raw[0]]
+  let vertical = OUTWARD[from.side].y === 0 // come se prima ci fosse un tratto di traverso: si esce dritti
+  for (let k = 1; k < raw.length; k++) {
+    const p = path[path.length - 1]
+    const q = raw[k]
+    if (p.x !== q.x && p.y !== q.y) {
       // L'ultimo spigolo fa entrare il cavo nel verso del lato di arrivo
-      const horizontalFirst = i === keys.length - 1 ? OUTWARD[to.side].y !== 0 : vertical
+      const horizontalFirst = k === raw.length - 1 ? OUTWARD[to.side].y !== 0 : vertical
       path.push(horizontalFirst ? { x: q.x, y: p.y } : { x: p.x, y: q.y })
       vertical = horizontalFirst
+    } else {
+      vertical = p.x === q.x
     }
     path.push(q)
   }
-  path.push(to)
-  return { points: tidy(path), keys, inner }
+  return tidy(path)
 }
 
-/** Dove mettere i "+" per aggiungere un punto: a metà di ogni tratto tra due chiavi (sullo spigolo se non sono allineate). */
-function insertHandles(keys, orthogonal) {
-  const handles = []
-  for (let i = 0; i < keys.length - 1; i++) {
-    const p = keys[i]
-    const q = keys[i + 1]
-    const aligned = !orthogonal || p.x === q.x || p.y === q.y
-    if (aligned && Math.hypot(q.x - p.x, q.y - p.y) < 24) continue // tratto troppo corto: niente "+"
-    handles.push({ ...(aligned ? { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } : { x: q.x, y: p.y }), index: i })
+/**
+ * Cosa si può modificare di un cavo: i tratti interni (non quelli attaccati ai device) si spostano di traverso,
+ * le estremità si spostano lungo il bordo del device. segments: [{ index, axis, x, y }] con axis = la coordinata
+ * che cambia trascinando (y per un tratto orizzontale).
+ */
+function editInfo(points, from, to, minFrom, minTo, rects, e) {
+  const segments = []
+  for (let i = 1; i < points.length - 2; i++) {
+    const p = points[i]
+    const q = points[i + 1]
+    if (Math.hypot(q.x - p.x, q.y - p.y) < 12) continue // troppo corto per prenderlo
+    segments.push({ index: i, axis: p.y === q.y ? 'y' : 'x', x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 })
   }
-  return handles
+  return {
+    points, from, to, minFrom, minTo, segments,
+    ends: [
+      { end: 'source', x: from.x, y: from.y, rect: rects.get(e.source) },
+      { end: 'target', x: to.x, y: to.y, rect: rects.get(e.target) },
+    ],
+  }
+}
+
+/** Spigoli del cavo dopo aver spostato il tratto index alla coordinata value (i tratti ai device restano lunghi almeno il minimo). */
+export function moveSegment(edit, index, value) {
+  const { points, from, to } = edit
+  const axis = edit.segments.find((s) => s.index === index).axis
+  let v = value
+  const keepOut = (end, min) => {
+    const o = OUTWARD[end.side][axis]
+    if (o && (v - end[axis]) * o < min) v = end[axis] + o * min
+  }
+  if (index === 1) keepOut(from, edit.minFrom)
+  if (index + 1 === points.length - 2) keepOut(to, edit.minTo)
+  const next = points.map((p) => ({ x: p.x, y: p.y }))
+  next[index][axis] = v
+  next[index + 1][axis] = v
+  return next.slice(1, -1)
+}
+
+/** Estremità del cavo nel punto del bordo di r più vicino a p: { side, f }. */
+export function endOnRect(r, p) {
+  const distance = {
+    top: Math.abs(p.y - r.y), bottom: Math.abs(p.y - (r.y + r.h)), left: Math.abs(p.x - r.x), right: Math.abs(p.x - (r.x + r.w)),
+  }
+  const side = Object.keys(distance).reduce((a, b) => (distance[b] < distance[a] ? b : a))
+  const raw = side === 'top' || side === 'bottom' ? (p.x - r.x) / r.w : (p.y - r.y) / r.h
+  return { side, f: Math.round(Math.min(0.95, Math.max(0.05, raw)) * 100) / 100 }
 }
 
 /** Nome della porta lungo il tratto dritto che esce dal device (in verticale se esce da sopra/sotto). */
@@ -130,6 +172,7 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
   const withLabels = edges.some((e) => e.data?.sourceLabel)
   const anchors = assignAnchors(nodes, edges, { separate: withLabels })
   const devices = nodes.map((n) => ({ id: n.id, r: rectOf(n) })).filter((d) => d.r)
+  const rects = new Map(devices.map((d) => [d.id, d.r]))
   const result = {}
 
   for (const e of edges) {
@@ -154,17 +197,15 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
       stubTo = Math.max(3, stubTo * k)
     }
 
+    // Tratto minimo attaccato al device: ci deve stare il nome della porta
+    const minOf = (text) => (text ? LABEL_GAP + labelLength(text) + 4 : 12)
     let points
-    let edit
     const waypoints = e.data?.waypoints
-    if (waypoints?.length && mode === 'bus') {
-      const through = throughCorners(from, to, waypoints, stubFrom, stubTo)
-      points = through.points
-      edit = { corners: through.inner, inserts: insertHandles(through.keys, true) }
+    if (mode !== 'bus') {
+      points = [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]
     } else if (waypoints?.length) {
-      points = [{ x: from.x, y: from.y }, ...waypoints, { x: to.x, y: to.y }]
-      edit = { corners: waypoints, inserts: insertHandles(points, false) }
-    } else if (mode === 'bus') {
+      points = connect(from, waypoints, to, minOf(sourceText), minOf(targetText))
+    } else {
       const obstacles = [
         ...devices.map((d) => ({
           x: d.r.x, y: d.r.y, width: d.r.w, height: d.r.h,
@@ -178,14 +219,9 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
       ]
       const beyond = stubTo + BUS_GAP
       const preferY = to.side === 'top' ? to.y - beyond : to.side === 'bottom' ? to.y + beyond : undefined
-      points = routeOrthogonal(from, to, obstacles, { preferY, stubFrom, stubTo }) || fallback(from, to, stubFrom, stubTo)
-      // Gli spigoli del percorso automatico diventano i punti da trascinare
-      const through = throughCorners(from, to, points.slice(1, -1), stubFrom, stubTo)
-      edit = { corners: through.inner, inserts: insertHandles(through.keys, true) }
-    } else {
-      points = [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]
-      edit = { corners: [], inserts: insertHandles(points, false) }
+      points = tidy(routeOrthogonal(from, to, obstacles, { preferY, stubFrom, stubTo }) || fallback(from, to, stubFrom, stubTo))
     }
+    const edit = editInfo(mode === 'bus' ? points : [], from, to, minOf(sourceText), minOf(targetText), rects, e)
 
     const labels = []
     if (sourceText && targetText) {

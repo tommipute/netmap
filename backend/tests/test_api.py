@@ -204,7 +204,15 @@ def test_punti_di_ancoraggio_dei_cavi(client):
     points = [{"x": 10, "y": 20.04}, {"x": 300, "y": 20}]
     assert client.put(url, json=[{"cable_id": cable["id"], "points": points}]).json() == {"saved": 1}
     view = client.get(f"/api/maps/{the_map['id']}/view").json()
-    assert view["routes"] == [{"cable_id": cable["id"], "points": [{"x": 10, "y": 20.0}, {"x": 300, "y": 20}]}]
+    assert view["routes"] == [{"cable_id": cable["id"], "points": [{"x": 10, "y": 20.0}, {"x": 300, "y": 20}],
+                               "a_end": None, "b_end": None}]
+
+    # Solo un'estremità spostata: il percorso resta automatico ma il cavo si attacca lì
+    end = {"side": "right", "f": 0.25}
+    assert client.put(url, json=[{"cable_id": cable["id"], "a_end": end}]).json() == {"saved": 1}
+    route = client.get(f"/api/maps/{the_map['id']}/view").json()["routes"][0]
+    assert route["points"] == [] and route["a_end"] == end and route["b_end"] is None
+    assert client.put(url, json=[{"cable_id": cable["id"], "a_end": {"side": "fuori", "f": 2}}]).status_code == 422
 
     assert client.put(url, json=[{"cable_id": foreign["id"], "points": points}]).status_code == 422
     # Senza punti: il cavo torna al percorso automatico
