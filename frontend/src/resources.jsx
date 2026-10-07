@@ -150,6 +150,7 @@ export const resources = {
     newLabel: 'Nuova interfaccia',
     editLabel: 'Modifica interfaccia',
     label: (o) => (o.device_name ? `${o.device_name} ${o.name}` : o.name),
+    bulkFields: ['type', 'speed_mbps', 'mode', 'untagged_vlan_id', 'mtu', 'enabled', 'mgmt_only'],
     filters: [
       { name: 'device_id', label: 'Device', ref: 'devices' },
       { name: 'type', label: 'Tipo', options: O.INTERFACE_TYPES },
@@ -195,6 +196,7 @@ export const resources = {
     newLabel: 'Nuovo cavo',
     editLabel: 'Modifica cavo',
     label: (o) => `${o.a_device_name} ${o.a_interface_name} – ${o.b_device_name} ${o.b_interface_name}`,
+    bulkFields: ['type', 'status', 'color', 'length', 'length_unit'],
     filters: [
       { name: 'type', label: 'Tipo', options: O.CABLE_TYPES },
       { name: 'status', label: 'Stato', options: O.CABLE_STATUS },
@@ -262,6 +264,7 @@ export const resources = {
     editLabel: 'Modifica posizione',
     intro: 'Edifici, piani e stanze. Una posizione può stare dentro un\'altra.',
     label: (o) => o.name,
+    bulkFields: ['parent_id'],
     filters: [{ name: 'site_id', label: 'Sede', ref: 'sites' }],
     columns: [
       { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
@@ -284,6 +287,7 @@ export const resources = {
     editLabel: 'Modifica rack',
     label: (o) => o.name,
     detail: (o) => `/racks/${o.id}`,
+    bulkFields: ['location_id', 'u_height'],
     filters: [{ name: 'site_id', label: 'Sede', ref: 'sites' }],
     columns: [
       { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
@@ -308,6 +312,7 @@ export const resources = {
     editLabel: 'Modifica ruolo',
     intro: 'Il colore e il livello decidono come appaiono i device nella mappa automatica.',
     label: (o) => o.name,
+    bulkFields: ['color', 'level'],
     columns: [
       { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
       { name: 'color', label: 'Colore', type: 'color' },
@@ -327,6 +332,7 @@ export const resources = {
     newLabel: 'Nuovo modello',
     editLabel: 'Modifica modello',
     label: (o) => o.model,
+    bulkFields: ['manufacturer_id', 'u_height', 'default_role_id'],
     filters: [{ name: 'manufacturer_id', label: 'Produttore', ref: 'manufacturers' }],
     columns: [
       { name: 'model', label: 'Modello', render: (o) => <strong>{o.model}</strong> },
@@ -371,6 +377,7 @@ export const resources = {
     editLabel: 'Modifica subnet',
     label: (o) => o.prefix,
     detail: (o) => `/prefixes/${o.id}`,
+    bulkFields: ['status', 'site_id', 'vlan_id', 'vrf_id'],
     filters: [
       { name: 'site_id', label: 'Sede', ref: 'sites' },
       { name: 'vrf_id', label: 'VRF', ref: 'vrfs' },
@@ -400,6 +407,7 @@ export const resources = {
     newLabel: 'Nuovo indirizzo IP',
     editLabel: 'Modifica indirizzo IP',
     label: (o) => o.address,
+    bulkFields: ['status', 'vrf_id'],
     filters: [
       { name: 'status', label: 'Stato', options: O.IP_STATUS },
       { name: 'vrf_id', label: 'VRF', ref: 'vrfs' },
@@ -454,6 +462,7 @@ export const resources = {
     newLabel: 'Nuova VLAN',
     editLabel: 'Modifica VLAN',
     label: (o) => `${o.vid} ${o.name}`,
+    bulkFields: ['site_id', 'status'],
     filters: [{ name: 'site_id', label: 'Sede', ref: 'sites' }],
     columns: [
       { name: 'vid', label: 'ID', render: (o) => <span className="mono strong">{o.vid}</span> },

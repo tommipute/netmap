@@ -289,7 +289,9 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   `sort=[-]campo` per tutte le entità; anche l'export dei device usa gli stessi filtri.
 - Elenchi (`ResourcePage`): selezione multipla (le azioni prendono il posto del conteggio nella riga dei filtri,
   così la tabella non si sposta) con eliminazione in blocco; modifica in blocco se la risorsa ha
-  `bulkFields` (`components/BulkEditDialog.jsx`, una PATCH per elemento, riusa `FieldControl` del modulo).
+  `bulkFields` (`components/BulkEditDialog.jsx`, una PATCH per elemento, riusa `FieldControl` del modulo): device,
+  modelli, porte, cavi, posizioni, rack, ruoli, subnet, IP, VLAN. I campi che dipendono dalla sede usano la sede
+  nuova o quella comune agli elementi, anche se la sede non è modificabile in blocco (rack, posizioni).
 - `components/ResourceForm.jsx`: in creazione non invia i `null` (valgono i default del backend),
   in modifica li invia per svuotare i campi; un `secret` vuoto in modifica non viene inviato.
 - `hooks.js`: `useApi(url)` con `reload`, `useOptions(path, params)` per i menu a tendina (cache condivisa),

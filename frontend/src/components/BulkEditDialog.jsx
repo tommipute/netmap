@@ -28,7 +28,8 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
 
   // Valore di riferimento di un campo: quello nuovo se spuntato, altrimenti quello comune a tutti
   const effective = (name) => (enabled[name] ? values[name] : common(items, name))
-  const context = Object.fromEntries(fields.map((f) => [f.name, effective(f.name) ?? '']))
+  // Anche i campi non modificabili in blocco (es. la sede di un rack): servono a filtrare quelli che ne dipendono
+  const context = Object.fromEntries(config.fields.map((f) => [f.name, effective(f.name) ?? '']))
 
   const setValue = (name, value) =>
     setValues((prev) => {
@@ -80,7 +81,8 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
           {fields.map((f) => {
             const parent = f.dependsOn ? context[f.dependsOn] : null
             const waiting = f.dependsOn && isEmpty(parent)
-            const field = waiting ? { ...f, waitLabel: 'Prima scegli la sede' } : f
+            const parentEditable = fields.some((p) => p.name === f.dependsOn)
+            const field = waiting ? { ...f, waitLabel: parentEditable ? 'Prima scegli la sede' : 'Sono di sedi diverse' } : f
             return (
               <div key={f.name} className={`bulk-field${enabled[f.name] ? ' bulk-field--on' : ''}`}>
                 <label className="check">
