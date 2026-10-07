@@ -207,6 +207,9 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   **Ogni pulsante che scrive va nascosto con `canEdit`** (il backend risponde comunque 403).
   Un 401 dall'API (fuori da `/auth/`) emette `netmap:unauthorized` e riporta al login.
   `RefSelect`/`RefLabel` usano `useOptionsPage`: oltre i 1000 elementi diventano una ricerca lato server.
+  **Stampa**: pulsante su scheda device, rack e mappa; in `@media print` il foglio è sempre chiaro (token
+  ridefiniti), spariscono pulsanti, colonna azioni, avvisi e ciò che ha `.no-print` (storico del device);
+  `PrintFooter` (Bits.jsx, `.print-only`) scrive data e utente. Le unità del rack si stringono a 17 px.
   Mappa: aggiornamento ogni 30 s (senza toccare le posizioni), export PNG/SVG con `html-to-image` (tutta la mappa,
   senza pallini di collegamento; il CSS di Google Fonts ha `crossorigin` apposta per incorporare i font), stampa.
 - Verifica nel browser (6/10/2026, Playwright): login admin e sola lettura, filtro "non rispondono",

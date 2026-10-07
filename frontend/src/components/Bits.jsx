@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../auth'
 import { formatDateTime, formatSince, labelOf } from '../options'
 
 const TONE = {
@@ -57,5 +58,16 @@ export function LiveStatus({ device, long = false }) {
       {long && device.reachable_changed_at && <span className="muted"> {formatSince(device.reachable_changed_at)}</span>}
       {long && up && device.rtt_ms !== null && device.rtt_ms !== undefined && <span className="muted"> · {device.rtt_ms} ms</span>}
     </span>
+  )
+}
+
+/** Riga che compare solo sul foglio stampato: quando e chi ha stampato. */
+export function PrintFooter() {
+  const { user } = useAuth()
+  const when = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
+  return (
+    <p className="print-only print-footer">
+      Stampato da NetMap il {when}{user ? ` da ${user.full_name || user.username}` : ''}
+    </p>
   )
 }

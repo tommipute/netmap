@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { ErrorBox, LiveStatus, Loading } from '../components/Bits'
+import { ErrorBox, LiveStatus, Loading, PrintFooter } from '../components/Bits'
 import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
@@ -81,7 +81,7 @@ export default function RackPage() {
           </p>
         </div>
         <div className="page-head__actions">
-          <IconButton icon="print" label="Stampa" onClick={() => window.print()} />
+          <IconButton icon="print" label="Stampa il rack" onClick={() => window.print()} />
           {canEdit && <IconButton icon="edit" label="Modifica rack" onClick={() => setEditing(true)} />}
           {canEdit && <IconButton icon="trash" label="Elimina rack" danger className="btn--ghost" onClick={remove} />}
         </div>
@@ -135,6 +135,8 @@ export default function RackPage() {
           </div>
         </div>
       )}
+
+      <PrintFooter />
 
       {editing && (
         <ResourceForm resourceKey="racks" item={rack} onClose={() => setEditing(false)}

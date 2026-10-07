@@ -540,14 +540,36 @@ textarea.input { resize: vertical; min-height: 72px; }
 .chip:disabled { cursor: default; opacity: 0.7; }
 
 /* ---------- Stampa: solo il contenuto (mappa, rack) ---------- */
+/* Solo sul foglio stampato */
+.print-only { display: none; }
+.print-footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+
 @media print {
-  body { background: #fff; }
+  @page { margin: 12mm; }
+  /* Il foglio è sempre chiaro, anche con il tema scuro */
+  :root {
+    --bg: #fff; --surface: #fff; --surface-2: #fff; --ink: #000; --muted: #4a5360; --line: #c9d0d8; --line-strong: #9aa5b1;
+    --accent: #00666e; --accent-soft: #e6f4f5; --ok: #2f8a57; --ok-soft: #e1f2e8; --warn: #8f6a00; --warn-soft: #fbf1d3;
+    --danger: #b93a35; --danger-soft: #f9e3e2; --info: #3567a3; --info-soft: #e3ecf7;
+    color-scheme: light;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #fff; font-size: 12px; }
+  a { color: inherit; }
+  .print-only { display: block; }
+  .no-print, .notice, .table__actions, .page-head .crumbs { display: none !important; }
+  .page { padding: 0; max-width: none; }
+  .table-wrap { overflow: visible; }
+  .table tr, .facts > div { break-inside: avoid; }
+  .table thead { display: table-header-group; }
+  .section > h2, .section__head { break-after: avoid; }
   .sidebar, .topbar, .map-toolbar__actions, .react-flow__controls, .react-flow__minimap, .map-hint, .map-panel,
   .page-head__actions, .react-flow__handle { display: none !important; }
   .shell { display: block; height: auto; }
   .content { overflow: visible; }
   .map-page { position: static; height: 100vh; }
   .rack__device, .rack { break-inside: avoid; }
+  .rack { --unit: 17px !important; } /* un 42U sta in un A4 */
 }
 
 /* ---------- Schermi piccoli ---------- */

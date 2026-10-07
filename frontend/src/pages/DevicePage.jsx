@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, ErrorBox, LiveStatus, Loading, Mono } from '../components/Bits'
+import { Badge, ErrorBox, LiveStatus, Loading, Mono, PrintFooter } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
 import DeleteDialog from '../components/DeleteDialog'
@@ -77,7 +77,7 @@ function DeviceHistory({ deviceId }) {
   const { data } = useApi(`/audit-log?device_id=${deviceId}&limit=8`)
   if (!data || data.total === 0) return null
   return (
-    <section className="section">
+    <section className="section no-print">
       <header className="section__head">
         <h2>
           Storico <span className="section__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>
@@ -160,6 +160,7 @@ export default function DevicePage() {
           </p>
         </div>
         <div className="page-head__actions">
+          <IconButton icon="print" label="Stampa la scheda" onClick={() => window.print()} />
           {canEdit && primary && (
             <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : "Controlla ora (ping e SNMP sull'IP di management)"}
               className={checking ? 'is-spinning' : ''} onClick={checkNow} disabled={checking} />
@@ -170,7 +171,7 @@ export default function DevicePage() {
       </header>
 
       {pending?.total > 0 && (
-        <p className="notice">
+        <p className="notice no-print">
           La scansione SNMP ha {pending.total === 1 ? '1 modifica' : `${pending.total} modifiche`} da approvare per questo device.{' '}
           <Link to={`/discovery/changes?device_id=${device.id}`}>Rivedile</Link>
         </p>
@@ -311,6 +312,7 @@ export default function DevicePage() {
       </section>
 
       <DeviceHistory deviceId={device.id} />
+      <PrintFooter />
 
       {dialog?.kind === 'delete' && (
         <DeleteDialog resourceKey="devices" items={[device]} onClose={() => setDialog(null)}
