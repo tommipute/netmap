@@ -189,7 +189,7 @@ def test_device_inserito_a_mano(client, setup, session_factory):
     create(client, "/interfaces", {"device_id": core["id"], "name": "GigabitEthernet1/0/1", "speed_mbps": 100})
 
     result = scan(client, session_factory, job_id, (SW1, SW1_HOST))
-    assert result["applied"] == 4  # Gi1/0/2, Te1/1/1, Vl99, Po1
+    assert result["applied"] == 6  # Gi1/0/2, Te1/1/1, Vl99, Po1 e i due membri dello stack
     device = client.get(f"/api/devices/{core['id']}").json()
     assert device["name"] == "core" and device["sys_name"] == "sw-sim-01.lab.local"  # il nome non si tocca
 

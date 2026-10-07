@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 from app.core.auth import hash_password
 from app.core.net import normalize_ip_interface
 from app.core.secrets import SecretError, encrypt
-from app.models import VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, User
+from app.models import (
+    VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, StackMember, User,
+)
 from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole
 
 
@@ -339,3 +341,18 @@ def user_hook(db: Session, user: User, data: dict[str, Any], is_create: bool) ->
 def user_delete_hook(db: Session, user: User, params: dict) -> None:
     if user.role == UserRole.ADMIN.value and user.active and _other_active_admins(db, user) == 0:
         raise HTTPException(409, "Non puoi eliminare l'ultimo amministratore attivo")
+
+
+def stack_member_hook(db: Session, member: StackMember, data: dict[str, Any], is_create: bool) -> None:
+    # Il numero è unico nello stack: messaggio chiaro invece del 409 generico
+    same = select(StackMember.id).where(StackMember.device_id == member.device_id, StackMember.number == member.number)
+    if member.id is not None:
+        same = same.where(StackMember.id != member.id)
+    with db.no_autoflush:
+        clash = db.scalar(same)
+    if clash:
+        _fail(f"Lo stack ha già un membro numero {member.number}")
+    if member.rack_position is not None:
+        device = db.get(Device, member.device_id)
+        if device.rack_id is None:
+            _fail("Per indicare l'unità il device dello stack deve essere in un rack")

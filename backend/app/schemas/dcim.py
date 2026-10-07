@@ -210,6 +210,26 @@ class InterfaceRead(InterfaceCreate, DiscoveryRead, ReadSchema):
     oper_status: str | None = None
 
 
+# ---------- Membri di uno stack ----------
+class StackMemberBase(InputSchema):
+    number: int = Field(ge=1, le=99, description="Numero del membro (1 = porte Gi1/0/x, 2 = Gi2/0/x...)")
+    model: str | None = Field(None, max_length=100)
+    serial: str | None = Field(None, max_length=100)
+    rack_position: int | None = Field(None, ge=1, le=60, description="Unità più bassa nel rack del device")
+    description: str | None = None
+
+
+class StackMemberCreate(StackMemberBase):
+    device_id: int
+
+
+StackMemberUpdate = make_partial(StackMemberBase, "StackMemberUpdate")
+
+
+class StackMemberRead(StackMemberCreate, DiscoveryRead, ReadSchema):
+    device_name: str | None = None
+
+
 # ---------- Cavi ----------
 class CableBase(InputSchema):
     a_interface_id: int

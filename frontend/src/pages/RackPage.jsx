@@ -28,12 +28,12 @@ function Elevation({ view }) {
           const top = Math.max(1, bottom - d.u_height + 1)
           const span = bottom - top + 1
           return (
-            <Link key={d.id} to={`/devices/${d.id}`}
+            <Link key={`${d.id}-${d.member ?? 0}`} to={`/devices/${d.id}`}
               className={`rack__device${d.conflict ? ' rack__device--conflict' : ''}${d.status !== 'active' ? ' rack__device--inactive' : ''}`}
               style={{ gridRow: `${top} / span ${span}`, '--role': d.color }}
-              title={`${d.name} · U${d.position}${d.u_height > 1 ? `–${d.position + d.u_height - 1}` : ''}${d.conflict ? ' · si sovrappone a un altro device' : ''}`}>
+              title={`${d.name}${d.member ? ` membro ${d.member}` : ''} · U${d.position}${d.u_height > 1 ? `–${d.position + d.u_height - 1}` : ''}${d.conflict ? ' · si sovrappone a un altro device' : ''}`}>
               {d.reachable !== null && <span className={`live-dot live-dot--${d.reachable ? 'up' : 'down'}`} />}
-              <span className="rack__name">{d.name}</span>
+              <span className="rack__name">{d.name}{d.member && <span className="rack__member"> · {d.member}</span>}</span>
               {d.face_label && span > 1 && <span className="rack__model">{d.face_label}</span>}
             </Link>
           )
@@ -105,8 +105,8 @@ export default function RackPage() {
               ) : (
                 <ul className="results">
                   {[...view.unplaced, ...outside].map((d) => (
-                    <li key={d.id}>
-                      <Link to={`/devices/${d.id}`}>{d.name}</Link>
+                    <li key={`${d.id}-${d.member ?? 0}`}>
+                      <Link to={`/devices/${d.id}`}>{d.name}{d.member ? ` membro ${d.member}` : ''}</Link>
                       <span className="results__detail">
                         {d.position ? `U${d.position}: oltre l'altezza del rack` : 'manca l\'unità'}
                       </span>
@@ -122,9 +122,9 @@ export default function RackPage() {
               ) : (
                 <ul className="results">
                   {[...view.devices].sort((a, b) => b.position - a.position).map((d) => (
-                    <li key={d.id}>
+                    <li key={`${d.id}-${d.member ?? 0}`}>
                       <span className="mono">U{d.position}</span>
-                      <Link to={`/devices/${d.id}`}>{d.name}</Link>
+                      <Link to={`/devices/${d.id}`}>{d.name}{d.member ? ` membro ${d.member}` : ''}</Link>
                       <span className="results__detail">{d.face_label || d.role || ''}</span>
                       <LiveStatus device={d} />
                     </li>

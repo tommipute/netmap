@@ -128,6 +128,28 @@ class Device(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     snmp_profile_id: Mapped[int | None] = mapped_column(ForeignKey("snmp_profiles.id", ondelete="SET NULL"))
 
 
+class StackMember(TimestampMixin, DiscoveryMixin, Base):
+    """Uno switch di uno stack. Lo stack è un solo device (un IP, una configurazione, porte Gi1/0/x, Gi2/0/x...):
+    qui ci sono i singoli switch fisici, con seriale, modello e unità nel rack del device."""
+
+    __tablename__ = "stack_members"
+    __table_args__ = (UniqueConstraint("device_id", "number"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)  # numero del membro (1 = Gi1/0/x...)
+    model: Mapped[str | None] = mapped_column(String(100))
+    serial: Mapped[str | None] = mapped_column(String(100), index=True)
+    rack_position: Mapped[int | None] = mapped_column(Integer)  # unità più bassa, nel rack del device
+    description: Mapped[str | None] = mapped_column(Text)
+
+    device: Mapped["Device"] = relationship(lazy="joined")
+
+    @property
+    def device_name(self) -> str | None:
+        return self.device.name if self.device else None
+
+
 interface_tagged_vlans = Table(
     "interface_tagged_vlans",
     Base.metadata,

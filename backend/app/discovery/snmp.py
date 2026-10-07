@@ -57,6 +57,7 @@ IP_AD_NET_MASK = "1.3.6.1.2.1.4.20.1.3"
 IP_ADDRESS_IF_INDEX = "1.3.6.1.2.1.4.34.1.3"  # ipAddressTable (IPv4 e IPv6), indice = tipo.lunghezza.indirizzo
 IP_ADDRESS_PREFIX = "1.3.6.1.2.1.4.34.1.5"    # puntatore al prefisso: l'ultimo numero è la lunghezza
 
+ENT_PHYSICAL_PARENT_REL_POS = "1.3.6.1.2.1.47.1.1.1.1.6"  # per gli chassis di uno stack: numero del membro
 ENT_PHYSICAL_CLASS = "1.3.6.1.2.1.47.1.1.1.1.5"
 ENT_PHYSICAL_SERIAL = "1.3.6.1.2.1.47.1.1.1.1.11"
 ENT_PHYSICAL_MODEL = "1.3.6.1.2.1.47.1.1.1.1.13"
@@ -194,6 +195,15 @@ class ArpEntry:
 
 
 @dataclass
+class MemberData:
+    """Un membro di uno stack (uno chassis della ENTITY-MIB)."""
+
+    number: int
+    serial: str | None = None
+    model: str | None = None
+
+
+@dataclass
 class HostData:
     host: str
     profile_id: int | None = None
@@ -212,6 +222,7 @@ class HostData:
     vlans: dict[int, str] = field(default_factory=dict)       # VID -> nome
     port_vlans: dict[int, int] = field(default_factory=dict)  # ifIndex -> VLAN untagged (PVID / access / nativa)
     port_tagged: dict[int, list[int]] = field(default_factory=dict)  # ifIndex -> VLAN tagged (trunk)
+    members: list[MemberData] = field(default_factory=list)  # stack: un elemento per switch (vuoto se non è uno stack)
 
 
 # ---------------------------------------------------------------- conversioni
@@ -392,18 +403,31 @@ async def _ips(s: _Session) -> list[IpData]:
     return [ip for ip in result.values() if _useful_ip(ip.address)]
 
 
-async def _chassis(s: _Session) -> tuple[str | None, str | None]:
+async def _chassis(s: _Session) -> tuple[str | None, str | None, list[MemberData]]:
+    """Seriale e modello del device (primo chassis) e, se gli chassis sono più di uno, i membri dello stack.
+
+    Il numero del membro è entPhysicalParentRelPos (negli stack Cisco lo chassis sta nel contenitore dello stack
+    alla posizione del membro); se manca, l'ordine degli chassis.
+    """
     classes = await s.walk(ENT_PHYSICAL_CLASS)
     chassis = sorted(index for index, value in classes.items() if value == ENT_CLASS_CHASSIS)
     if not chassis:
-        return None, None
+        return None, None, []
     serials = await s.walk(ENT_PHYSICAL_SERIAL)
     models = await s.walk(ENT_PHYSICAL_MODEL)
-    for index in chassis:
-        serial, model = _text(serials.get(index)), _text(models.get(index))
-        if serial or model:
-            return serial, model
-    return None, None
+    found = [(index, _text(serials.get(index)), _text(models.get(index))) for index in chassis]
+    found = [c for c in found if c[1] or c[2]]
+    if not found:
+        return None, None, []
+    members: list[MemberData] = []
+    if len(found) > 1:
+        positions = await s.walk(ENT_PHYSICAL_PARENT_REL_POS)
+        numbers = [_int(positions.get(index)) for index, _s, _m in found]
+        if len(set(numbers)) != len(numbers) or any(not n or n < 1 for n in numbers):
+            numbers = list(range(1, len(found) + 1))
+        members = sorted((MemberData(number=n, serial=serial, model=model)
+                          for n, (_i, serial, model) in zip(numbers, found)), key=lambda m: m.number)
+    return found[0][1], found[0][2], members
 
 
 def _name_key(name: str) -> str:
@@ -641,7 +665,7 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     )
     data.interfaces = await _interfaces(s)
     data.ips = await _ips(s)
-    data.serial, data.model = await _chassis(s)
+    data.serial, data.model, data.members = await _chassis(s)
     data.neighbors = await _lldp(s, data.interfaces) + await _cdp(s)
     cisco_names, cisco_untagged, cisco_tagged = await _cisco_vlans(s)
     base_ports = await _base_ports(s)

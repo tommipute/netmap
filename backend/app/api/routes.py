@@ -21,6 +21,7 @@ from app.models import (
     Rack,
     Site,
     SnmpProfile,
+    StackMember,
     User,
 )
 from app.schemas import alerts as al
@@ -64,6 +65,9 @@ _routers = [
          filters=("device_id", "type", "mode", "enabled", "untagged_vlan_id", "source"),
          search=("name", "mac_address", "description"), order_by=(Interface.device_id, Interface.name),
          hook=rules.interface_hook),
+    dict(model=StackMember, create_schema=d.StackMemberCreate, update_schema=d.StackMemberUpdate,
+         read_schema=d.StackMemberRead, path="/stack-members", tag="Stack", filters=("device_id",),
+         search=("serial", "model"), order_by=(StackMember.device_id, StackMember.number), hook=rules.stack_member_hook),
     dict(model=Cable, create_schema=d.CableCreate, update_schema=d.CableUpdate, read_schema=d.CableRead,
          path="/cables", tag="Cavi", filters=("status", "type", "source"), search=("label", "description"),
          hook=rules.cable_hook),

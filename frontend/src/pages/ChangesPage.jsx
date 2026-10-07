@@ -8,7 +8,7 @@ import { RefSelect } from '../components/RefSelect'
 import { invalidate, useApi } from '../hooks'
 import { CHANGE_ACTIONS, CHANGE_STATUS, formatDateTime } from '../options'
 
-const OBJECT_LABELS = { device: 'Device', interface: 'Porta', ip: 'IP', cable: 'Cavo', vlan: 'VLAN' }
+const OBJECT_LABELS = { device: 'Device', interface: 'Porta', ip: 'IP', cable: 'Cavo', vlan: 'VLAN', stack_member: 'Membro stack' }
 
 function show(value) {
   if (value === null || value === undefined || value === '') return <span className="muted">—</span>

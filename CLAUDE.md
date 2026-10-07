@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (54 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (56 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -215,6 +215,22 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Verifica nel browser (6/10/2026, Playwright): login admin e sola lettura, filtro "non rispondono",
   "Dov'è collegato?", rack, utenti, export PNG/SVG, logout, schermo da telefono. Corretti: filtro `reachable`
   mancante sui device (il parametro veniva ignorato), font e pallini nell'immagine esportata.
+
+## Stack (`StackMember`, tabella `stack_members`)
+
+- Decisione con l'utente (7/10/2026): **uno stack è un solo device** (un IP, una configurazione, porte Gi1/0/x,
+  Gi2/0/x, un nodo in mappa); i singoli switch sono membri del device: numero, modello, seriale, unità nel rack del
+  device, note. Switch in cascata con IP propri restano device separati.
+- CRUD `/api/stack-members?device_id=` (`stack_member_hook`: numero unico nello stack, unità solo se il device è in
+  un rack). Nel frontend la risorsa `stack-members` non ha voce di menu: sezione "Stack" nella scheda device
+  (compare se ci sono membri; pulsante con l'icona `stack` nella testata per aggiungere il primo).
+- Scansione: `_chassis` in `snmp.py` legge tutti gli chassis della ENTITY-MIB (numero = entPhysicalParentRelPos,
+  altrimenti l'ordine) → `HostData.members` (vuoto se c'è un solo chassis). Planner `_stack`: membri nuovi
+  automatici, seriale/modello cambiati automatici se il membro è `snmp` (o vuoto), altrimenti da approvare;
+  membro sparito → `stale` da approvare. Device nuovo: i membri arrivano con lui (`stack_members` nei dati).
+  Nei dati simulati il quarto valore di `entities` è il numero del membro (core del laboratorio e SW1 dei test: 2).
+- Vista rack: se almeno un membro ha l'unità, il device compare una volta per membro (`member` nella risposta).
+  Mappa: `stack_size` nei nodi → etichetta "stack ×N". Ricerca: seriale di un membro → device dello stack.
 
 ## Storico modifiche (`services/audit.py`, tabella `audit_log`)
 

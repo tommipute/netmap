@@ -93,7 +93,9 @@ CORE = {
     },
     "ipv4": [(CORE_IP, 199, MASK), ("10.10.10.1", 110, MASK), ("10.10.20.1", 120, MASK)],
     "ipv6": [],
-    "entities": {1000: (3, "FOC2611LAB1", "C9300-48P"), 1001: (9, "FOC2611LAB2", "C9300-NM-8X")},
+    # Stack di due C9300: (classe, seriale, modello, numero del membro)
+    "entities": {1000: (3, "FOC2611LAB1", "C9300-48P", 1), 1001: (9, "FOC2611LAB2", "C9300-NM-8X"),
+                 2000: (3, "FOC2611LAB3", "C9300-48P", 2)},
     "lldp_local": {
         1: (5, "Gi1/0/1", "GigabitEthernet1/0/1"),
         9: (5, "Te1/1/1", "TenGigabitEthernet1/1/1"),

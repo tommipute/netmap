@@ -5,6 +5,8 @@ Regole (docs/roadmap.md):
 - automatici se attivati nel job: porte nuove su device esistenti, IP nuovi su porte note
 - automatici: campi di oggetti creati dalla scansione (source = snmp)
 - sempre da approvare: device nuovi, cavi nuovi o diversi, oggetti eliminati, campi di oggetti inseriti a mano
+- stack: gli chassis della ENTITY-MIB sono i membri; quelli nuovi si aggiungono da soli (sono hardware letto dal
+  device), seriale/modello cambiati seguono la regola dei campi, un membro sparito è da approvare
 - VLAN: quelle lette dallo switch diventano VLAN della sede (automatiche se il job aggiunge da solo le porte
   nuove); VLAN untagged, modo access/trunk e VLAN tagged delle porte seguono la regola dei campi delle porte
 """
@@ -19,7 +21,7 @@ from app.discovery.matching import find_device, find_port, interface_type, norm_
 from app.discovery.snmp import HostData, IfData
 from app.discovery.vendors import vendor_name
 from app.services.roles import guess_role
-from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress
+from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, StackMember
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
     ChangeAction,
@@ -77,6 +79,7 @@ class Planner:
 
         proposals: list[Proposal] = []
         self._device_update(device, hd, proposals)
+        self._stack(device, hd, proposals)
         vlans = self._vlans(device.site_id, hd, proposals)
         ports = self._interfaces(device, hd, proposals)
         self._port_vlans(device, hd, ports, vlans, proposals)
@@ -121,6 +124,7 @@ class Planner:
             "Modello": [None, type_ref["label"] if type_ref else None],
             "Ruolo": [None, type_ref.get("role") if type_ref else None],
             "Numero di serie": [None, hd.serial],
+            "Stack": [None, f"{len(hd.members)} switch" if hd.members else None],
             "Porte": [None, len(hd.interfaces)],
             "IP": [None, ", ".join(ip["address"] for ip in ips) or None],
             "Posizione SNMP": [None, hd.sys_location],
@@ -140,6 +144,7 @@ class Planner:
                 "device_type": type_ref,
                 "interfaces": [self._interface_data(i) for i in hd.interfaces],
                 "ips": ips,
+                "stack_members": [{"number": m.number, "serial": m.serial, "model": m.model} for m in hd.members],
             },
             diff={k: v for k, v in details.items() if v[1] not in (None, "")},
             device_label=name,
@@ -168,6 +173,53 @@ class Planner:
                 data=data,
                 diff=diff,
                 auto=device.source == SNMP,
+            ))
+
+    # ------------------------------------------------------------ stack
+    def _stack(self, device: Device, hd: HostData, out: list[Proposal]) -> None:
+        if not hd.members:
+            return  # non è uno stack (o la ENTITY-MIB non lo dice): i membri inseriti a mano restano
+        existing = {m.number: m for m in self.db.scalars(select(StackMember).where(StackMember.device_id == device.id))}
+        for m in hd.members:
+            current = existing.pop(m.number, None)
+            if current is None:
+                out.append(Proposal(
+                    key=f"stack_member:create:{device.id}:{m.number}",
+                    object_type=ChangeObject.STACK_MEMBER.value,
+                    action=ChangeAction.CREATE.value,
+                    summary=f"Nuovo membro {m.number} dello stack {device.name}",
+                    data={"device_id": device.id, "number": m.number, "serial": m.serial, "model": m.model},
+                    diff={k: v for k, v in {"Membro": [None, m.number], "Numero di serie": [None, m.serial],
+                                            "Modello": [None, m.model]}.items() if v[1] not in (None, "")},
+                    auto=True,
+                ))
+                continue
+            current.last_seen_at = self.now
+            data, diff = {}, {}
+            if m.serial and (current.serial or "").lower() != m.serial.lower():
+                data["serial"], diff["Numero di serie"] = m.serial, [current.serial, m.serial]
+            if m.model and current.model != m.model:
+                data["model"], diff["Modello"] = m.model, [current.model, m.model]
+            if data:
+                out.append(Proposal(
+                    key=f"stack_member:update:{current.id}",
+                    object_type=ChangeObject.STACK_MEMBER.value,
+                    action=ChangeAction.UPDATE.value,
+                    object_id=current.id,
+                    summary=f"Membro {m.number} dello stack {device.name}: dati diversi da quelli letti via SNMP",
+                    data=data,
+                    diff=diff,
+                    auto=current.source == SNMP or not (current.serial or current.model),
+                ))
+        for current in existing.values():
+            out.append(Proposal(
+                key=f"stack_member:stale:{current.id}",
+                object_type=ChangeObject.STACK_MEMBER.value,
+                action=ChangeAction.STALE.value,
+                object_id=current.id,
+                summary=f"Il membro {current.number} dello stack {device.name} non risulta più dalla scansione",
+                data={"stack_member_id": current.id},
+                diff={"Membro": [current.number, None], "Numero di serie": [current.serial, None]},
             ))
 
     # ------------------------------------------------------------ porte

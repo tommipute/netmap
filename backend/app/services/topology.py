@@ -20,6 +20,7 @@ from app.models import (
     MapNode,
     NetworkMap,
     Rack,
+    StackMember,
 )
 from app.models.dcim import interface_tagged_vlans
 from app.models.enums import NON_CABLEABLE_TYPES
@@ -73,6 +74,9 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
         ).all()
     )
     _, device_vlans = _port_vlans(db, device_ids)
+    stack_sizes = dict(db.execute(
+        select(StackMember.device_id, func.count()).where(StackMember.device_id.in_(device_ids)).group_by(StackMember.device_id)
+    ).all())
     return [
         {
             "id": device.id,
@@ -92,6 +96,7 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
             "rack_name": rack_name,
             "rack_position": device.rack_position,
             "vlan_ids": sorted(device_vlans.get(device.id, ())),
+            "stack_size": stack_sizes.get(device.id, 0),
         }
         for device, role, rack_name in rows
     ]
@@ -347,6 +352,10 @@ def global_search(db: Session, q: str, limit: int = 25) -> list[dict]:
     )
     for d in devices:
         results.append({"type": "device", "id": d.id, "label": d.name, "detail": d.serial, "device_id": d.id})
+    # Seriale di uno switch di uno stack: porta al device dello stack
+    for m in db.scalars(select(StackMember).where(StackMember.serial.ilike(like)).limit(limit)):
+        results.append({"type": "device", "id": m.device_id, "label": m.device_name or "?",
+                        "detail": f"membro {m.number} dello stack, {m.serial}", "device_id": m.device_id})
 
     if _MAC_LIKE.match(term):
         hex_only = re.sub(r"[^0-9A-Fa-f]", "", term).upper()
@@ -405,7 +414,23 @@ def rack_elevation(db: Session, rack: Rack) -> dict:
         .where(Device.rack_id == rack.id)
         .order_by(Device.rack_position.desc().nulls_last(), Device.name)
     ).all()
+    members = defaultdict(list)
+    for m in db.scalars(
+        select(StackMember).where(StackMember.device_id.in_([d.id for d, _t, _r in rows])).order_by(StackMember.number)
+    ):
+        members[m.device_id].append(m)
     placed, unplaced, occupied = [], [], defaultdict(list)
+
+    def place(item: dict) -> None:
+        if item["position"] is None:
+            unplaced.append(item)
+            return
+        placed.append(item)
+        for unit in range(item["position"], item["position"] + item["u_height"]):
+            occupied[unit].append(item)
+            if unit > rack.u_height:
+                item["conflict"] = True
+
     for device, dtype, role in rows:
         item = {
             "id": device.id,
@@ -419,14 +444,13 @@ def rack_elevation(db: Session, rack: Rack) -> dict:
             "reachable": device.reachable,
             "conflict": False,
         }
-        if device.rack_position is None:
-            unplaced.append(item)
+        stack = members.get(device.id, [])
+        if not any(m.rack_position is not None for m in stack):
+            place(item)
             continue
-        placed.append(item)
-        for unit in range(device.rack_position, device.rack_position + item["u_height"]):
-            occupied[unit].append(item)
-            if unit > rack.u_height:
-                item["conflict"] = True
+        # Stack con le unità dei membri: ogni switch al suo posto
+        for m in stack:
+            place({**item, "position": m.rack_position, "member": m.number, "face_label": m.model or item["face_label"]})
     for items in occupied.values():
         if len(items) > 1:
             for item in items:

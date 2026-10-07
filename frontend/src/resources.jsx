@@ -555,6 +555,30 @@ const ALERT_TYPES = [
 ]
 const isType = (type) => (v) => v.type === type
 
+// Switch di uno stack: si gestiscono dalla scheda del device dello stack (niente voce nel menu)
+resources['stack-members'] = {
+  path: 'stack-members',
+  title: 'Membri degli stack',
+  newLabel: 'Nuovo membro dello stack',
+  editLabel: 'Modifica membro dello stack',
+  label: (o) => `${o.device_name} membro ${o.number}`,
+  filters: [{ name: 'device_id', label: 'Device', ref: 'devices' }],
+  columns: [
+    { name: 'device_id', label: 'Stack', render: (o) => <CellLink to={`/devices/${o.device_id}`}>{o.device_name}</CellLink> },
+    { name: 'number', label: 'Membro' },
+    { name: 'model', label: 'Modello' },
+    { name: 'serial', label: 'Numero di serie', type: 'mono' },
+  ],
+  fields: [
+    { name: 'device_id', label: 'Device dello stack', type: 'ref', ref: 'devices', required: true, createOnly: true },
+    { name: 'number', label: 'Numero del membro', type: 'number', required: true, help: '1 per le porte Gi1/0/x, 2 per Gi2/0/x…' },
+    { name: 'model', label: 'Modello', placeholder: 'C9300-48P' },
+    { name: 'serial', label: 'Numero di serie' },
+    { name: 'rack_position', label: 'Unità nel rack', type: 'number', help: "L'unità più bassa occupata, nel rack del device." },
+    description,
+  ],
+}
+
 resources['alert-channels'] = {
   path: 'alert-channels',
   title: 'Avvisi',

@@ -16,6 +16,7 @@ from app.models.dcim import (
     Manufacturer,
     Rack,
     Site,
+    StackMember,
     interface_tagged_vlans,
 )
 from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
@@ -57,6 +58,7 @@ __all__ = [
     "Prefix",
     "Rack",
     "Site",
+    "StackMember",
     "SnmpProfile",
     "User",
     "VLAN",

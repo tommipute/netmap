@@ -21,7 +21,10 @@ function DeviceNode({ data, selected }) {
         {dot}
         {data.name}
       </div>
-      <div className="dnode__role">{data.role || 'Senza ruolo'}</div>
+      <div className="dnode__role">
+        {data.role || 'Senza ruolo'}
+        {data.stack_size > 1 && <span className="dnode__stack" title={`Stack di ${data.stack_size} switch`}>stack ×{data.stack_size}</span>}
+      </div>
       {ip && <div className="dnode__ip">{ip}</div>}
       <Handle type="source" id="b" position={Position.Bottom} className="dnode__handle" />
     </div>

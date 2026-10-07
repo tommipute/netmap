@@ -9,7 +9,10 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile
+from app.models import (
+    VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile,
+    StackMember,
+)
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
 from app.services.rules import cable_hook, interface_hook, ip_hook, vlan_hook
 
@@ -128,6 +131,8 @@ def _create_device(db: Session, data: dict, change: DiscoveryChange) -> None:
             db.flush()
             _hooked(ip_hook, db, existing, {}, False)
         # assegnato a un'altra porta: lo propone la prossima scansione, che lo confronta con il database
+    for member in data.get("stack_members", []):
+        _new_stack_member(db, device.id, member)
     change.device_id = device.id
 
 
@@ -137,6 +142,31 @@ def _update_device(db: Session, data: dict, change: DiscoveryChange) -> None:
         device.serial = data["serial"]
     if "device_type" in data:
         device.device_type_id = _device_type_id(db, data["device_type"])
+
+
+# ---------------------------------------------------------------- stack
+def _new_stack_member(db: Session, device_id: int, values: dict) -> None:
+    if db.scalar(select(StackMember.id).where(StackMember.device_id == device_id, StackMember.number == values["number"])):
+        raise ApplyError(f"Lo stack ha già un membro numero {values['number']}")
+    db.add(StackMember(device_id=device_id, number=values["number"], serial=values.get("serial"),
+                       model=values.get("model"), source=SNMP, last_seen_at=_now()))
+    db.flush()
+
+
+def _create_stack_member(db: Session, data: dict, change: DiscoveryChange) -> None:
+    _get(db, Device, data["device_id"], "Il device")
+    _new_stack_member(db, data["device_id"], data)
+
+
+def _update_stack_member(db: Session, data: dict, change: DiscoveryChange) -> None:
+    member = _get(db, StackMember, change.object_id, "Il membro dello stack")
+    for column in ("serial", "model"):
+        if column in data:
+            setattr(member, column, data[column])
+
+
+def _stale_stack_member(db: Session, data: dict, change: DiscoveryChange) -> None:
+    db.delete(_get(db, StackMember, change.object_id, "Il membro dello stack"))
 
 
 # ---------------------------------------------------------------- porte
@@ -236,6 +266,9 @@ HANDLERS = {
     (ChangeObject.CABLE.value, ChangeAction.CREATE.value): _create_cable,
     (ChangeObject.CABLE.value, ChangeAction.UPDATE.value): _update_cable,
     (ChangeObject.VLAN.value, ChangeAction.CREATE.value): _create_vlan,
+    (ChangeObject.STACK_MEMBER.value, ChangeAction.CREATE.value): _create_stack_member,
+    (ChangeObject.STACK_MEMBER.value, ChangeAction.UPDATE.value): _update_stack_member,
+    (ChangeObject.STACK_MEMBER.value, ChangeAction.STALE.value): _stale_stack_member,
 }
 
 # Ordine sicuro per approvazioni in blocco: prima i device, poi porte, IP e cavi

@@ -329,6 +329,11 @@ textarea.input { resize: vertical; min-height: 72px; }
 .dnode--selected { border-color: var(--accent); border-left-color: var(--role, #888780); box-shadow: 0 0 0 3px var(--accent-soft); }
 .dnode__name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dnode__role { color: var(--muted); font-size: 11px; margin-top: 1px; }
+.dnode__stack {
+  margin-left: 6px; padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 3px;
+  font-size: 10px; color: var(--ink); white-space: nowrap;
+}
+.rack__member { font-weight: 400; color: var(--muted); }
 .dnode__ip { font-family: var(--mono); font-size: 11px; margin-top: 3px; }
 .dnode__handle.react-flow__handle { width: 10px; height: 10px; background: var(--surface); border: 2px solid var(--accent); }
 /* Visibili solo quando servono: passando sopra il device, se è selezionato o durante un collegamento */

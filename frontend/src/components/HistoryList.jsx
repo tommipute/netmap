@@ -5,6 +5,7 @@ import { ROLES } from '../auth'
 export const OBJECT_TYPES = [
   { value: 'device', label: 'Device' },
   { value: 'interface', label: 'Porta' },
+  { value: 'stack_member', label: 'Membro stack' },
   { value: 'cable', label: 'Cavo' },
   { value: 'ip', label: 'IP' },
   { value: 'vlan', label: 'VLAN' },

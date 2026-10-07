@@ -40,6 +40,7 @@ class TopologyNode(BaseModel):
     rack_name: str | None = None
     rack_position: int | None = None
     vlan_ids: list[int] = []               # VLAN di tutte le porte (vista VLAN della mappa)
+    stack_size: int = 0                    # switch nello stack (0 = non è uno stack)
 
 
 class TopologyEdge(BaseModel):
@@ -190,6 +191,7 @@ class RackDevice(BaseModel):
     status: str
     reachable: bool | None = None
     conflict: bool = False  # si sovrappone a un altro device o esce dal rack
+    member: int | None = None  # membro di uno stack (lo stesso device compare una volta per membro)
 
 
 class RackElevation(BaseModel):

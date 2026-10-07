@@ -16,6 +16,7 @@ const PATHS = {
   key: <><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9" /><path d="m16 7 3 3" /></>,
   logout: <><path d="M10 4H5v16h5" /><path d="M14 8l4 4-4 4" /><path d="M18 12H9" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  stack: <><rect x="4" y="4" width="16" height="4.5" rx="1" /><rect x="4" y="10" width="16" height="4.5" rx="1" /><rect x="4" y="16" width="16" height="4" rx="1" /><path d="M7 6.2h.01M7 12.2h.01M7 18h.01" /></>,
   plusMany: <><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M4 16V5a1 1 0 0 1 1-1h11" /><path d="M14.5 11.5v6M11.5 14.5h6" /></>,
   save: <><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M8 3v5h7V3" /><path d="M8 21v-7h8v7" /></>,
   check: <path d="m5 12 5 5 9-10" />,

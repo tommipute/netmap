@@ -72,6 +72,68 @@ function EditPort({ portId, onClose, onSaved }) {
   return <ResourceForm resourceKey="interfaces" item={data} onClose={onClose} onSaved={onSaved} />
 }
 
+/** Switch dello stack: un device con più membri (seriale, modello, unità nel rack di ognuno). */
+function StackSection({ device, members, canEdit, onAdd, onEdit, onChanged }) {
+  const remove = async (m) => {
+    if (!window.confirm(`Togliere il membro ${m.number} dallo stack? Le porte restano.`)) return
+    try {
+      await api.del(`/stack-members/${m.id}`)
+      onChanged()
+    } catch (err) {
+      window.alert(err.message)
+    }
+  }
+  return (
+    <section className="section">
+      <header className="section__head">
+        <h2>
+          Stack <span className="section__count">{members.length} switch</span>
+        </h2>
+        {canEdit && (
+          <div className="page-head__actions">
+            <IconButton icon="plus" label="Aggiungi un membro dello stack" small className="btn--primary" onClick={onAdd} />
+          </div>
+        )}
+      </header>
+      <div className="table-wrap">
+        <table className="table table--dense">
+          <thead>
+            <tr>
+              <th>Membro</th>
+              <th>Modello</th>
+              <th>Numero di serie</th>
+              <th>Unità</th>
+              <th>Note</th>
+              <th className="table__actions"><span className="sr-only">Azioni</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => (
+              <tr key={m.id}>
+                <td>{m.number}</td>
+                <td>{m.model || <span className="muted">—</span>}</td>
+                <td><Mono>{m.serial}</Mono></td>
+                <td>
+                  {m.rack_position ? `U${m.rack_position}` : <span className="muted">{device.rack_id ? '—' : 'device senza rack'}</span>}
+                </td>
+                <td>{m.description || <span className="muted">—</span>}</td>
+                <td className="table__actions">
+                  {canEdit && (
+                    <>
+                      <IconButton icon="edit" label={`Modifica il membro ${m.number}`} small className="btn--ghost" onClick={() => onEdit(m)} />
+                      <IconButton icon="trash" label={`Togli il membro ${m.number}`} small danger className="btn--ghost" onClick={() => remove(m)} />
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 /** Ultime modifiche del device, delle sue porte, IP e cavi */
 function DeviceHistory({ deviceId }) {
   const { data } = useApi(`/audit-log?device_id=${deviceId}&limit=8`)
@@ -99,6 +161,7 @@ export default function DevicePage() {
   const { data: device, error, reload } = useApi(`/devices/${id}`)
   const { data: ports, error: portsError, reload: reloadPorts } = useApi(`/devices/${id}/ports`)
   const { data: pending } = useApi(`/discovery-changes?device_id=${id}&limit=1`)
+  const { data: stack, reload: reloadStack } = useApi(`/stack-members?device_id=${id}&limit=100`)
   const [dialog, setDialog] = useState(null)
   const [checking, setChecking] = useState(false)
   const { canEdit } = useAuth()
@@ -107,6 +170,7 @@ export default function DevicePage() {
     setDialog(null)
     reload()
     reloadPorts()
+    reloadStack()
   }
 
   const run = async (question, action) => {
@@ -165,6 +229,9 @@ export default function DevicePage() {
             <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : "Controlla ora (ping e SNMP sull'IP di management)"}
               className={checking ? 'is-spinning' : ''} onClick={checkNow} disabled={checking} />
           )}
+          {canEdit && stack?.total === 0 && (
+            <IconButton icon="stack" label="È uno stack: aggiungi i suoi switch" onClick={() => setDialog({ kind: 'member' })} />
+          )}
           {canEdit && <IconButton icon="edit" label="Modifica device" onClick={() => setDialog({ kind: 'edit' })} />}
           {canEdit && <IconButton icon="trash" label="Elimina device" danger className="btn--ghost" onClick={removeDevice} />}
         </div>
@@ -217,6 +284,11 @@ export default function DevicePage() {
           <div className="facts__wide"><dt>Note</dt><dd>{device.description}</dd></div>
         )}
       </dl>
+
+      {stack?.items.length > 0 && (
+        <StackSection device={device} members={stack.items} canEdit={canEdit} onChanged={() => { invalidate(); reloadStack() }}
+          onAdd={() => setDialog({ kind: 'member' })} onEdit={(m) => setDialog({ kind: 'editMember', member: m })} />
+      )}
 
       <section className="section">
         <header className="section__head">
@@ -324,6 +396,13 @@ export default function DevicePage() {
       )}
       {dialog?.kind === 'port' && (
         <ResourceForm resourceKey="interfaces" preset={{ device_id: device.id }} onClose={() => setDialog(null)} onSaved={refresh} />
+      )}
+      {dialog?.kind === 'member' && (
+        <ResourceForm resourceKey="stack-members" onClose={() => setDialog(null)} onSaved={refresh}
+          preset={{ device_id: device.id, number: Math.max(0, ...(stack?.items || []).map((m) => m.number)) + 1 }} />
+      )}
+      {dialog?.kind === 'editMember' && (
+        <ResourceForm resourceKey="stack-members" item={dialog.member} onClose={() => setDialog(null)} onSaved={refresh} />
       )}
       {dialog?.kind === 'editPort' && <EditPort portId={dialog.portId} onClose={() => setDialog(null)} onSaved={refresh} />}
       {dialog?.kind === 'bulk' && <BulkPortsDialog deviceId={device.id} onClose={() => setDialog(null)} onDone={refresh} />}

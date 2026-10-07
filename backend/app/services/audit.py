@@ -34,6 +34,7 @@ from app.models import (
     Rack,
     Site,
     SnmpProfile,
+    StackMember,
     User,
 )
 
@@ -41,7 +42,7 @@ TRACKED: dict[type, str] = {
     Site: "site", Location: "location", Rack: "rack", Manufacturer: "manufacturer", DeviceType: "device_type",
     DeviceRole: "device_role", Device: "device", Interface: "interface", Cable: "cable", VLAN: "vlan", VRF: "vrf",
     Prefix: "prefix", IPAddress: "ip", NetworkMap: "map", SnmpProfile: "snmp_profile", DiscoveryJob: "discovery_job",
-    User: "user", AlertChannel: "alert_channel",
+    User: "user", AlertChannel: "alert_channel", StackMember: "stack_member",
 }
 
 # Campi che cambiano da soli o derivati: non sono modifiche di qualcuno
@@ -66,7 +67,7 @@ LABELS = {
     "part_number": "Codice prodotto", "sys_object_id": "sysObjectID", "auto_include": "Tutti i device",
     "targets": "Indirizzi", "profile_ids": "Profili", "interval_hours": "Ogni quante ore", "community_enc": "Community",
     "auth_key_enc": "Chiave di autenticazione", "secret_enc": "Segreto", "last_sent_at": "Ultimo invio", "priv_key_enc": "Chiave di cifratura", "username": "Utente",
-    "parent_id": "Dentro a", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
+    "parent_id": "Dentro a", "number": "Numero del membro", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
 }
 
 # Colonne che puntano ad altri oggetti: nello storico il nome, non l'id
@@ -88,6 +89,9 @@ def label_of(session: Session, obj: Any) -> str:
         return f"{label_of(session, a) if a else '?'} ↔ {label_of(session, b) if b else '?'}"
     if isinstance(obj, VLAN):
         return f"{obj.vid} {obj.name}"
+    if isinstance(obj, StackMember):
+        device = session.get(Device, obj.device_id) if obj.device_id else None
+        return f"{device.name if device else '?'} membro {obj.number}"
     if isinstance(obj, IPAddress):
         return obj.address
     if isinstance(obj, Prefix):
@@ -102,7 +106,7 @@ def label_of(session: Session, obj: Any) -> str:
 def _devices(session: Session, obj: Any) -> tuple[int | None, int | None]:
     if isinstance(obj, Device):
         return obj.id, None
-    if isinstance(obj, Interface):
+    if isinstance(obj, (Interface, StackMember)):
         return obj.device_id, None
     if isinstance(obj, IPAddress) and obj.interface_id:
         iface = session.get(Interface, obj.interface_id)

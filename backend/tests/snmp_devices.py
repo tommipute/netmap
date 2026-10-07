@@ -29,7 +29,9 @@ SW1 = {
     },
     "ipv4": [("10.99.0.1", 99, "255.255.255.0"), ("127.0.0.1", 99, "255.0.0.0")],
     "ipv6": [("fd00::1", 99, 64)],
-    "entities": {1000: (3, "FOCSIM0001", "C9300-48P"), 1001: (9, "MODSIM01", "C9300-NM-8X")},
+    # Stack di due switch: (classe, seriale, modello, numero del membro)
+    "entities": {1000: (3, "FOCSIM0001", "C9300-48P", 1), 1001: (9, "MODSIM01", "C9300-NM-8X"),
+                 2000: (3, "FOCSIM0003", "C9300-48P", 2)},
     # lldpLocPortNum: (subtype, id, descr)
     "lldp_local": {9: (5, "Te1/1/1", "TenGigabitEthernet1/1/1")},
     # (porta locale, indice): (subtype chassis, chassis id, subtype porta, porta, descr porta, sysName, IP mgmt)
@@ -87,7 +89,7 @@ SW2 = {
 
 def host_data(device: dict, host: str, profile_id: int | None = None, profile_name: str | None = None):
     """Quello che il collector deve restituire leggendo `device` (serve anche come scansione finta)."""
-    from app.discovery.snmp import OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, NeighborData
+    from app.discovery.snmp import OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, MemberData, NeighborData
 
     interfaces = [
         IfData(
@@ -109,7 +111,13 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         if not a.startswith("127.")
     ] + [IpData(address=f"{a}/{plen}", if_index=idx) for a, idx, plen in device["ipv6"]]
 
-    chassis = sorted((i, s, m) for i, (klass, s, m) in device["entities"].items() if klass == 3)
+    chassis = sorted((i, s, m) for i, (klass, s, m, *_n) in device["entities"].items() if klass == 3)
+    # Stack: un membro per chassis, numerato dal quarto valore (o in ordine)
+    stack = [(i, v) for i, v in sorted(device["entities"].items()) if v[0] == 3]
+    members = sorted(
+        (MemberData(number=v[3] if len(v) > 3 else k + 1, serial=v[1], model=v[2]) for k, (_i, v) in enumerate(stack)),
+        key=lambda m: m.number,
+    ) if len(stack) > 1 else []
     neighbors = [
         NeighborData(
             protocol="lldp", local_if_index=local_ports.get(port_num), sys_name=sys_name, chassis_mac=chassis_id.upper(),
@@ -151,5 +159,5 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         sys_location=system["location"], serial=chassis[0][1] if chassis else None,
         model=chassis[0][2] if chassis else None, interfaces=interfaces, ips=ips, neighbors=neighbors,
         fdb=[FdbEntry(mac=m, if_index=i, vlan=v) for m, i, v in fdb], arp=arp,
-        vlans={**names, **device["vlans"]}, port_vlans=port_vlans, port_tagged=port_tagged,
+        vlans={**names, **device["vlans"]}, port_vlans=port_vlans, port_tagged=port_tagged, members=members,
     )

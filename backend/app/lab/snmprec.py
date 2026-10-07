@@ -58,7 +58,9 @@ def snmprec(device: dict) -> str:
         add(f"1.3.6.1.2.1.4.34.1.3.{index}", INT, if_index)
         add(f"1.3.6.1.2.1.4.34.1.5.{index}", OID, f"1.3.6.1.2.1.4.32.1.5.{if_index}.2.16.{ip_arcs(address)}.{prefixlen}")
 
-    for idx, (klass, serial, model) in device["entities"].items():
+    for idx, (klass, serial, model, *relpos) in device["entities"].items():
+        if relpos:  # membro di uno stack
+            add(f"1.3.6.1.2.1.47.1.1.1.1.6.{idx}", INT, relpos[0])
         add(f"1.3.6.1.2.1.47.1.1.1.1.5.{idx}", INT, klass)
         add(f"1.3.6.1.2.1.47.1.1.1.1.11.{idx}", STR, serial)
         add(f"1.3.6.1.2.1.47.1.1.1.1.13.{idx}", STR, model)
