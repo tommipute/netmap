@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, qs } from '../api'
 import { useAuth } from '../auth'
@@ -10,6 +10,7 @@ import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { RefSelect } from '../components/RefSelect'
 import ResourceForm from '../components/ResourceForm'
+import { ColumnFilter, ColumnsMenu, filterParams, filterSpec, sortFieldOf, useTableColumns } from '../components/TableTools'
 import { invalidate, useApi, useDebounced } from '../hooks'
 import { labelOf } from '../options'
 import { resources } from '../resources'
@@ -74,14 +75,38 @@ export default function ResourcePage({ resourceKey }) {
   const [bulkBusy, setBulkBusy] = useState(null) // "Elimino 3 di 10…"
   const [bulkResult, setBulkResult] = useState(null) // { done, failed: [{ label, error }], verb }
   const q = useDebounced(search)
+  // Tabella: colonne scelte (salvate nel browser), filtri sotto le intestazioni, ordinamento
+  const { layout, visible: columns, save: saveColumns, customized } = useTableColumns(resourceKey, config.columns)
+  const [showColumnFilters, setShowColumnFilters] = useState(false)
+  const [columnFilters, setColumnFilters] = useState({})
+  const [sort, setSort] = useState(null) // "campo" o "-campo"
+  // Ritardo di battitura su una stringa (un oggetto nuovo a ogni render farebbe ripartire il timer all'infinito)
+  const columnQueryKey = useDebounced(JSON.stringify(filterParams(columns, columnFilters)))
+  const columnQuery = useMemo(() => JSON.parse(columnQueryKey), [columnQueryKey])
 
-  const { data, error, loading, reload } = useApi(`/${config.path}${qs({ limit: LIMIT, offset, q, ...filters })}`)
-  const filtered = Boolean(q) || Object.values(filters).some((v) => v !== '' && v !== undefined)
+  const { data, error, loading, reload } = useApi(
+    `/${config.path}${qs({ limit: LIMIT, offset, q, ...filters, ...columnQuery, sort })}`,
+  )
+  const filtered = Boolean(q) || Object.values(filters).some((v) => v !== '' && v !== undefined) || columnQueryKey !== '{}'
+
+  const setColumnFilter = (name, value) => {
+    setColumnFilters((prev) => ({ ...prev, [name]: value }))
+    setOffset(0)
+  }
+  const toggleColumnFilters = () => {
+    if (showColumnFilters) setColumnFilters({}) // spenti: niente filtri nascosti che restano attivi
+    setShowColumnFilters((v) => !v)
+    setOffset(0)
+  }
+  const sortBy = (field) => {
+    setSort((current) => (current === field ? `-${field}` : current === `-${field}` ? null : field))
+    setOffset(0)
+  }
 
   const open = (item) => (config.detail ? navigate(config.detail(item)) : setEditing(item))
 
   // Cambiando pagina, ricerca o filtri la selezione riparte da zero
-  useEffect(() => setSelected(new Map()), [q, filters, offset])
+  useEffect(() => setSelected(new Map()), [q, filters, offset, columnQueryKey, sort])
   const items = data?.items || []
   const allSelected = items.length > 0 && items.every((item) => selected.has(item.id))
   const toggleItem = (item, on) =>
@@ -123,7 +148,7 @@ export default function ResourcePage({ resourceKey }) {
 
   const handleExport = async (format = 'csv') => {
     try {
-      const url = `/api/devices/export${qs({ format, q, ...filters })}`
+      const url = `/api/devices/export${qs({ format, q, ...filters, ...columnQuery })}`
       const res = await fetch(url)
       if (!res.ok) throw new Error("Errore durante l'esportazione dei device")
       const blob = await res.blob()
@@ -209,6 +234,11 @@ export default function ResourcePage({ resourceKey }) {
             }}
           />
         ))}
+        <ColumnsMenu layout={layout} save={saveColumns} customized={customized} />
+        {columns.some((c) => filterSpec(c)) && (
+          <IconButton icon="filter" label={showColumnFilters ? 'Togli i filtri sulle colonne' : 'Filtri sulle colonne'}
+            className={showColumnFilters ? 'is-on' : ''} aria-pressed={showColumnFilters} onClick={toggleColumnFilters} />
+        )}
         {/* Con una selezione, al posto del conteggio compaiono le azioni: la tabella non si sposta */}
         {canEdit && selected.size > 0 ? (
           <div className="toolbar__count bulk-actions" role="region" aria-label="Elementi selezionati">
@@ -248,7 +278,7 @@ export default function ResourcePage({ resourceKey }) {
       <ErrorBox error={error} />
       {!data && loading && <Loading />}
 
-      {data && data.items.length === 0 && (
+      {data && data.items.length === 0 && !showColumnFilters && (
         <div className="empty">
           {filtered ? (
             <p>Nessun risultato con questi filtri.</p>
@@ -263,7 +293,7 @@ export default function ResourcePage({ resourceKey }) {
         </div>
       )}
 
-      {data && data.items.length > 0 && (
+      {data && (data.items.length > 0 || showColumnFilters) && (
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -274,13 +304,39 @@ export default function ResourcePage({ resourceKey }) {
                       onChange={(e) => toggleAll(e.target.checked)} />
                   </th>
                 )}
-                {config.columns.map((c) => (
-                  <th key={c.name}>{c.label}</th>
-                ))}
+                {columns.map((c) => {
+                  const field = sortFieldOf(c)
+                  if (!field) return <th key={c.name}>{c.label}</th>
+                  const state = sort === field ? 'ascending' : sort === `-${field}` ? 'descending' : 'none'
+                  return (
+                    <th key={c.name} aria-sort={state}>
+                      <button type="button" className="th-sort" onClick={() => sortBy(field)}
+                        title={state === 'ascending' ? 'Ordina al contrario' : state === 'descending' ? "Togli l'ordinamento" : `Ordina per ${c.label}`}>
+                        {c.label}
+                        <span className="th-sort__arrow" aria-hidden="true">{state === 'ascending' ? '▲' : state === 'descending' ? '▼' : ''}</span>
+                      </button>
+                    </th>
+                  )
+                })}
                 <th className="table__actions">
                   <span className="sr-only">Azioni</span>
                 </th>
               </tr>
+              {showColumnFilters && (
+                <tr className="table__filters">
+                  {canEdit && <th className="table__select" />}
+                  {columns.map((c) => (
+                    <th key={c.name}>
+                      <ColumnFilter column={c} value={columnFilters[c.name]} onChange={(v) => setColumnFilter(c.name, v)} />
+                    </th>
+                  ))}
+                  <th className="table__actions">
+                    {columnQueryKey !== '{}' && (
+                      <IconButton icon="close" label="Svuota i filtri sulle colonne" small className="btn--ghost" onClick={() => setColumnFilters({})} />
+                    )}
+                  </th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {data.items.map((item) => (
@@ -297,7 +353,7 @@ export default function ResourcePage({ resourceKey }) {
                         onChange={(e) => toggleItem(item, e.target.checked)} />
                     </td>
                   )}
-                  {config.columns.map((c) => (
+                  {columns.map((c) => (
                     <td key={c.name}>
                       <Cell column={c} row={item} />
                     </td>
@@ -312,6 +368,11 @@ export default function ResourcePage({ resourceKey }) {
                   </td>
                 </tr>
               ))}
+              {data.items.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length + (canEdit ? 2 : 1)} className="muted table__none">Nessun risultato con questi filtri.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

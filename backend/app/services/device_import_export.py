@@ -60,9 +60,12 @@ def get_devices_data(
     device_type_id: int | None = None,
     status: str | None = None,
     q: str | None = None,
+    only_ids=None,
 ) -> list[dict[str, Any]]:
-    """Estrae l'elenco dei device con tutte le relative informazioni risolte."""
+    """Estrae l'elenco dei device con tutte le relative informazioni risolte (only_ids: select di id da tenere)."""
     stmt = select(Device)
+    if only_ids is not None:
+        stmt = stmt.where(Device.id.in_(only_ids))
     if site_id:
         stmt = stmt.where(Device.site_id == site_id)
     if location_id:
@@ -163,6 +166,7 @@ def export_devices(
     device_type_id: int | None = None,
     status: str | None = None,
     q: str | None = None,
+    only_ids=None,
 ) -> tuple[str, str, str]:
     """Genera l'export in CSV o JSON.
 
@@ -177,6 +181,7 @@ def export_devices(
         device_type_id=device_type_id,
         status=status,
         q=q,
+        only_ids=only_ids,
     )
 
     if format == "json":

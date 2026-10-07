@@ -5,6 +5,7 @@
 import { ROLES } from './auth'
 import AlertTestButton from './components/AlertTestButton'
 import { Badge, CellLink, LiveStatus, Mono } from './components/Bits'
+import RefLabel from './components/RefLabel'
 import * as O from './options'
 
 const description = { name: 'description', label: 'Note', type: 'textarea' }
@@ -66,20 +67,60 @@ export const resources = {
       { name: 'status', label: 'Stato', options: O.DEVICE_STATUS },
       { name: 'reachable', label: 'Stato live', options: O.REACHABLE },
     ],
+    // Colonne: hidden = da scegliere in "Colonne della tabella"; filter/sortField per le colonne con render
     columns: [
-      { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
+      { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong>, filter: { kind: 'text' }, sortField: 'name' },
       { name: 'status', label: 'Stato', type: 'badge', options: O.DEVICE_STATUS },
-      { name: 'reachable', label: 'Stato live', render: (o) => <LiveStatus device={o} /> },
+      {
+        name: 'reachable',
+        label: 'Stato live',
+        render: (o) => <LiveStatus device={o} />,
+        filter: {
+          kind: 'options',
+          options: [{ value: 'true', label: 'Risponde' }, { value: 'false', label: 'Non risponde' }],
+          emptyLabel: 'Non controllato',
+        },
+        sortField: null,
+      },
       {
         name: 'management_ip',
         label: 'IP',
         render: (o) => (o.management_ip ? <Mono>{o.management_ip.split('/')[0]}</Mono> : <span className="muted">—</span>),
+        filter: { kind: 'text' },
+        sortField: 'management_ip',
       },
       { name: 'role_id', label: 'Ruolo', type: 'ref', ref: 'device-roles' },
       { name: 'site_id', label: 'Sede', type: 'ref', ref: 'sites' },
       { name: 'location_id', label: 'Posizione', type: 'ref', ref: 'locations' },
+      {
+        name: 'rack_id',
+        label: 'Rack',
+        render: (o) =>
+          o.rack_id ? (
+            <>
+              <RefLabel resource="racks" id={o.rack_id} />
+              {o.rack_position ? <span className="muted"> · U{o.rack_position}</span> : null}
+            </>
+          ) : (
+            <span className="muted">—</span>
+          ),
+        filter: { kind: 'ref', ref: 'racks' },
+        sortField: null,
+      },
       { name: 'device_type_id', label: 'Modello', type: 'ref', ref: 'device-types' },
       { name: 'serial', label: 'Seriale', type: 'mono' },
+      { name: 'asset_tag', label: 'Asset tag', type: 'mono', hidden: true },
+      { name: 'sys_name', label: 'sysName', type: 'mono', hidden: true },
+      { name: 'source', label: 'Origine', type: 'select', options: O.SOURCES, hidden: true },
+      {
+        name: 'last_seen_at',
+        label: 'Ultima scansione',
+        render: (o) => (o.last_seen_at ? O.formatDateTime(o.last_seen_at) : <span className="muted">—</span>),
+        filter: false,
+        sortField: 'last_seen_at',
+        hidden: true,
+      },
+      { name: 'description', label: 'Note', hidden: true },
     ],
     fields: [
       { name: 'name', label: 'Nome', required: true, placeholder: 'sw-p1-01' },

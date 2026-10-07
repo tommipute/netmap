@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.crud import apply_column_filters
 from app.database import get_db
 from app.models import Device, NetworkMap, Prefix, Rack
 from app.schemas.common import Page
@@ -60,9 +61,15 @@ def get_devices_export(
     role_id: int | None = None,
     device_type_id: int | None = None,
     status: str | None = None,
+    reachable: bool | None = None,
     q: str | None = None,
+    request: Request = None,
     db: Session = Depends(get_db),
 ):
+    # Stessi filtri per colonna dell'elenco (<campo>__contains, __eq, __isnull), come id dei device da esportare
+    only = apply_column_filters(Device, ("management_ip",), select(Device.id), request.query_params)
+    if reachable is not None:
+        only = only.where(Device.reachable.is_(reachable))
     content, media_type, filename = export_devices(
         db,
         format=format,
@@ -74,6 +81,7 @@ def get_devices_export(
         device_type_id=device_type_id,
         status=status,
         q=q,
+        only_ids=only,
     )
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return Response(content=content, media_type=media_type, headers=headers)

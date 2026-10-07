@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (56 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (58 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -274,6 +274,13 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   `showIf(values)` + `hiddenValue` (valore inviato quando il campo è nascosto), `freeOnly` (solo porte libere),
   `ordered` (refmulti con numero d'ordine), `savedHint(item)` (segnaposto dei campi `secret` già salvati).
   `NAV` accetta chiavi di risorse oppure pagine speciali `{ to, title, badge }`.
+- **Tabelle degli elenchi** (`components/TableTools.jsx`): colonne da mostrare/nascondere e riordinare (pulsante
+  "Colonne della tabella", salvate in localStorage `netmap.table.<risorsa>`; colonne con `hidden: true` partono
+  nascoste), riga di filtri sotto le intestazioni (pulsante a imbuto; spegnendola i filtri si svuotano) e ordinamento
+  cliccando l'intestazione. Il filtro si ricava dal tipo della colonna (testo → `__contains`, ref/badge/select/bool
+  → `__eq` con la voce "(vuoto)" → `__isnull`); le colonne con `render` lo dichiarano con `filter` (o `false`)
+  e `sortField`. L'API (`api/crud.py`, `apply_column_filters`) accetta `<campo>__contains|__eq|__isnull` e
+  `sort=[-]campo` per tutte le entità; anche l'export dei device usa gli stessi filtri.
 - Elenchi (`ResourcePage`): selezione multipla (le azioni prendono il posto del conteggio nella riga dei filtri,
   così la tabella non si sposta) con eliminazione in blocco; modifica in blocco se la risorsa ha
   `bulkFields` (`components/BulkEditDialog.jsx`, una PATCH per elemento, riusa `FieldControl` del modulo).

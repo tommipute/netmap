@@ -1,13 +1,18 @@
 """Generatore di endpoint CRUD: elenco con filtri, dettaglio, creazione, modifica (PATCH), eliminazione.
 
 Ogni entità usa lo stesso schema; le regole specifiche stanno negli "hook" (app/services/rules.py).
+
+Oltre ai filtri dichiarati (uguaglianza, compaiono in /docs) l'elenco accetta filtri per colonna generici, usati
+dai filtri sotto le intestazioni delle tabelle: `<campo>__contains=testo` (contiene, senza maiuscole),
+`<campo>__eq=valore`, `<campo>__isnull=true|false`, e `sort=<campo>` / `sort=-<campo>`. Valgono per le colonne
+del modello e per i campi calcolati cercabili (es. management_ip del device); un campo sconosciuto dà 422.
 """
 import inspect
 from typing import Any, Callable, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from pydantic import BaseModel
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
@@ -68,6 +73,50 @@ def commit_or_error(db: Session) -> None:
         raise HTTPException(422, f"Valore non valido ({_short(exc)})") from exc
 
 
+def column_attribute(model: type, searchable: tuple[str, ...], name: str):
+    """Colonna del modello o campo calcolato cercabile (es. management_ip del device); None se non esiste."""
+    columns = model.__table__.columns
+    if name in columns:
+        return columns[name]
+    if name in searchable and hasattr(model, name):
+        return getattr(model, name)
+    return None
+
+
+def _parse(attr, raw: str):
+    try:
+        py_type = attr.type.python_type
+    except (AttributeError, NotImplementedError):
+        return raw
+    if py_type is bool:
+        if raw.lower() not in ("true", "false", "1", "0"):
+            raise HTTPException(422, f"Valore non valido: {raw}")
+        return raw.lower() in ("true", "1")
+    try:
+        return py_type(raw)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, f"Valore non valido: {raw}") from exc
+
+
+def apply_column_filters(model: type, searchable: tuple[str, ...], stmt, query_params):
+    """Filtri per colonna (<campo>__contains / __eq / __isnull) presi dai parametri della richiesta."""
+    for key, raw in query_params.multi_items():
+        if "__" not in key:
+            continue
+        name, op = key.rsplit("__", 1)
+        attr = column_attribute(model, searchable, name)
+        if attr is None or op not in ("contains", "eq", "isnull"):
+            raise HTTPException(422, f"Filtro non valido: {key}")
+        if op == "contains":
+            if raw.strip():
+                stmt = stmt.where(cast(attr, String).ilike(f"%{raw.strip()}%"))
+        elif op == "isnull":
+            stmt = stmt.where(attr.is_(None) if raw.lower() in ("true", "1") else attr.is_not(None))
+        else:
+            stmt = stmt.where(attr == _parse(attr, raw))
+    return stmt
+
+
 def build_crud_router(
     *,
     model: type,
@@ -93,14 +142,25 @@ def build_crud_router(
             raise HTTPException(404, "Elemento non trovato")
         return obj
 
+    def sorting(sort: str | None):
+        if not sort:
+            return ordering
+        attr = column_attribute(model, search, sort.lstrip("-"))
+        if attr is None:
+            raise HTTPException(422, f"Ordinamento non valido: {sort}")
+        first = attr.desc().nulls_last() if sort.startswith("-") else attr.asc().nulls_last()
+        return (first, *ordering)
+
     # ----- Elenco: i filtri vengono generati dinamicamente così compaiono anche in /docs -----
     def list_items(**kwargs):
         db: Session = kwargs.pop("db")
+        request: Request = kwargs.pop("request")
         limit: int = kwargs.pop("limit")
         offset: int = kwargs.pop("offset")
+        sort: str | None = kwargs.pop("sort", None)
         q: str | None = kwargs.pop("q", None)
 
-        stmt = select(model)
+        stmt = apply_column_filters(model, search, select(model), request.query_params)
         for name, value in kwargs.items():
             if value is not None:
                 stmt = stmt.where(columns[name] == value)
@@ -109,14 +169,19 @@ def build_crud_router(
             stmt = stmt.where(or_(*((columns[f] if f in columns else getattr(model, f)).ilike(f"%{q}%") for f in search)))
 
         total = db.scalar(select(func.count()).select_from(stmt.subquery()))
-        rows = db.scalars(stmt.order_by(*ordering).limit(limit).offset(offset)).all()
+        rows = db.scalars(stmt.order_by(*sorting(sort)).limit(limit).offset(offset)).all()
         return {"total": total, "items": [read_schema.model_validate(r) for r in rows]}
 
     kw = inspect.Parameter.KEYWORD_ONLY
     params = [
         inspect.Parameter("db", kw, default=Depends(get_db), annotation=Session),
+        inspect.Parameter("request", kw, annotation=Request),
         inspect.Parameter("limit", kw, default=Query(50, ge=1, le=1000), annotation=int),
         inspect.Parameter("offset", kw, default=Query(0, ge=0), annotation=int),
+        inspect.Parameter(
+            "sort", kw, default=Query(None, description="Campo per l'ordinamento, con - davanti al contrario"),
+            annotation=Optional[str],
+        ),
     ]
     if search:
         params.append(

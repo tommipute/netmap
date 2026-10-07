@@ -222,3 +222,33 @@ def test_punti_di_ancoraggio_dei_cavi(client):
     client.put(url, json=[{"cable_id": cable["id"], "points": points}])
     client.delete(f"/api/cables/{cable['id']}")
     assert client.get(f"/api/maps/{the_map['id']}/view").json()["routes"] == []
+
+
+def test_filtri_per_colonna_e_ordinamento(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    rack = create(client, "/racks", {"name": "R1", "site_id": site["id"]})
+    create(client, "/devices", {"name": "sw-piano-1", "site_id": site["id"], "rack_id": rack["id"], "serial": "ABC123"})
+    create(client, "/devices", {"name": "sw-piano-2", "site_id": site["id"], "status": "planned"})
+    create(client, "/devices", {"name": "fw", "site_id": site["id"], "management_ip": "10.0.0.1/24"})
+
+    def names(**params):
+        return [d["name"] for d in client.get("/api/devices", params=params).json()["items"]]
+
+    assert names(name__contains="PIANO") == ["sw-piano-1", "sw-piano-2"]  # senza maiuscole
+    assert names(rack_id__eq=rack["id"]) == ["sw-piano-1"]
+    assert names(rack_id__isnull="true") == ["fw", "sw-piano-2"]
+    assert names(status__eq="planned") == ["sw-piano-2"]
+    assert names(serial__contains="c12") == ["sw-piano-1"]
+    assert names(management_ip__contains="10.0.0") == ["fw"]  # campo calcolato
+    assert names(name__contains="sw", sort="-name") == ["sw-piano-2", "sw-piano-1"]
+    assert client.get("/api/devices", params={"inventato__contains": "x"}).status_code == 422
+    assert client.get("/api/devices", params={"rack_id__eq": "abc"}).status_code == 422
+    assert client.get("/api/devices", params={"sort": "inventato"}).status_code == 422
+
+
+def test_export_con_i_filtri_per_colonna(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    create(client, "/devices", {"name": "sw-a", "site_id": site["id"]})
+    create(client, "/devices", {"name": "fw-b", "site_id": site["id"]})
+    rows = client.get("/api/devices/export", params={"format": "json", "name__contains": "SW"}).json()
+    assert [r["name"] for r in rows] == ["sw-a"]
