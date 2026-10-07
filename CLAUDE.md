@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (51 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (52 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -283,6 +283,11 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
+  **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,
+  endpoint; i risultati hanno `interface_id`); il risultato seleziona il cavo della porta trovata (o il device),
+  lo centra e scrive "Trovato" nel pannello. **Vista VLAN**: menu con le VLAN della mappa (`view.vlans`); evidenzia i
+  cavi con la VLAN (`edge.vlan_ids`: quelle in comune ai due lati, o quelle dell'unico lato documentato), i device
+  che l'hanno su una porta (`node.vlan_ids`) e quelli in fondo a quei cavi.
   I pallini (4, per collegare trascinando) si vedono solo passando sopra il device o se è selezionato.
   I cavi partono dal device di livello più alto; colore per tipo (`map/cables.js`), spessore per velocità ≥10G,
   tratteggio se pianificati. `deleteKeyCode={null}`: niente cancellazioni accidentali da tastiera.

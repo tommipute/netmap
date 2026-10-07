@@ -301,6 +301,11 @@ textarea.input { resize: vertical; min-height: 72px; }
 }
 .map-legend__item { display: inline-flex; align-items: center; gap: 6px; }
 .map-legend__line { display: inline-block; width: 22px; height: 3px; border-radius: 2px; }
+.map-legend__line--vlan { background: var(--accent); height: 5px; }
+.map-search { width: 260px; }
+.map-search .combo__list { min-width: 360px; }
+.map-search__kind { display: inline-block; min-width: 68px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+.map-found { margin: 6px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 .map-legend__line--dashed { background: repeating-linear-gradient(90deg, var(--muted) 0 6px, transparent 6px 10px); }
 .map-panel {
   position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 10;
@@ -424,6 +429,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 .react-flow__node, .react-flow__edge { transition: opacity 0.15s; }
 .react-flow__node.is-faded { opacity: 0.22; }
 .react-flow__edge.cable--faded { opacity: 0.12; }
+.react-flow__edge.cable--vlan .react-flow__edge-path { stroke-width: 4.5px !important; filter: drop-shadow(0 0 3px var(--accent)); }
 
 /* ---------- Bolle dei rack in mappa ---------- */
 .react-flow__node-rack { pointer-events: none !important; }

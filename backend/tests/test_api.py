@@ -152,3 +152,36 @@ def test_seed_di_esempio(client, session_factory):
     # Nessuna posizione salvata: la disposizione automatica parte nel browser, per livello del ruolo
     assert all(n["x"] is None for n in view["nodes"])
     assert sorted(n["level"] for n in view["nodes"]) == [0, 1, 2, 2]
+
+
+def test_mappa_con_vlan_e_ricerca_della_porta(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    v10 = create(client, "/vlans", {"vid": 10, "name": "Uffici", "site_id": site["id"]})
+    v20 = create(client, "/vlans", {"vid": 20, "name": "Voce", "site_id": site["id"]})
+    v30 = create(client, "/vlans", {"vid": 30, "name": "Ospiti", "site_id": site["id"]})
+    core = create(client, "/devices", {"name": "core", "site_id": site["id"]})
+    sw = create(client, "/devices", {"name": "sw", "site_id": site["id"]})
+    srv = create(client, "/devices", {"name": "srv", "site_id": site["id"]})
+    trunk_core = create(client, "/interfaces", {"device_id": core["id"], "name": "Te1/1", "mode": "trunk",
+                                                "tagged_vlan_ids": [v10["id"], v20["id"], v30["id"]]})
+    trunk_sw = create(client, "/interfaces", {"device_id": sw["id"], "name": "Te0/1", "mode": "trunk",
+                                              "tagged_vlan_ids": [v10["id"], v20["id"]]})
+    access = create(client, "/interfaces", {"device_id": sw["id"], "name": "Gi0/5", "mode": "access",
+                                            "untagged_vlan_id": v10["id"], "mac_address": "aa:bb:cc:00:11:22"})
+    nic = create(client, "/interfaces", {"device_id": srv["id"], "name": "eth0"})
+    create(client, "/cables", {"a_interface_id": trunk_core["id"], "b_interface_id": trunk_sw["id"]})
+    create(client, "/cables", {"a_interface_id": access["id"], "b_interface_id": nic["id"]})
+
+    the_map = create(client, "/maps", {"name": "Sede", "site_id": site["id"]})
+    view = client.get(f"/api/maps/{the_map['id']}/view").json()
+    assert [v["vid"] for v in view["vlans"]] == [10, 20, 30]
+    nodes = {n["name"]: n["vlan_ids"] for n in view["nodes"]}
+    assert nodes == {"core": [v10["id"], v20["id"], v30["id"]], "sw": [v10["id"], v20["id"]], "srv": []}
+    edges = {(e["source_interface"], e["target_interface"]): e for e in view["edges"]}
+    # Documentate da tutti e due i lati: solo quelle in comune; da un lato solo: quelle
+    assert edges[("Te1/1", "Te0/1")]["vlan_ids"] == [v10["id"], v20["id"]]
+    assert edges[("Gi0/5", "eth0")]["vlan_ids"] == [v10["id"]]
+    assert edges[("Gi0/5", "eth0")]["source_interface_id"] == access["id"]
+
+    found = client.get("/api/search", params={"q": "aa:bb:cc:00"}).json()
+    assert {"type": "interface", "device_id": sw["id"], "interface_id": access["id"]}.items() <= found[0].items()

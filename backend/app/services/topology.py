@@ -20,6 +20,7 @@ from app.models import (
     NetworkMap,
     Rack,
 )
+from app.models.dcim import interface_tagged_vlans
 from app.models.enums import NON_CABLEABLE_TYPES
 
 DEFAULT_COLOR = "#888780"
@@ -32,6 +33,25 @@ def natural_key(text: str) -> list:
 
 
 # ---------------------------------------------------------------- nodi e collegamenti
+def _port_vlans(db: Session, device_ids: list[int]) -> tuple[dict[int, set[int]], dict[int, set[int]]]:
+    """VLAN (untagged e tagged) di ogni porta e di ogni device: {interface_id: {vlan_id}}, {device_id: {vlan_id}}."""
+    by_port: dict[int, set[int]] = defaultdict(set)
+    by_device: dict[int, set[int]] = defaultdict(set)
+    untagged = select(Interface.id, Interface.device_id, Interface.untagged_vlan_id).where(
+        Interface.device_id.in_(device_ids), Interface.untagged_vlan_id.is_not(None)
+    )
+    tagged = (
+        select(Interface.id, Interface.device_id, interface_tagged_vlans.c.vlan_id)
+        .join(interface_tagged_vlans, interface_tagged_vlans.c.interface_id == Interface.id)
+        .where(Interface.device_id.in_(device_ids))
+    )
+    for stmt in (untagged, tagged):
+        for interface_id, device_id, vlan_id in db.execute(stmt).all():
+            by_port[interface_id].add(vlan_id)
+            by_device[device_id].add(vlan_id)
+    return by_port, by_device
+
+
 def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
     if not device_ids:
         return []
@@ -51,6 +71,7 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
             .where(IPAddress.is_primary.is_(True), Interface.device_id.in_(device_ids))
         ).all()
     )
+    _, device_vlans = _port_vlans(db, device_ids)
     return [
         {
             "id": device.id,
@@ -69,6 +90,7 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
             "rack_id": device.rack_id,
             "rack_name": rack_name,
             "rack_position": device.rack_position,
+            "vlan_ids": sorted(device_vlans.get(device.id, ())),
         }
         for device, role, rack_name in rows
     ]
@@ -86,6 +108,13 @@ def _edges(db: Session, device_ids: list[int]) -> list[dict]:
         .where(a_side.device_id.in_(device_ids), b_side.device_id.in_(device_ids))
         .order_by(Cable.id)
     ).all()
+    port_vlans, _ = _port_vlans(db, device_ids)
+
+    def cable_vlans(a: Interface, b: Interface) -> list[int]:
+        # Documentate su tutti e due i lati: quelle in comune; su un lato solo (es. server senza VLAN): quelle
+        va, vb = port_vlans.get(a.id, set()), port_vlans.get(b.id, set())
+        return sorted(va & vb if va and vb else va | vb)
+
     return [
         {
             "id": cable.id,
@@ -93,6 +122,9 @@ def _edges(db: Session, device_ids: list[int]) -> list[dict]:
             "target": b.device_id,
             "source_interface": a.name,
             "target_interface": b.name,
+            "source_interface_id": a.id,
+            "target_interface_id": b.id,
+            "vlan_ids": cable_vlans(a, b),
             "status": cable.status,
             "type": cable.type,
             "speed_mbps": a.speed_mbps or b.speed_mbps,
@@ -145,7 +177,12 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
         node["y"] = position.y if position else None
 
     available = [] if network_map.auto_include else _nodes(db, [i for i in scope_ids if i not in saved])
-    return {"map": network_map, "nodes": nodes, "edges": _edges(db, ids), "available": available}
+    vlan_ids = {v for node in nodes for v in node["vlan_ids"]}
+    vlans = [
+        {"id": v.id, "vid": v.vid, "name": v.name}
+        for v in db.scalars(select(VLAN).where(VLAN.id.in_(vlan_ids)).order_by(VLAN.vid, VLAN.name))
+    ] if vlan_ids else []
+    return {"map": network_map, "nodes": nodes, "edges": _edges(db, ids), "available": available, "vlans": vlans}
 
 
 def save_map_positions(db: Session, network_map: NetworkMap, positions: list) -> int:
@@ -287,6 +324,7 @@ def global_search(db: Session, q: str, limit: int = 25) -> list[dict]:
                     "label": f"{iface.device_name} {iface.name}",
                     "detail": iface.mac_address,
                     "device_id": iface.device_id,
+                    "interface_id": iface.id,
                 })
 
     ips = db.scalars(
@@ -297,7 +335,10 @@ def global_search(db: Session, q: str, limit: int = 25) -> list[dict]:
     ).unique()
     for ip in ips:
         where = f"{ip.device_name} {ip.interface_name}" if ip.device_name else "non assegnato"
-        results.append({"type": "ip", "id": ip.id, "label": ip.address, "detail": where, "device_id": ip.device_id})
+        results.append({
+            "type": "ip", "id": ip.id, "label": ip.address, "detail": where, "device_id": ip.device_id,
+            "interface_id": ip.interface_id,
+        })
 
     # Endpoint visti nelle tabelle MAC: "dov'è collegato?"
     from app.services.endpoints import endpoint_query  # import locale: endpoints importa matching
@@ -310,6 +351,7 @@ def global_search(db: Session, q: str, limit: int = 25) -> list[dict]:
             "label": f"{e.mac}{f' ({e.ip})' if e.ip else ''}",
             "detail": where,
             "device_id": e.interface.device_id if e.interface else None,
+            "interface_id": e.interface_id,
         })
     return results
 

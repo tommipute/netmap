@@ -27,11 +27,18 @@ class MapViewNode(TopologyNode):
     y: float | None = None
 
 
+class MapVLAN(BaseModel):
+    id: int
+    vid: int
+    name: str
+
+
 class MapView(BaseModel):
     map: MapRead
     nodes: list[MapViewNode]
     edges: list[TopologyEdge]
     available: list[TopologyNode]  # device della sede non ancora in mappa (mappe manuali)
+    vlans: list[MapVLAN] = []  # VLAN delle porte dei device in mappa
 
 
 class NodePosition(BaseModel):

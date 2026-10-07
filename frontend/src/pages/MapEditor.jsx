@@ -25,6 +25,7 @@ import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
 import { cableGeometry, nodeWidths } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
+import MapSearch from '../map/MapSearch'
 import RackNode from '../map/RackNode'
 import { X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
@@ -188,13 +189,14 @@ function toFlowEdge(edge, levelOf, showLabels, selected, mode) {
   }
 }
 
-function Legend({ edges, nodes, racks }) {
+function Legend({ edges, nodes, racks, vlan }) {
   const types = [...new Set(edges.map((e) => e.type || ''))]
   const planned = edges.some((e) => e.status === 'planned')
   const live = nodes.some((n) => n.reachable !== null && n.reachable !== undefined)
-  if (types.length === 0 && !live && !racks) return null
+  if (types.length === 0 && !live && !racks && !vlan) return null
   return (
     <div className="map-legend">
+      {vlan && <span className="map-legend__item"><span className="map-legend__line map-legend__line--vlan" />VLAN {vlan.vid} {vlan.name}</span>}
       {racks && <span className="map-legend__item"><span className="map-legend__rack" />Rack</span>}
       {live && (
         <>
@@ -224,7 +226,7 @@ function Legend({ edges, nodes, racks }) {
 function Editor() {
   const { id } = useParams()
   const { canEdit } = useAuth()
-  const { fitView, getNodes } = useReactFlow()
+  const { fitView, getNodes, getZoom, setCenter } = useReactFlow()
   const [view, setView] = useState(null)
   const [error, setError] = useState(null)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -232,7 +234,8 @@ function Editor() {
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
   const [edgeStyle, setEdgeStyle] = useEdgeStyle()
-  const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id }
+  const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
+  const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
   const [connecting, setConnecting] = useState(null) // { a, b } id device
   const [checking, setChecking] = useState(false)
 
@@ -266,6 +269,7 @@ function Editor() {
   useEffect(() => {
     setDirty(false)
     setSelection(null)
+    setVlanId(null)
     fitPending.current = true
     load(false)
   }, [load])
@@ -330,6 +334,18 @@ function Editor() {
       return { devices: new Set([String(cable.source), String(cable.target)]), cables: new Set([`cable-${cable.id}`]) }
     }
     const seeds = new Set(selection?.kind === 'node' ? [String(selection.id)] : nodes.filter((n) => n.selected).map((n) => n.id))
+    if (seeds.size === 0 && vlanId) {
+      // Device con la VLAN su una porta, più quelli in fondo ai cavi che la portano (es. un server senza VLAN documentate)
+      const carrying = view.edges.filter((e) => e.vlan_ids.includes(vlanId))
+      return {
+        devices: new Set([
+          ...view.nodes.filter((n) => n.vlan_ids.includes(vlanId)).map((n) => String(n.id)),
+          ...carrying.flatMap((e) => [String(e.source), String(e.target)]),
+        ]),
+        cables: new Set(carrying.map((e) => `cable-${e.id}`)),
+        vlan: true,
+      }
+    }
     if (seeds.size === 0) return null
     const devices = new Set(seeds)
     const cables = new Set()
@@ -341,13 +357,15 @@ function Editor() {
       }
     }
     return { devices, cables }
-  }, [selection, nodes, baseEdges, view])
+  }, [selection, nodes, baseEdges, view, vlanId])
 
   const edges = useMemo(
     () =>
       baseEdges.map((e) => ({
         ...e,
-        className: focus && !focus.cables.has(e.id) ? `${e.className} cable--faded` : e.className,
+        className: !focus ? e.className
+          : !focus.cables.has(e.id) ? `${e.className} cable--faded`
+          : focus.vlan ? `${e.className} cable--vlan` : e.className,
         data: { ...e.data, geometry: geometry[e.id] || null },
       })),
     [baseEdges, geometry, focus],
@@ -397,6 +415,20 @@ function Editor() {
     const next = [...current, { id: String(device.id), type: 'device', position: { x: 0, y: bottom }, data: device }]
     setNodes(next)
     if (await savePositions(next)) await load(true)
+  }
+
+  /** Risultato della ricerca: seleziono il cavo della porta trovata (se è in mappa) o il device, e lo porto al centro. */
+  const showFound = ({ deviceId, interfaceId, text }) => {
+    const cable = interfaceId && view.edges.find((e) => e.source_interface_id === interfaceId || e.target_interface_id === interfaceId)
+    setNodes((current) => current.map((n) => (n.selected ? { ...n, selected: false } : n)))
+    setSelection(cable ? { kind: 'edge', id: cable.id, found: text } : { kind: 'node', id: deviceId, found: text })
+    const node = nodesRef.current.find((n) => n.id === String(deviceId))
+    if (node?.measured) {
+      setCenter(node.position.x + node.measured.width / 2, node.position.y + node.measured.height / 2, {
+        zoom: Math.max(getZoom(), 1),
+        duration: 400,
+      })
+    }
   }
 
   const removeFromMap = async (deviceId) => {
@@ -500,6 +532,19 @@ function Editor() {
         </div>
         <div className="map-toolbar__actions">
           {liveCount(view.nodes)}
+          {view.nodes.length > 0 && <MapSearch nodes={view.nodes} onPick={showFound} />}
+          {view.vlans.length > 0 && (
+            <select className="input input--sm" value={vlanId ?? ''} aria-label="Evidenzia una VLAN"
+              onChange={(e) => {
+                setSelection(null)
+                setVlanId(e.target.value ? Number(e.target.value) : null)
+              }}>
+              <option value="">Tutte le VLAN</option>
+              {view.vlans.map((v) => (
+                <option key={v.id} value={v.id}>VLAN {v.vid} · {v.name}</option>
+              ))}
+            </select>
+          )}
           {canEdit && !view.map.auto_include && view.available.length > 0 && (
             <select className="input input--sm" value="" onChange={(e) => e.target.value && addDevice(Number(e.target.value))} aria-label="Aggiungi un device alla mappa">
               <option value="">Aggiungi device…</option>
@@ -560,7 +605,8 @@ function Editor() {
           <Controls showInteractive={false} />
           <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
-            <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)} />
+            <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)}
+              vlan={view.vlans.find((v) => v.id === vlanId)} />
           </Panel>
           {canEdit && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">
@@ -585,6 +631,7 @@ function Editor() {
           <aside className="map-panel" aria-label="Dettagli device">
             <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label="Chiudi dettagli">×</button>
             <h2>{selectedNode.name}</h2>
+            {selection.found && <p className="map-found"><span className="muted">Trovato:</span> <span className="mono">{selection.found}</span></p>}
             <dl className="facts facts--stack">
               <div><dt>Ruolo</dt><dd>{selectedNode.role || '—'}</dd></div>
               <div><dt>Stato</dt><dd><Badge value={selectedNode.status} options={DEVICE_STATUS} /></dd></div>
@@ -615,6 +662,7 @@ function Editor() {
           <aside className="map-panel" aria-label="Dettagli collegamento">
             <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label="Chiudi dettagli">×</button>
             <h2>Collegamento</h2>
+            {selection.found && <p className="map-found"><span className="muted">Trovato:</span> <span className="mono">{selection.found}</span></p>}
             <p className="cable-ends">
               <Link to={`/devices/${selectedEdge.source}`}>{nameOf[selectedEdge.source]}</Link> <span className="mono">{selectedEdge.source_interface}</span>
               <span className="cable-ends__line" style={{ background: cableStyle(selectedEdge.type).color }} aria-hidden="true" />

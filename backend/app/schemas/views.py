@@ -39,6 +39,7 @@ class TopologyNode(BaseModel):
     rack_id: int | None = None             # per raggruppare in mappa i device dello stesso rack
     rack_name: str | None = None
     rack_position: int | None = None
+    vlan_ids: list[int] = []               # VLAN di tutte le porte (vista VLAN della mappa)
 
 
 class TopologyEdge(BaseModel):
@@ -47,6 +48,9 @@ class TopologyEdge(BaseModel):
     target: int  # id device lato B
     source_interface: str
     target_interface: str
+    source_interface_id: int
+    target_interface_id: int
+    vlan_ids: list[int] = []  # VLAN che passano sul cavo
     status: str
     type: str | None
     speed_mbps: int | None
@@ -63,6 +67,7 @@ class SearchResult(BaseModel):
     label: str
     detail: str | None = None
     device_id: int | None = None
+    interface_id: int | None = None  # porta trovata (interfaccia, porta dell'IP, porta dell'endpoint)
 
 
 class PortIP(BaseModel):
