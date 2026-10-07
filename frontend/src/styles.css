@@ -562,6 +562,11 @@ textarea.input { resize: vertical; min-height: 72px; }
   .table-wrap { overflow: visible; }
   .table tr, .facts > div { break-inside: avoid; }
   .table thead { display: table-header-group; }
+  .table { font-size: 10.5px; }
+  .table th, .table td { padding: 4px 6px; }
+  .table td:first-child { white-space: nowrap; }
+  .table .mono, .mono { font-size: 10.5px; }
+  .table-wrap { border: 0; }
   .section > h2, .section__head { break-after: avoid; }
   .sidebar, .topbar, .map-toolbar__actions, .react-flow__controls, .react-flow__minimap, .map-hint, .map-panel,
   .page-head__actions, .react-flow__handle { display: none !important; }
@@ -570,6 +575,9 @@ textarea.input { resize: vertical; min-height: 72px; }
   .map-page { position: static; height: 100vh; }
   .rack__device, .rack { break-inside: avoid; }
   .rack { --unit: 17px !important; } /* un 42U sta in un A4 */
+  /* Il foglio è stretto quanto un telefono: niente layout a una colonna */
+  .rack-layout { grid-template-columns: auto minmax(0, 1fr) !important; gap: 20px; }
+  .rack { grid-template-columns: 30px 220px !important; }
 }
 
 /* ---------- Schermi piccoli ---------- */
