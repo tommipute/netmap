@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { BaseEdge, useReactFlow } from '@xyflow/react'
-import { endOnRect, labelLength, moveSegment } from './geometry'
+import { OUTWARD } from './anchors'
+import { PLUG, endOnRect, labelLength, moveSegment } from './geometry'
 import { roundedPath } from './routing'
 
 const RADIUS = 8
@@ -16,6 +17,29 @@ function PortLabel({ x, y, text, vertical }) {
     <g className="port-label" transform={`translate(${x} ${y})${vertical ? ' rotate(-90)' : ''}`}>
       <rect className="react-flow__edge-textbg" x={-width / 2} y={-LABEL_H / 2} width={width} height={LABEL_H} rx={3} />
       <text className="react-flow__edge-text" textAnchor="middle" dominantBaseline="central">{text}</text>
+    </g>
+  )
+}
+
+const PLUG_W = 12
+
+/**
+ * Connettore stilizzato dove il cavo entra nel device (corpo del colore del cavo e linguetta più chiara):
+ * così si vede dove il cavo è collegato e dove invece passa soltanto vicino.
+ */
+function Plug({ x, y, side, color }) {
+  const o = OUTWARD[side]
+  const vertical = o.y !== 0
+  const w = vertical ? PLUG_W : PLUG
+  const h = vertical ? PLUG : PLUG_W
+  // Il connettore sta fuori dal device, appoggiato al bordo
+  const left = vertical ? x - w / 2 : o.x > 0 ? x : x - w
+  const top = vertical ? (o.y > 0 ? y : y - h) : y - h / 2
+  return (
+    <g className="cable-plug">
+      <rect x={left} y={top} width={w} height={h} rx={1.5} style={{ fill: color }} />
+      <rect className="cable-plug__tab" x={vertical ? x - 2 : left + (o.x > 0 ? 2.5 : w - 4.5)} y={vertical ? top + (o.y > 0 ? 2.5 : h - 4.5) : y - 2}
+        width={vertical ? 4 : 2} height={vertical ? 2 : 4} />
     </g>
   )
 }
@@ -76,6 +100,7 @@ function CableEdge({ data, style, interactionWidth }) {
   return (
     <>
       <BaseEdge path={roundedPath(geometry.points, RADIUS)} style={style} interactionWidth={interactionWidth} />
+      {geometry.ends.map((end, i) => <Plug key={i} {...end} color={style?.stroke} />)}
       {geometry.labels.map((l, i) => <PortLabel key={i} {...l} />)}
       {data.onRoute && geometry.edit && <RouteHandles edit={geometry.edit} onRoute={data.onRoute} />}
     </>

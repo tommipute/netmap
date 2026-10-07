@@ -2,12 +2,12 @@
  * Geometria di tutti i cavi di una mappa, calcolata in un punto solo (MapEditor).
  *
  * 1. punti di attacco (anchors.js); con i nomi delle porte ogni cavo ha il suo punto, così ogni porta ha un posto
- * 2. percorso di ogni cavo (routing.js, oppure linea dritta)
+ * 2. percorso ad angolo di ogni cavo (routing.js)
  * 3. nomi delle porte sul bordo del device, come negli schemi fatti a mano: il tratto dritto che esce dal device
  *    si allunga quanto il nome e il nome ci sta sopra, in verticale se il cavo esce da sopra o da sotto (così
  *    tante porte stanno una accanto all'altra), in orizzontale se esce di lato. A metà cavo non si scrive niente.
  *    Tra due device troppo vicini e allineati i nomi non ci stanno in fila: si scrivono in orizzontale accanto al cavo.
- * 4. percorso sistemato a mano (data.waypoints = spigoli, solo con i cavi ad angolo): il cavo passa da lì
+ * 4. percorso sistemato a mano (data.waypoints = spigoli): il cavo passa da lì
  *    (connect), senza percorso automatico. Per modificarlo ogni cavo ha `edit` (editInfo): tratti da spostare di
  *    traverso (moveSegment) ed estremità da spostare sul bordo del device (endOnRect). Su un cavo automatico i
  *    tratti sono quelli del percorso calcolato: spostandone uno il resto non cambia.
@@ -17,7 +17,8 @@ import { MARGIN, STUB, routeOrthogonal } from './routing'
 
 const LABEL_H = 16 // altezza del riquadro del nome (font mono 11 px)
 const CHAR_W = 6.6
-const LABEL_GAP = 4 // distanza del nome dal bordo del device
+export const PLUG = 7 // sporgenza del connettore disegnato dove il cavo entra nel device
+const LABEL_GAP = PLUG + 3 // distanza del nome dal bordo del device: dopo il connettore
 const AFTER_LABEL = 10 // tratto dritto dopo il nome, prima della prima curva
 const BUS_GAP = 14 // la riga orizzontale preferita sta questo oltre il tratto dritto del device di arrivo
 
@@ -165,10 +166,9 @@ function besideLabel(end, text) {
 /**
  * nodes: device (nodi React Flow misurati), bubbles: bolle dei rack, edges: cavi React Flow con
  * data.type, data.sourceLabel, data.targetLabel (nomi delle porte, solo se vanno mostrati).
- * mode: 'bus' (ad angolo) o 'straight'.
- * Restituisce { [edgeId]: { points, labels: [{ x, y, text, vertical }] } }.
+ * Restituisce { [edgeId]: { points, labels: [{ x, y, text, vertical }], edit, ends: [partenza, arrivo] } }.
  */
-export function cableGeometry(nodes, bubbles, edges, mode) {
+export function cableGeometry(nodes, bubbles, edges) {
   const withLabels = edges.some((e) => e.data?.sourceLabel)
   const anchors = assignAnchors(nodes, edges, { separate: withLabels })
   const devices = nodes.map((n) => ({ id: n.id, r: rectOf(n) })).filter((d) => d.r)
@@ -189,9 +189,12 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
     const gap = facingGap(from, to)
     let tight = false
     if (gap !== null && gap < stubFrom + stubTo + 4) {
-      // Nomi ancora lungo il cavo se i due capi non sono allineati (non si toccano); allineati: accanto al cavo
+      // Nomi ancora lungo il cavo se i due capi non sono allineati (non si toccano) o se i due nomi ci stanno in
+      // fila nello spazio tra i device; altrimenti accanto al cavo
       const vertical = OUTWARD[from.side].y !== 0
-      tight = Boolean(sourceText) && Math.abs(vertical ? from.x - to.x : from.y - to.y) < LABEL_H + 2
+      const span = (text) => (text ? LABEL_GAP + labelLength(text) : 0)
+      tight = Boolean(sourceText) && Math.abs(vertical ? from.x - to.x : from.y - to.y) < LABEL_H + 2 &&
+        gap < span(sourceText) + span(targetText) + 2
       const k = Math.max(0, gap - 4) / (stubFrom + stubTo)
       stubFrom = Math.max(3, stubFrom * k)
       stubTo = Math.max(3, stubTo * k)
@@ -201,9 +204,7 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
     const minOf = (text) => (text ? LABEL_GAP + labelLength(text) + 4 : 12)
     let points
     const waypoints = e.data?.waypoints
-    if (mode !== 'bus') {
-      points = [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]
-    } else if (waypoints?.length) {
+    if (waypoints?.length) {
       points = connect(from, waypoints, to, minOf(sourceText), minOf(targetText))
     } else {
       const obstacles = [
@@ -221,14 +222,14 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
       const preferY = to.side === 'top' ? to.y - beyond : to.side === 'bottom' ? to.y + beyond : undefined
       points = tidy(routeOrthogonal(from, to, obstacles, { preferY, stubFrom, stubTo }) || fallback(from, to, stubFrom, stubTo))
     }
-    const edit = editInfo(mode === 'bus' ? points : [], from, to, minOf(sourceText), minOf(targetText), rects, e)
+    const edit = editInfo(points, from, to, minOf(sourceText), minOf(targetText), rects, e)
 
     const labels = []
     if (sourceText && targetText) {
       const place = tight ? besideLabel : edgeLabel
       labels.push(place(from, sourceText), place(to, targetText))
     }
-    result[e.id] = { points, labels, edit }
+    result[e.id] = { points, labels, edit, ends: [from, to] }
   }
   return result
 }

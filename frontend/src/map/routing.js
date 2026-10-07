@@ -98,27 +98,38 @@ class Heap {
  * estremità.
  * Restituisce i punti del percorso (angoli compresi) o null.
  */
-export function routeOrthogonal(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubFrom = stub, stubTo = stub } = {}) {
+export function routeOrthogonal(rawFrom, rawTo, rects, options = {}) {
+  // Senza strada con i margini normali (device molto vicini) riprovo con margini stretti: meglio rasente che sotto
+  return search(rawFrom, rawTo, rects, options)
+    ?? search(rawFrom, rawTo, rects.map((r) => ({ ...r, margin: Math.min(r.margin ?? MARGIN, 3) })), options)
+}
+
+function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubFrom = stub, stubTo = stub } = {}) {
   // Tutto a mezzo pixel: le coordinate dei bordi devono coincidere con le linee della griglia
   const from = { x: half(rawFrom.x), y: half(rawFrom.y) }
   const to = { x: half(rawTo.x), y: half(rawTo.y) }
   const preferY = Number.isFinite(rawPreferY) ? half(rawPreferY) : null
   const startDir = OUT_DIR[rawFrom.side] ?? 1
   const arriveDir = ((OUT_DIR[rawTo.side] ?? 3) + 2) & 3 // si entra nel lato andando verso l'interno
-  const start = { x: from.x + DX[startDir] * stubFrom, y: from.y + DY[startDir] * stubFrom }
-  const end = { x: to.x - DX[arriveDir] * stubTo, y: to.y - DY[arriveDir] * stubTo }
+  // Anche fine e inizio dei tratti dritti a mezzo pixel (i tratti lunghi quanto il nome della porta non lo sono):
+  // devono stare esattamente su una linea della griglia, se no la ricerca partirebbe da un'altra cella
+  const start = { x: half(from.x + DX[startDir] * stubFrom), y: half(from.y + DY[startDir] * stubFrom) }
+  const end = { x: half(to.x - DX[arriveDir] * stubTo), y: half(to.y - DY[arriveDir] * stubTo) }
   const minX = Math.min(start.x, end.x) - NEAR
   const maxX = Math.max(start.x, end.x) + NEAR
   const minY = Math.min(start.y, end.y) - NEAR
   const maxY = Math.max(start.y, end.y) + NEAR
+  const box = (r, m) => ({ l: half(r.x - m), r: half(r.x + r.width + m), t: half(r.y - m), b: half(r.y + r.height + m) })
   const boxes = rects
     .map((r) => {
-      const m = r.margin ?? MARGIN
-      return { l: half(r.x - m), r: half(r.x + r.width + m), t: half(r.y - m), b: half(r.y + r.height + m) }
+      const wide = box(r, r.margin ?? MARGIN)
+      if (!inside(wide, start) && !inside(wide, end)) return wide
+      // Partenza o arrivo nel margine di un device vicino: il cavo gli passa rasente, ma mai sotto.
+      // Solo se il punto è proprio dentro il device (device sovrapposti) quel device non conta.
+      const tight = box(r, 0)
+      return inside(tight, start) || inside(tight, end) ? null : tight
     })
-    .filter((b) => b.r > minX && b.l < maxX && b.b > minY && b.t < maxY)
-    // Partenza o arrivo dentro un device allargato (device molto vicini): quel device non conta
-    .filter((b) => !inside(b, start) && !inside(b, end))
+    .filter((b) => b && b.r > minX && b.l < maxX && b.b > minY && b.t < maxY)
 
   const xs = withMidpoints(uniqueSorted([start.x, end.x, ...boxes.flatMap((b) => [b.l, b.r])]))
   const ys = withMidpoints(uniqueSorted([start.y, end.y, ...(preferY === null ? [] : [preferY]), ...boxes.flatMap((b) => [b.t, b.b])]))
@@ -235,12 +246,6 @@ export function roundedPath(points, radius = 8) {
     const a = points[k - 1]
     const b = points[k]
     const c = points[k + 1]
-    // Curva arrotondata solo tra tratti orizzontali/verticali (i cavi dritti con punti di ancoraggio fanno spigoli)
-    const straight = (p, q) => p.x === q.x || p.y === q.y
-    if (!straight(a, b) || !straight(b, c)) {
-      d += ` L ${b.x} ${b.y}`
-      continue
-    }
     const r = Math.min(radius, Math.hypot(b.x - a.x, b.y - a.y) / 2, Math.hypot(c.x - b.x, c.y - b.y) / 2)
     const inX = b.x - Math.sign(b.x - a.x) * r
     const inY = b.y - Math.sign(b.y - a.y) * r

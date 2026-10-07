@@ -32,27 +32,6 @@ import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '
 
 const nodeTypes = { device: DeviceNode, rack: RackNode }
 const edgeTypes = { cable: CableEdge }
-const EDGE_STYLE_KEY = 'netmap.map.edgeStyle'
-
-/** Cavi ad angolo (predefinito) o dritti: preferenza di chi guarda, salvata nel browser. */
-function useEdgeStyle() {
-  const [value, setValue] = useState(() => {
-    try {
-      return localStorage.getItem(EDGE_STYLE_KEY) === 'straight' ? 'straight' : 'bus'
-    } catch {
-      return 'bus'
-    }
-  })
-  const change = (next) => {
-    setValue(next)
-    try {
-      localStorage.setItem(EDGE_STYLE_KEY, next)
-    } catch {
-      // senza storage la scelta vale solo per questa pagina
-    }
-  }
-  return [value, change]
-}
 const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
 const EXPORT_PADDING = 40
 
@@ -109,6 +88,21 @@ const overlaps = (box, n) =>
  * Se tra due device del rack c'è un device di un altro rack, il rack si divide in più bolle (con lo stesso
  * nome) invece di coprirlo: unisco i gruppi più vicini finché la bolla unita non copre nessun estraneo.
  */
+/** Un tratto orizzontale o verticale del cavo passa nel riquadro? */
+const crosses = (p, q, box) =>
+  Math.max(p.x, q.x) >= box.l && Math.min(p.x, q.x) <= box.r && Math.max(p.y, q.y) >= box.t && Math.min(p.y, q.y) <= box.b
+
+/** Nome del rack in basso a sinistra; se lì passa un cavo e a destra no, va a destra. */
+function labelSide(bubble, geometry) {
+  const zone = (left) => {
+    const width = Math.min(bubble.width / 2, 120)
+    const l = left ? bubble.position.x + 6 : bubble.position.x + bubble.width - 6 - width
+    return { l, r: l + width, t: bubble.position.y + bubble.height - 26, b: bubble.position.y + bubble.height }
+  }
+  const busy = (box) => Object.values(geometry).some((g) => g.points.some((p, i) => i > 0 && crosses(g.points[i - 1], p, box)))
+  return busy(zone(true)) && !busy(zone(false)) ? 'right' : 'left'
+}
+
 function rackBubbles(nodes, onSelect) {
   const measured = nodes.filter((n) => n.measured?.width)
   const groups = new Map()
@@ -161,7 +155,7 @@ function rackBubbles(nodes, onSelect) {
   return bubbles
 }
 
-function toFlowEdge(edge, levelOf, showLabels, selected, mode, route) {
+function toFlowEdge(edge, levelOf, showLabels, selected, route) {
   // Il cavo parte sempre dal device più in alto nella gerarchia
   const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
   // Percorso sistemato a mano: salvato dal lato A al lato B del cavo, in mappa nel verso source -> target
@@ -175,7 +169,6 @@ function toFlowEdge(edge, levelOf, showLabels, selected, mode, route) {
     type: 'cable',
     data: {
       ...edge,
-      mode,
       flip,
       waypoints,
       sourceEnd: (flip ? route?.b_end : route?.a_end) || null,
@@ -239,7 +232,6 @@ function Editor() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
-  const [edgeStyle, setEdgeStyle] = useEdgeStyle()
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
   // Cavi sistemati a mano: { cableId: { points: spigoli dal lato A al lato B, a_end, b_end: { side, f } | null } }
@@ -320,8 +312,8 @@ function Editor() {
   const baseEdges = useMemo(
     () =>
       (view?.edges || []).map((e) =>
-        toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle, routes[e.id])),
-    [view, levelOf, showLabels, selection, edgeStyle, routes],
+        toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, routes[e.id])),
+    [view, levelOf, showLabels, selection, routes],
   )
 
   /**
@@ -352,7 +344,7 @@ function Editor() {
   )
   const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
   // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni, si ricalcolano mentre si sposta un device
-  const geometry = useMemo(() => cableGeometry(nodes, bubbles, baseEdges, edgeStyle), [nodes, bubbles, baseEdges, edgeStyle])
+  const geometry = useMemo(() => cableGeometry(nodes, bubbles, baseEdges), [nodes, bubbles, baseEdges])
   // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga quanto serve
   const widths = useMemo(() => nodeWidths(nodes, baseEdges), [nodes, baseEdges])
 
@@ -412,14 +404,18 @@ function Editor() {
   const displayNodes = useMemo(() => {
     const faded = (node, inFocus) => (focus && !inFocus ? { ...node, className: 'is-faded' } : node)
     return [
-      ...bubbles.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
+      ...bubbles.map((b) => {
+        const side = labelSide(b, geometry)
+        const placed = side === 'left' ? b : { ...b, data: { ...b.data, labelSide: side } }
+        return faded(placed, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))
+      }),
       ...nodes.map((n) => {
         const width = widths[n.id]
         const sized = width === n.data.width ? n : { ...n, data: { ...n.data, width } }
         return faded(sized, focus?.devices.has(n.id))
       }),
     ]
-  }, [bubbles, nodes, focus, widths])
+  }, [bubbles, nodes, focus, widths, geometry])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -596,10 +592,6 @@ function Editor() {
               ))}
             </select>
           )}
-          <select className="input input--sm" value={edgeStyle} onChange={(e) => setEdgeStyle(e.target.value)} aria-label="Forma dei cavi">
-            <option value="bus">Cavi ad angolo</option>
-            <option value="straight">Cavi dritti</option>
-          </select>
           <label className="check check--inline">
             <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
             Nomi delle porte

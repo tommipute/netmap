@@ -428,6 +428,8 @@ textarea.input { resize: vertical; min-height: 72px; }
 .react-flow__node, .react-flow__edge { transition: opacity 0.15s; }
 .react-flow__node.is-faded { opacity: 0.22; }
 .react-flow__edge.cable--faded { opacity: 0.12; }
+.cable-plug rect:first-child { stroke: var(--surface); stroke-width: 1; }
+.cable-plug__tab { fill: var(--surface); opacity: 0.75; }
 .cable-handle { pointer-events: all; fill: var(--surface); stroke: var(--accent); stroke-width: 1.8; }
 .cable-handle--ns { cursor: ns-resize; }
 .cable-handle--ew { cursor: ew-resize; }
@@ -448,6 +450,7 @@ textarea.input { resize: vertical; min-height: 72px; }
   font-family: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: none; border: 0; padding: 2px 4px;
   border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.rack-bubble__label--right { left: auto; right: 10px; }
 .rack-bubble__label::before { content: 'Rack '; font-weight: 400; }
 .rack-bubble__label:hover { color: var(--ink); background: var(--surface); }
 .map-legend__rack {

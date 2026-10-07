@@ -281,11 +281,19 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   stesso lato i cavi dello stesso tipo condividono il punto, tipi diversi e cavi verso lo stesso device, es. LAG,
   hanno punti separati). Ad angolo (predefinito) con `map/routing.js`: A* su griglia, **mai sotto un device né
   dentro la bolla di un altro rack**, riga orizzontale preferita 28 px sopra il device di arrivo; tratti di
-  uscita/entrata più corti tra device vicini. Oppure dritti (scelta in localStorage).
+  uscita/entrata più corti tra device vicini. Solo cavi ad angolo: l'opzione "cavi dritti" è stata tolta (scelta
+  dell'utente). Un device nel margine della partenza/arrivo di un cavo diventa ostacolo senza margine (prima veniva
+  ignorato e il cavo gli passava sotto); senza strada si riprova con margini di 3 px. Partenza e arrivo della
+  ricerca arrotondati a mezzo pixel come la griglia (un tratto lungo quanto il nome della porta faceva partire la
+  ricerca da un'altra cella: tratti storti). **Raddrizzamento** (fine di `assignAnchors`): capi quasi allineati
+  (< 24 px) tra lati che si guardano → si sposta il capo con meno cavi sul suo lato, se resta a ≥ 18 px dagli altri.
+  **Connettore** (`Plug` in CableEdge): blocchetto del colore del cavo sul bordo del device dove entra il cavo
+  (`geometry.ends`), così un cavo che passa vicino non sembra collegato; i nomi delle porte partono dopo di lui.
+  Il nome del rack nella bolla va a destra se in basso a sinistra passa un cavo (`labelSide` in MapEditor).
   **Nomi delle porte** (`map/geometry.js`): sul bordo del device, non a metà cavo. Con i nomi attivi ogni cavo ha il
   suo punto di attacco; il tratto dritto in uscita si allunga quanto il nome, scritto lungo il tratto (verticale se
   il cavo esce da sopra/sotto, `CableEdge` lo ruota). Tra due device vicini e allineati i nomi vanno in orizzontale
-  accanto al cavo. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
+  accanto al cavo, solo se in fila non ci stanno. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
   `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
   **Cavi sistemati a mano** (tabella `map_cable_routes`, per mappa e cavo: `points` = spigoli dal lato A al lato B,
@@ -296,8 +304,7 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   e un pallino su ogni estremità (scorre sul bordo del device, anche su un altro lato: `endOnRect` → anchors.js
   la tiene fissa). Su un cavo automatico i tratti sono quelli del percorso calcolato. Con spigoli salvati il
   percorso è `connect` in geometry.js (primo/ultimo spigolo riallineati al lato; se stanno dietro il lato il cavo
-  esce dritto e gira attorno). Solo estremità spostate = percorso ancora automatico. Con i cavi dritti si spostano
-  solo le estremità. Il clic che chiude un trascinamento non arriva alla mappa. "Torna al percorso automatico".
+  esce dritto e gira attorno). Solo estremità spostate = percorso ancora automatico. Il clic che chiude un trascinamento non arriva alla mappa. "Torna al percorso automatico".
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,
   endpoint; i risultati hanno `interface_id`); il risultato seleziona il cavo della porta trovata (o il device),

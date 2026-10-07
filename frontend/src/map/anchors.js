@@ -13,6 +13,8 @@
  */
 const MIN_GAP = 24 // sotto questa distanza verticale due device si considerano affiancati
 const STRAIGHT_INSET = 12 // un cavo raddrizzato resta almeno a questa distanza dagli angoli
+const JOG = 24 // sotto questa differenza tra i due capi il cavo si raddrizza
+const MIN_SEP = 18 // distanza minima tra due capi sullo stesso lato (spazio per i nomi delle porte)
 const CLEARANCE = 90 // spazio libero che serve sopra/sotto un device per far uscire un cavo (e il nome della porta)
 
 export const OUTWARD = { top: { x: 0, y: -1 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }
@@ -141,21 +143,43 @@ export function assignAnchors(nodes, edges, { separate = false } = {}) {
       }
     })
   }
-  // Un solo cavo tra due lati che si guardano: se i device sono quasi allineati lo raddrizzo (niente scalini)
+  // Cavi tra due lati che si guardano con i capi quasi allineati: li raddrizzo, niente scalini di pochi pixel.
+  // Se è l'unico cavo su tutti e due i lati sposto entrambi i capi (anche molto, purché dentro i due device);
+  // altrimenti sposto un capo solo, quello con più spazio, se resta lontano dagli altri cavi del suo lato.
+  const positionsOn = (nodeId, side, skipEdge) =>
+    (sides.get(`${nodeId}|${side}`) || []).filter((it) => it.edgeId !== skipEdge).map((it) => result[it.edgeId][it.end])
   for (const e of edges) {
     const anchor = result[e.id]
-    if (!anchor || !anchor.source.alone || !anchor.target.alone || e.data?.waypoints?.length) continue
+    if (!anchor || e.data?.waypoints?.length || anchor.source.fixed || anchor.target.fixed) continue
+    const { source, target } = anchor
+    if (OUTWARD[source.side].x !== -OUTWARD[target.side].x || OUTWARD[source.side].y !== -OUTWARD[target.side].y) continue
     const a = rects.get(e.source)
     const b = rects.get(e.target)
-    const vertical = anchor.source.side === 'bottom' || anchor.source.side === 'top'
-    const [axis, lo, hi] = vertical
-      ? ['x', Math.max(a.x, b.x) + STRAIGHT_INSET, Math.min(a.x + a.w, b.x + b.w) - STRAIGHT_INSET]
-      : ['y', Math.max(a.y, b.y) + STRAIGHT_INSET, Math.min(a.y + a.h, b.y + b.h) - STRAIGHT_INSET]
-    const middle = (anchor.source[axis] + anchor.target[axis]) / 2
-    if (lo <= hi) {
-      const value = Math.min(hi, Math.max(lo, middle))
-      anchor.source[axis] = value
-      anchor.target[axis] = value
+    const vertical = source.side === 'bottom' || source.side === 'top'
+    const axis = vertical ? 'x' : 'y'
+    const range = (r) => (vertical ? [r.x + STRAIGHT_INSET, r.x + r.w - STRAIGHT_INSET] : [r.y + STRAIGHT_INSET, r.y + r.h - STRAIGHT_INSET])
+    if (source.alone && target.alone) {
+      const lo = Math.max(range(a)[0], range(b)[0])
+      const hi = Math.min(range(a)[1], range(b)[1])
+      if (lo <= hi) {
+        const value = Math.min(hi, Math.max(lo, (source[axis] + target[axis]) / 2))
+        source[axis] = value
+        target[axis] = value
+      }
+      continue
+    }
+    const delta = Math.abs(target[axis] - source[axis])
+    if (delta < 0.5 || delta >= JOG) continue
+    const candidates = [
+      { end: source, value: target[axis], r: a, others: positionsOn(e.source, source.side, e.id) },
+      { end: target, value: source[axis], r: b, others: positionsOn(e.target, target.side, e.id) },
+    ].sort((p, q) => p.others.length - q.others.length)
+    for (const c of candidates) {
+      const [lo, hi] = range(c.r)
+      if (c.end.shared || c.value < lo || c.value > hi) continue
+      if (c.others.some((o) => Math.abs(o[axis] - c.value) < MIN_SEP)) continue
+      c.end[axis] = c.value
+      break
     }
   }
   return result
