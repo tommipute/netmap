@@ -4,6 +4,7 @@ import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import BulkEditDialog from '../components/BulkEditDialog'
+import DeleteDialog from '../components/DeleteDialog'
 import DeviceImportDialog from '../components/DeviceImportDialog'
 import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
@@ -69,6 +70,7 @@ export default function ResourcePage({ resourceKey }) {
   const [importing, setImporting] = useState(false)
   const [selected, setSelected] = useState(() => new Map()) // id -> elemento, solo nella pagina visibile
   const [bulkEditing, setBulkEditing] = useState(false)
+  const [deleting, setDeleting] = useState(null) // elementi da eliminare con le opzioni della risorsa
   const [bulkBusy, setBulkBusy] = useState(null) // "Elimino 3 di 10…"
   const [bulkResult, setBulkResult] = useState(null) // { done, failed: [{ label, error }], verb }
   const q = useDebounced(search)
@@ -101,6 +103,10 @@ export default function ResourcePage({ resourceKey }) {
 
   const removeSelected = async () => {
     const chosen = [...selected.values()]
+    if (config.deleteOptions) {
+      setDeleting(chosen)
+      return
+    }
     if (!window.confirm(`Eliminare ${chosen.length === 1 ? '1 elemento' : `${chosen.length} elementi`}? Non si può annullare.`)) return
     const failed = []
     for (let i = 0; i < chosen.length; i++) {
@@ -134,6 +140,10 @@ export default function ResourcePage({ resourceKey }) {
   }
 
   const remove = async (item) => {
+    if (config.deleteOptions) {
+      setDeleting([item])
+      return
+    }
     if (!window.confirm(`Eliminare "${config.label(item)}"?`)) return
     try {
       await api.del(`/${config.path}/${item.id}`)
@@ -321,6 +331,11 @@ export default function ResourcePage({ resourceKey }) {
         <ResourceForm resourceKey={resourceKey} item={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={saved} />
       )}
 
+      {deleting && (
+        <DeleteDialog resourceKey={resourceKey} items={deleting} onClose={() => setDeleting(null)}
+          note={resourceKey === 'devices' ? 'Vengono eliminate anche le porte e i cavi collegati.' : null}
+          onDone={(result) => { setDeleting(null); bulkDone(result) }} />
+      )}
       {bulkEditing && (
         <BulkEditDialog resourceKey={resourceKey} items={[...selected.values()]} onClose={() => setBulkEditing(false)} onDone={bulkDone} />
       )}

@@ -5,7 +5,7 @@ Ogni entità usa lo stesso schema; le regole specifiche stanno negli "hook" (app
 import inspect
 from typing import Any, Callable, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import DataError, IntegrityError
@@ -80,7 +80,7 @@ def build_crud_router(
     search: tuple[str, ...] = (),
     order_by: tuple = (),
     hook: Hook | None = None,
-    delete_hook: Callable[[Session, Any], None] | None = None,
+    delete_hook: Callable[[Session, Any, dict], None] | None = None,  # riceve anche i parametri della richiesta
     dependencies: list | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix=path, tags=[tag], dependencies=dependencies or [])
@@ -166,10 +166,10 @@ def build_crud_router(
 
     # ----- Eliminazione -----
     @router.delete("/{item_id}", status_code=204, response_class=Response, summary=f"Elimina ({tag})")
-    def delete_item(item_id: int, db: Session = Depends(get_db)):
+    def delete_item(item_id: int, request: Request, db: Session = Depends(get_db)):
         obj = get_or_404(db, item_id)
         if delete_hook:
-            delete_hook(db, obj)
+            delete_hook(db, obj, dict(request.query_params))
         db.delete(obj)
         commit_or_error(db)
         return Response(status_code=204)

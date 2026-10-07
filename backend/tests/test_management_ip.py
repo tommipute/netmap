@@ -61,3 +61,13 @@ def test_ricerca_device_per_ip_di_management(client):
     create(client, "/devices", {"name": "sw-b", "site_id": site["id"]})
     found = client.get("/api/devices", params={"q": "99.55"}).json()
     assert [d["name"] for d in found["items"]] == ["sw-a"]
+
+
+def test_eliminare_un_device_con_o_senza_i_suoi_ip(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    keep = create(client, "/devices", {"name": "tiene", "site_id": site["id"], "management_ip": "10.1.0.1/24"})
+    drop = create(client, "/devices", {"name": "toglie", "site_id": site["id"], "management_ip": "10.1.0.2/24"})
+    client.delete(f"/api/devices/{keep['id']}")
+    client.delete(f"/api/devices/{drop['id']}", params={"with_ips": "true"})
+    left = {ip["address"]: ip["interface_id"] for ip in client.get("/api/ip-addresses").json()["items"]}
+    assert left == {"10.1.0.1/24": None}  # senza with_ips l'IP resta, libero

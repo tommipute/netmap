@@ -67,6 +67,16 @@ def device_type_hook(db: Session, device_type: DeviceType, data: dict[str, Any],
             device.role_id = device_type.default_role_id  # uno per uno: così finiscono nello storico
 
 
+def device_delete_hook(db: Session, device: Device, params: dict) -> None:
+    """DELETE /api/devices/{id}?with_ips=true: elimina anche gli IP delle sue porte. Senza, restano registrati
+    come liberi (utile se l'indirizzo è ancora documentato in IPAM)."""
+    if str(params.get("with_ips", "")).lower() not in ("1", "true", "yes", "si", "sì"):
+        return
+    ips = db.scalars(select(IPAddress).join(Interface, IPAddress.interface_id == Interface.id).where(Interface.device_id == device.id))
+    for ip in ips:
+        db.delete(ip)
+
+
 # ---------------------------------------------------------------- IP di management (uno per device)
 MGMT_NAMES = ["mgmt", "management", "eth0"]
 
@@ -300,6 +310,6 @@ def user_hook(db: Session, user: User, data: dict[str, Any], is_create: bool) ->
             user.token_version = (user.token_version or 0) + 1
 
 
-def user_delete_hook(db: Session, user: User) -> None:
+def user_delete_hook(db: Session, user: User, params: dict) -> None:
     if user.role == UserRole.ADMIN.value and user.active and _other_active_admins(db, user) == 0:
         raise HTTPException(409, "Non puoi eliminare l'ultimo amministratore attivo")

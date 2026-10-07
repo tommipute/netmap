@@ -140,6 +140,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 .btn--ghost { background: transparent; border-color: transparent; }
 .btn--ghost:hover { background: var(--surface-2); border-color: var(--line); }
 .btn--danger { color: var(--danger); }
+.btn--danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn--sm { min-height: 30px; padding: 3px 10px; font-size: 13px; }
 /* Pulsanti con solo l'icona (il nome è nel tooltip) */
 .btn--icon { padding: 6px 9px; }

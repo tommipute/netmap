@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { Badge, ErrorBox, LiveStatus, Loading, Mono } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
+import DeleteDialog from '../components/DeleteDialog'
 import HistoryList from '../components/HistoryList'
 import { IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
@@ -119,11 +120,7 @@ export default function DevicePage() {
     }
   }
 
-  const removeDevice = () =>
-    run(`Eliminare ${device.name}? Verranno eliminate anche le sue porte e i cavi collegati.`, async () => {
-      await api.del(`/devices/${id}`)
-      navigate('/devices')
-    })
+  const removeDevice = () => setDialog({ kind: 'delete' })
 
   const checkNow = async () => {
     setChecking(true)
@@ -315,6 +312,11 @@ export default function DevicePage() {
 
       <DeviceHistory deviceId={device.id} />
 
+      {dialog?.kind === 'delete' && (
+        <DeleteDialog resourceKey="devices" items={[device]} onClose={() => setDialog(null)}
+          note={`Vengono eliminate anche ${ports?.length === 1 ? 'la sua porta' : `le sue ${ports?.length ?? 0} porte`} e i cavi collegati.`}
+          onDone={(result) => (result.failed.length ? window.alert(result.failed[0].error) : navigate('/devices'))} />
+      )}
       {dialog?.kind === 'edit' && (
         <ResourceForm resourceKey="devices" item={device} onClose={() => setDialog(null)} onSaved={refresh} />
       )}

@@ -101,7 +101,9 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
   che nel modulo degli IP blocca la casella (`lockedBy` dei campi bool in ResourceForm).
 - **Unicità con NULL** (VLAN globale, VRF globale): Postgres considera i NULL diversi, quindi i controlli sono negli hook.
 - **Eliminazioni**: sede/ruolo/modello/VRF in uso → RESTRICT (l'API risponde 409). Device → porte → cavi in CASCADE.
-  IP di una porta eliminata → `interface_id` NULL. Mappe di una sede eliminata → CASCADE.
+  IP di una porta eliminata → `interface_id` NULL. `DELETE /api/devices/{id}?with_ips=true` elimina anche gli IP
+  (`device_delete_hook`; i delete_hook ricevono i parametri della richiesta). Nel frontend `deleteOptions` della
+  risorsa -> `DeleteDialog` con le caselle. Mappe di una sede eliminata → CASCADE.
 - **Errori API**: 404 non trovato, 422 dati non validi o id collegato inesistente (`check_foreign_keys`),
   409 duplicato o elemento in uso (IntegrityError). Messaggi in italiano, leggibili dall'utente.
 - Relazioni `lazy="joined"`: `Interface.device`, `Cable.a_interface/b_interface`, `IPAddress.interface`.

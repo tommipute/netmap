@@ -48,6 +48,15 @@ export const resources = {
     editLabel: 'Modifica device',
     label: (o) => o.name,
     detail: (o) => `/devices/${o.id}`,
+    // Eliminazione: scelta sugli IP (DeleteDialog -> ?with_ips=true)
+    deleteOptions: [
+      {
+        name: 'with_ips',
+        label: 'Elimina anche gli IP',
+        default: true,
+        help: 'Togli la spunta se gli indirizzi devono restare registrati (liberi) in Indirizzi IP.',
+      },
+    ],
     // Modifica in blocco dall'elenco (selezione multipla)
     bulkFields: ['status', 'site_id', 'location_id', 'rack_id', 'role_id', 'device_type_id'],
     filters: [
