@@ -156,6 +156,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
 
   const submit = async (e) => {
     e.preventDefault()
+    e.stopPropagation() // un modulo aperto da un menu di un altro modulo: l'invio non deve arrivare a quello
     const payload = {}
     for (const f of config.fields) {
       if (isEdit && f.createOnly) continue

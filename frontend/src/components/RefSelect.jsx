@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { qs } from '../api'
+import { useAuth } from '../auth'
 import { useApi, useDebounced, useOptions, useOptionsPage } from '../hooks'
 import { resources } from '../resources'
+import ResourceForm from './ResourceForm'
+
+// Elementi che si possono creare al volo dal menu a tendina (i device, le porte ecc. no: hanno la loro pagina)
+const CREATABLE = new Set(['sites', 'locations', 'racks', 'device-roles', 'device-types', 'manufacturers', 'vlans', 'vrfs', 'snmp-profiles'])
+const NEW = '__new__'
 
 /** Oltre i 1000 elementi: campo di ricerca che interroga il server (es. migliaia di device o interfacce). */
 function SearchSelect({ id, config, value, onChange, params, disabled, emptyLabel, ariaLabel }) {
@@ -63,32 +69,57 @@ function SearchSelect({ id, config, value, onChange, params, disabled, emptyLabe
   )
 }
 
-/** Menu a tendina con gli elementi di un'altra entità (sedi, ruoli, VLAN...). */
+/**
+ * Menu a tendina con gli elementi di un'altra entità (sedi, ruoli, VLAN...). In fondo "+ Nuovo …" apre il modulo
+ * per crearne uno (già nella sede giusta se il menu è filtrato per sede) e lo sceglie appena salvato.
+ */
 export function RefSelect({ id, resource, value, onChange, params, disabled, emptyLabel = '—', waitLabel, ariaLabel }) {
   const config = resources[resource]
-  const { items, total } = useOptionsPage(waitLabel ? null : config.path, params)
+  const { canEdit } = useAuth()
+  const [creating, setCreating] = useState(false)
+  const { items, total, loaded } = useOptionsPage(waitLabel ? null : config.path, params)
   if (!waitLabel && total > items.length) {
     return (
       <SearchSelect id={id} config={config} value={value} onChange={onChange} params={params} disabled={disabled}
         emptyLabel={emptyLabel} ariaLabel={ariaLabel} />
     )
   }
+  const creatable = canEdit && CREATABLE.has(resource) && !disabled && !waitLabel
+  // Il nuovo elemento nasce con i filtri del menu che sono suoi campi (es. la sede per rack e posizioni)
+  const fieldNames = new Set(config.fields.map((f) => f.name))
+  const preset = Object.fromEntries(Object.entries(params || {}).filter(([k, v]) => fieldNames.has(k) && v !== '' && v != null))
+  const scoped = 'site_id' in preset
+  // Menu vuoto: lo dico, invece di un "—" che sembra un errore
+  const first = waitLabel || (loaded && items.length === 0 ? `${emptyLabel} nessuna voce${scoped ? ' in questa sede' : ''}` : emptyLabel)
   return (
-    <select
-      id={id}
-      className="input"
-      value={value ?? ''}
-      disabled={disabled || Boolean(waitLabel)}
-      aria-label={ariaLabel}
-      onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-    >
-      <option value="">{waitLabel || emptyLabel}</option>
-      {items.map((o) => (
-        <option key={o.id} value={o.id}>
-          {config.label(o)}
-        </option>
-      ))}
-    </select>
+    <>
+      <select
+        id={id}
+        className="input"
+        value={value ?? ''}
+        disabled={disabled || Boolean(waitLabel)}
+        aria-label={ariaLabel}
+        onChange={(e) => {
+          if (e.target.value === NEW) setCreating(true)
+          else onChange(e.target.value === '' ? '' : Number(e.target.value))
+        }}
+      >
+        <option value="">{first}</option>
+        {items.map((o) => (
+          <option key={o.id} value={o.id}>
+            {config.label(o)}
+          </option>
+        ))}
+        {creatable && <option value={NEW}>+ {config.newLabel}…</option>}
+      </select>
+      {creating && (
+        <ResourceForm resourceKey={resource} preset={preset} onClose={() => setCreating(false)}
+          onSaved={(saved) => {
+            setCreating(false)
+            onChange(saved.id)
+          }} />
+      )}
+    </>
   )
 }
 

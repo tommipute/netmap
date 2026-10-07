@@ -80,7 +80,7 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
           {fields.map((f) => {
             const parent = f.dependsOn ? context[f.dependsOn] : null
             const waiting = f.dependsOn && isEmpty(parent)
-            const field = waiting ? { ...f, waitLabel: 'Scegli prima una sede: gli elementi sono in sedi diverse' } : f
+            const field = waiting ? { ...f, waitLabel: 'Prima scegli la sede' } : f
             return (
               <div key={f.name} className={`bulk-field${enabled[f.name] ? ' bulk-field--on' : ''}`}>
                 <label className="check">

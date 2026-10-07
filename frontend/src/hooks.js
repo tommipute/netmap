@@ -58,7 +58,7 @@ export function useOptions(path, params = {}) {
 /** Come useOptions, ma dice anche quanti sono in tutto: oltre il limite serve la ricerca lato server. */
 export function useOptionsPage(path, params = {}) {
   const url = path ? `/${path}${qs({ limit: OPTIONS_LIMIT, ...params })}` : null
-  const [page, setPage] = useState({ items: [], total: 0 })
+  const [page, setPage] = useState({ items: [], total: 0, loaded: false })
   const [version, setVersion] = useState(0)
 
   useEffect(() => {
@@ -71,13 +71,13 @@ export function useOptionsPage(path, params = {}) {
 
   useEffect(() => {
     if (!url) {
-      setPage({ items: [], total: 0 })
+      setPage({ items: [], total: 0, loaded: false })
       return undefined
     }
     let alive = true
     cachedGet(url)
-      .then((data) => alive && setPage({ items: data.items, total: data.total }))
-      .catch(() => alive && setPage({ items: [], total: 0 }))
+      .then((data) => alive && setPage({ items: data.items, total: data.total, loaded: true }))
+      .catch(() => alive && setPage({ items: [], total: 0, loaded: false }))
     return () => {
       alive = false
     }

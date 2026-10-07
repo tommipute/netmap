@@ -207,6 +207,12 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   **Ogni pulsante che scrive va nascosto con `canEdit`** (il backend risponde comunque 403).
   Un 401 dall'API (fuori da `/auth/`) emette `netmap:unauthorized` e riporta al login.
   `RefSelect`/`RefLabel` usano `useOptionsPage`: oltre i 1000 elementi diventano una ricerca lato server.
+  `RefSelect` ha in fondo "+ Nuovo …" (solo editor, risorse in `CREATABLE`: sedi, posizioni, rack, ruoli, modelli,
+  produttori, VLAN, VRF, profili SNMP): apre `ResourceForm` sopra il modulo con i filtri del menu come valori
+  (es. la sede per rack e posizioni) e sceglie l'elemento appena salvato. Menu vuoto → "— nessuna voce in questa
+  sede". Finestre una sopra l'altra: `Modal` tiene l'elenco di quelle aperte (Esc chiude solo l'ultima) e
+  `ResourceForm` ferma la propagazione dell'invio (con i portali React l'evento arriverebbe al modulo sotto).
+  Rack e posizioni sono filtrati per la sede del device: un rack di un'altra sede non compare (scelta voluta).
   **Stampa**: pulsante su scheda device, rack e mappa; in `@media print` il foglio è sempre chiaro (token
   ridefiniti), spariscono pulsanti, colonna azioni, avvisi e ciò che ha `.no-print` (storico del device);
   `PrintFooter` (Bits.jsx, `.print-only`) scrive data e utente. Le unità del rack si stringono a 17 px e il layout a una colonna (il foglio è largo come un telefono) è annullato.
