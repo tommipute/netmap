@@ -16,6 +16,7 @@ from app.models import (
     Interface,
     IPAddress,
     Location,
+    MapCableRoute,
     MapNode,
     NetworkMap,
     Rack,
@@ -182,7 +183,14 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
         {"id": v.id, "vid": v.vid, "name": v.name}
         for v in db.scalars(select(VLAN).where(VLAN.id.in_(vlan_ids)).order_by(VLAN.vid, VLAN.name))
     ] if vlan_ids else []
-    return {"map": network_map, "nodes": nodes, "edges": _edges(db, ids), "available": available, "vlans": vlans}
+    edges = _edges(db, ids)
+    cable_ids = {e["id"] for e in edges}
+    routes = [
+        {"cable_id": r.cable_id, "points": r.points}
+        for r in db.scalars(select(MapCableRoute).where(MapCableRoute.map_id == network_map.id))
+        if r.cable_id in cable_ids
+    ]
+    return {"map": network_map, "nodes": nodes, "edges": edges, "available": available, "vlans": vlans, "routes": routes}
 
 
 def save_map_positions(db: Session, network_map: NetworkMap, positions: list) -> int:
@@ -200,6 +208,32 @@ def save_map_positions(db: Session, network_map: NetworkMap, positions: list) ->
     db.add_all(MapNode(map_id=network_map.id, device_id=d, x=p.x, y=p.y) for d, p in by_device.items())
     db.commit()
     return len(by_device)
+
+
+def save_map_routes(db: Session, network_map: NetworkMap, routes: list) -> int:
+    """Sostituisce i punti di ancoraggio dei cavi della mappa; un cavo senza punti torna al percorso automatico."""
+    by_cable = {r.cable_id: r for r in routes if r.points}
+    if by_cable:
+        a_side, b_side = aliased(Interface), aliased(Interface)
+        valid = set(
+            db.scalars(
+                select(Cable.id)
+                .join(a_side, Cable.a_interface_id == a_side.id)
+                .join(b_side, Cable.b_interface_id == b_side.id)
+                .join(Device, a_side.device_id == Device.id)
+                .where(Cable.id.in_(list(by_cable)), Device.site_id == network_map.site_id)
+            )
+        )
+        invalid = set(by_cable) - valid
+        if invalid:
+            raise HTTPException(422, f"Cavi inesistenti o di un'altra sede: {sorted(invalid)}")
+    db.execute(delete(MapCableRoute).where(MapCableRoute.map_id == network_map.id))
+    db.add_all(
+        MapCableRoute(map_id=network_map.id, cable_id=c, points=[{"x": round(p.x, 1), "y": round(p.y, 1)} for p in r.points])
+        for c, r in by_cable.items()
+    )
+    db.commit()
+    return len(by_cable)
 
 
 # ---------------------------------------------------------------- porte di un device

@@ -20,7 +20,7 @@ from app.models.dcim import (
 )
 from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
-from app.models.maps import MapNode, NetworkMap
+from app.models.maps import MapCableRoute, MapNode, NetworkMap
 from app.models.monitoring import Endpoint
 
 # IP di management del device in sola lettura (scheda e modulo del device, interfacce). Sta qui perché unisce
@@ -51,6 +51,7 @@ __all__ = [
     "IPAddress",
     "Location",
     "Manufacturer",
+    "MapCableRoute",
     "MapNode",
     "NetworkMap",
     "Prefix",

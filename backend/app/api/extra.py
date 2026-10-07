@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import Device, NetworkMap, Prefix, Rack
 from app.schemas.common import Page
 from app.schemas.ipam import IPAddressRead
-from app.schemas.maps import MapRead, MapView, NodePosition
+from app.schemas.maps import CableRoute, MapRead, MapView, NodePosition
 from app.schemas.views import (
     CheckResult,
     DeviceImportRequest,
@@ -36,6 +36,7 @@ from app.services.topology import (
     map_view,
     rack_elevation,
     save_map_positions,
+    save_map_routes,
 )
 
 router = APIRouter()
@@ -147,6 +148,12 @@ def get_map_view(map_id: int, db: Session = Depends(get_db)):
     view = map_view(db, _get_or_404(db, NetworkMap, map_id))
     view["map"] = MapRead.model_validate(view["map"])
     return view
+
+
+@router.put("/maps/{map_id}/routes", tags=["Mappe"],
+            summary="Salva i punti di ancoraggio dei cavi disegnati a mano (sostituisce i precedenti)")
+def put_map_routes(map_id: int, routes: list[CableRoute], db: Session = Depends(get_db)):
+    return {"saved": save_map_routes(db, _get_or_404(db, NetworkMap, map_id), routes)}
 
 
 @router.put("/maps/{map_id}/nodes", tags=["Mappe"],

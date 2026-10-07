@@ -7,6 +7,8 @@
  * punti diversi, distribuiti lungo il bordo in ordine di posizione dell'altro capo (così non si incrociano).
  * Due cavi verso lo stesso device (es. un LAG) non si uniscono mai: sembrerebbero uno solo.
  * Con separate (nomi delle porte visibili) ogni cavo ha il suo punto: ogni porta ha il suo posto per il nome.
+ * Un cavo con punti di ancoraggio disegnati a mano (data.waypoints) esce dal lato rivolto verso il suo primo punto
+ * ed entra da quello rivolto verso l'ultimo.
  */
 const MIN_GAP = 24 // sotto questa distanza verticale due device si considerano affiancati
 const STRAIGHT_INSET = 12 // un cavo raddrizzato resta almeno a questa distanza dagli angoli
@@ -44,6 +46,13 @@ function pointOn(r, side, f) {
   }
 }
 
+/** Lato di r rivolto verso il punto p (punti di ancoraggio): sotto/sopra se p sta più in basso/in alto, se no di lato. */
+function sideToward(r, p) {
+  if (p.y >= r.y + r.h) return 'bottom'
+  if (p.y <= r.y) return 'top'
+  return p.x >= r.x + r.w / 2 ? 'right' : 'left'
+}
+
 /** Lato sopra/sotto di un device coperto da un altro device vicino (non l'altro capo del cavo) -> lato sinistro/destro. */
 function sideIfBlocked(rects, ownId, otherId, side) {
   if (side !== 'top' && side !== 'bottom') return side
@@ -75,16 +84,27 @@ export function assignAnchors(nodes, edges, { separate = false } = {}) {
     const a = rects.get(e.source)
     const b = rects.get(e.target)
     if (!a || !b) continue
-    let [sa, sb] = chooseSides(a, b)
-    // Sopra/sotto c'è subito un altro device (es. impilati nello stesso rack): il cavo esce di lato, verso l'altro capo
-    sa = sideIfBlocked(rects, e.source, e.target, sa)
-    sb = sideIfBlocked(rects, e.target, e.source, sb)
+    const waypoints = e.data?.waypoints
+    let sa, sb, towardA, towardB
+    if (waypoints?.length) {
+      towardA = waypoints[0]
+      towardB = waypoints[waypoints.length - 1]
+      sa = sideToward(a, towardA)
+      sb = sideToward(b, towardB)
+    } else {
+      ;[sa, sb] = chooseSides(a, b)
+      // Sopra/sotto c'è subito un altro device (es. impilati nello stesso rack): il cavo esce di lato, verso l'altro capo
+      sa = sideIfBlocked(rects, e.source, e.target, sa)
+      sb = sideIfBlocked(rects, e.target, e.source, sb)
+      towardA = center(b)
+      towardB = center(a)
+    }
     result[e.id] = { source: { side: sa }, target: { side: sb } }
     const kind = e.data?.type || ''
-    for (const [nodeId, side, end, otherId, other] of [[e.source, sa, 'source', e.target, b], [e.target, sb, 'target', e.source, a]]) {
+    for (const [nodeId, side, end, otherId, other] of [[e.source, sa, 'source', e.target, towardA], [e.target, sb, 'target', e.source, towardB]]) {
       const key = `${nodeId}|${side}`
       if (!sides.has(key)) sides.set(key, [])
-      sides.get(key).push({ edgeId: e.id, end, kind, otherId, other: center(other) })
+      sides.get(key).push({ edgeId: e.id, end, kind, otherId, other })
     }
   }
   for (const [key, list] of sides) {
@@ -117,7 +137,7 @@ export function assignAnchors(nodes, edges, { separate = false } = {}) {
   // Un solo cavo tra due lati che si guardano: se i device sono quasi allineati lo raddrizzo (niente scalini)
   for (const e of edges) {
     const anchor = result[e.id]
-    if (!anchor || !anchor.source.alone || !anchor.target.alone) continue
+    if (!anchor || !anchor.source.alone || !anchor.target.alone || e.data?.waypoints?.length) continue
     const a = rects.get(e.source)
     const b = rects.get(e.target)
     const vertical = anchor.source.side === 'bottom' || anchor.source.side === 'top'

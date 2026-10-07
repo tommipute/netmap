@@ -429,6 +429,13 @@ textarea.input { resize: vertical; min-height: 72px; }
 .react-flow__node, .react-flow__edge { transition: opacity 0.15s; }
 .react-flow__node.is-faded { opacity: 0.22; }
 .react-flow__edge.cable--faded { opacity: 0.12; }
+.cable-handle { cursor: grab; pointer-events: all; }
+.cable-handle:active { cursor: grabbing; }
+.cable-handle--point { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.cable-handle--add circle { fill: var(--accent); opacity: 0.85; }
+.cable-handle--add path { stroke: var(--accent-ink); stroke-width: 1.6; }
+.cable-handle--add:hover circle { opacity: 1; }
+.map-panel__hint { margin: 10px 0 12px; }
 .react-flow__edge.cable--vlan .react-flow__edge-path { stroke-width: 4.5px !important; filter: drop-shadow(0 0 3px var(--accent)); }
 
 /* ---------- Bolle dei rack in mappa ---------- */
@@ -569,7 +576,7 @@ textarea.input { resize: vertical; min-height: 72px; }
   .table-wrap { border: 0; }
   .section > h2, .section__head { break-after: avoid; }
   .sidebar, .topbar, .map-toolbar__actions, .react-flow__controls, .react-flow__minimap, .map-hint, .map-panel,
-  .page-head__actions, .react-flow__handle { display: none !important; }
+  .page-head__actions, .react-flow__handle, .cable-handles { display: none !important; }
   .shell { display: block; height: auto; }
   .content { overflow: visible; }
   .map-page { position: static; height: 100vh; }

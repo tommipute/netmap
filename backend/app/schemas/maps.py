@@ -33,12 +33,23 @@ class MapVLAN(BaseModel):
     name: str
 
 
+class RoutePoint(BaseModel):
+    x: float
+    y: float
+
+
+class CableRoute(BaseModel):
+    cable_id: int
+    points: list[RoutePoint] = Field(max_length=50, description="Punti di ancoraggio, dal lato A al lato B del cavo")
+
+
 class MapView(BaseModel):
     map: MapRead
     nodes: list[MapViewNode]
     edges: list[TopologyEdge]
     available: list[TopologyNode]  # device della sede non ancora in mappa (mappe manuali)
     vlans: list[MapVLAN] = []  # VLAN delle porte dei device in mappa
+    routes: list[CableRoute] = []  # cavi con i punti di ancoraggio disegnati a mano
 
 
 class NodePosition(BaseModel):

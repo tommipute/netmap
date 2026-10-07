@@ -1,6 +1,6 @@
 """Mappe di rete: ogni mappa riguarda una sede (ed eventualmente una posizione)
 e salva la posizione dei device disegnati."""
-from sqlalchemy import Boolean, Float, ForeignKey, String, Text, true
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
@@ -28,3 +28,13 @@ class MapNode(Base):
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), primary_key=True)
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
+
+
+class MapCableRoute(Base):
+    """Punti di ancoraggio disegnati a mano per un cavo su una mappa: il cavo passa da lì invece del percorso automatico."""
+
+    __tablename__ = "map_cable_routes"
+
+    map_id: Mapped[int] = mapped_column(ForeignKey("maps.id", ondelete="CASCADE"), primary_key=True)
+    cable_id: Mapped[int] = mapped_column(ForeignKey("cables.id", ondelete="CASCADE"), primary_key=True)
+    points: Mapped[list] = mapped_column(JSON)  # [{"x": .., "y": ..}] nell'ordine dal lato A al lato B del cavo

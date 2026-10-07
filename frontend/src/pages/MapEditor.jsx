@@ -161,9 +161,11 @@ function rackBubbles(nodes, onSelect) {
   return bubbles
 }
 
-function toFlowEdge(edge, levelOf, showLabels, selected, mode) {
+function toFlowEdge(edge, levelOf, showLabels, selected, mode, route) {
   // Il cavo parte sempre dal device più in alto nella gerarchia
   const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
+  // Punti di ancoraggio: salvati dal lato A al lato B del cavo, in mappa nel verso source -> target
+  const waypoints = route?.length ? (flip ? [...route].reverse() : route) : null
   const style = cableStyle(edge.type)
   const fast = (edge.speed_mbps || 0) >= 10000
   return {
@@ -174,6 +176,8 @@ function toFlowEdge(edge, levelOf, showLabels, selected, mode) {
     data: {
       ...edge,
       mode,
+      flip,
+      waypoints,
       // Nomi delle porte, ognuno vicino al suo device
       sourceLabel: showLabels ? (flip ? edge.target_interface : edge.source_interface) : null,
       targetLabel: showLabels ? (flip ? edge.source_interface : edge.target_interface) : null,
@@ -236,6 +240,9 @@ function Editor() {
   const [edgeStyle, setEdgeStyle] = useEdgeStyle()
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
+  const [routes, setRoutes] = useState({}) // { cableId: [{ x, y }] } punti di ancoraggio, dal lato A al lato B
+  const routesRef = useRef(routes)
+  routesRef.current = routes
   const [connecting, setConnecting] = useState(null) // { a, b } id device
   const [checking, setChecking] = useState(false)
 
@@ -253,6 +260,8 @@ function Editor() {
       try {
         const data = await api.get(`/maps/${id}/view`)
         const { nodes: built, changed } = buildFlowNodes(data, keepPositions ? nodesRef.current : [])
+        // Ricaricando (stato live ogni 30 s) restano i punti che si stanno modificando
+        if (!keepPositions) setRoutes(Object.fromEntries(data.routes.map((r) => [r.cable_id, r.points])))
         setView(data)
         setNodes(built)
         setError(null)
@@ -307,9 +316,21 @@ function Editor() {
   const levelOf = useMemo(() => effectiveLevels(view?.nodes || [], view?.edges || []), [view])
   const baseEdges = useMemo(
     () =>
-      (view?.edges || []).map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle)),
-    [view, levelOf, showLabels, selection, edgeStyle],
+      (view?.edges || []).map((e) =>
+        toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, edgeStyle, routes[e.id])),
+    [view, levelOf, showLabels, selection, edgeStyle, routes],
   )
+
+  /** Nuovi punti di ancoraggio di un cavo (nel verso della mappa); nessun punto = percorso automatico. */
+  const changeRoute = useCallback((cableId, flip, points) => {
+    setRoutes((current) => {
+      const next = { ...current }
+      if (points.length) next[cableId] = flip ? [...points].reverse() : points
+      else delete next[cableId]
+      return next
+    })
+    setDirty(true)
+  }, [])
 
   // Clic sul nome di un rack: seleziono i suoi device, trascinandone uno si spostano tutti
   const selectRack = useCallback(
@@ -366,9 +387,17 @@ function Editor() {
         className: !focus ? e.className
           : !focus.cables.has(e.id) ? `${e.className} cable--faded`
           : focus.vlan ? `${e.className} cable--vlan` : e.className,
-        data: { ...e.data, geometry: geometry[e.id] || null },
+        // Il cavo selezionato sta sopra gli altri: le sue maniglie non finiscono sotto un cavo che passa di lì
+        zIndex: selection?.kind === 'edge' && selection.id === e.data.id ? 10 : 0,
+        data: {
+          ...e.data,
+          geometry: geometry[e.id] || null,
+          // Cavo selezionato: maniglie per spostarlo
+          onRoute: canEdit && selection?.kind === 'edge' && selection.id === e.data.id
+            ? (points) => changeRoute(e.data.id, e.data.flip, points) : null,
+        },
       })),
-    [baseEdges, geometry, focus],
+    [baseEdges, geometry, focus, canEdit, selection, changeRoute],
   )
   const displayNodes = useMemo(() => {
     const faded = (node, inFocus) => (focus && !inFocus ? { ...node, className: 'is-faded' } : node)
@@ -388,6 +417,10 @@ function Editor() {
       await api.put(
         `/maps/${id}/nodes`,
         list.map((n) => ({ device_id: Number(n.id), x: Math.round(n.position.x), y: Math.round(n.position.y) })),
+      )
+      await api.put(
+        `/maps/${id}/routes`,
+        Object.entries(routesRef.current).map(([cableId, points]) => ({ cable_id: Number(cableId), points })),
       )
       setDirty(false)
       return true
@@ -462,7 +495,7 @@ function Editor() {
     const options = {
       backgroundColor: background,
       // I pallini per collegare i device servono solo a modificare la mappa
-      filter: (node) => !node.classList?.contains('react-flow__handle'),
+      filter: (node) => !node.classList?.contains('react-flow__handle') && !node.classList?.contains('cable-handles'),
       width,
       height,
       style: {
@@ -674,7 +707,17 @@ function Editor() {
               <div><dt>Velocità porta</dt><dd>{formatSpeed(selectedEdge.speed_mbps)}</dd></div>
             </dl>
             {canEdit && (
+              <p className="hint map-panel__hint">
+                Per spostare il cavo trascina i suoi punti; i + aggiungono un punto, il doppio clic lo toglie.
+                Poi salva la disposizione.
+              </p>
+            )}
+            {canEdit && (
               <div className="map-panel__actions">
+                {routes[selectedEdge.id] && (
+                  <IconButton icon="layout" label="Torna al percorso automatico" small
+                    onClick={() => changeRoute(selectedEdge.id, false, [])} />
+                )}
                 <IconButton icon="trash" label="Elimina cavo" small danger className="btn--ghost" onClick={() => deleteCable(selectedEdge)} />
               </div>
             )}

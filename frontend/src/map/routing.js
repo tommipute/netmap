@@ -235,6 +235,12 @@ export function roundedPath(points, radius = 8) {
     const a = points[k - 1]
     const b = points[k]
     const c = points[k + 1]
+    // Curva arrotondata solo tra tratti orizzontali/verticali (i cavi dritti con punti di ancoraggio fanno spigoli)
+    const straight = (p, q) => p.x === q.x || p.y === q.y
+    if (!straight(a, b) || !straight(b, c)) {
+      d += ` L ${b.x} ${b.y}`
+      continue
+    }
     const r = Math.min(radius, Math.hypot(b.x - a.x, b.y - a.y) / 2, Math.hypot(c.x - b.x, c.y - b.y) / 2)
     const inX = b.x - Math.sign(b.x - a.x) * r
     const inY = b.y - Math.sign(b.y - a.y) * r

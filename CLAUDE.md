@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (53 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (54 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -288,6 +288,13 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   accanto al cavo. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
   `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
+  **Punti di ancoraggio** (tabella `map_cable_routes`, per mappa e cavo, punti dal lato A al lato B; `view.routes`,
+  `PUT /api/maps/{id}/routes` insieme a "Salva disposizione"): il cavo passa dai punti ad angolo retto
+  (`throughCorners` in geometry.js) o dritto, ed esce dal lato rivolto verso il primo punto (`sideToward` in
+  anchors.js). Cavo selezionato (solo editor): `CableEdge` disegna i punti da trascinare (doppio clic = via) e i "+"
+  per aggiungerne (`geometry.edit`); su un cavo automatico i punti sono gli spigoli del percorso calcolato, così il
+  primo spostamento non cambia il resto. Il cavo selezionato ha `zIndex` 10 (sopra i cavi che passano di lì).
+  "Torna al percorso automatico" nel pannello. In `toFlowEdge` i punti si girano se il cavo è disegnato al contrario.
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,
   endpoint; i risultati hanno `interface_id`); il risultato seleziona il cavo della porta trovata (o il device),

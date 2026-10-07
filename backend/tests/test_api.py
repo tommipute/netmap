@@ -185,3 +185,32 @@ def test_mappa_con_vlan_e_ricerca_della_porta(client):
 
     found = client.get("/api/search", params={"q": "aa:bb:cc:00"}).json()
     assert {"type": "interface", "device_id": sw["id"], "interface_id": access["id"]}.items() <= found[0].items()
+
+
+def test_punti_di_ancoraggio_dei_cavi(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    other = create(client, "/sites", {"name": "Altra"})
+    a = create(client, "/devices", {"name": "a", "site_id": site["id"]})
+    b = create(client, "/devices", {"name": "b", "site_id": site["id"]})
+    x = create(client, "/devices", {"name": "x", "site_id": other["id"]})
+    y = create(client, "/devices", {"name": "y", "site_id": other["id"]})
+    pa, pb = (create(client, "/interfaces", {"device_id": d["id"], "name": "1"}) for d in (a, b))
+    px, py = (create(client, "/interfaces", {"device_id": d["id"], "name": "1"}) for d in (x, y))
+    cable = create(client, "/cables", {"a_interface_id": pa["id"], "b_interface_id": pb["id"]})
+    foreign = create(client, "/cables", {"a_interface_id": px["id"], "b_interface_id": py["id"]})
+    the_map = create(client, "/maps", {"name": "Sede", "site_id": site["id"]})
+    url = f"/api/maps/{the_map['id']}/routes"
+
+    points = [{"x": 10, "y": 20.04}, {"x": 300, "y": 20}]
+    assert client.put(url, json=[{"cable_id": cable["id"], "points": points}]).json() == {"saved": 1}
+    view = client.get(f"/api/maps/{the_map['id']}/view").json()
+    assert view["routes"] == [{"cable_id": cable["id"], "points": [{"x": 10, "y": 20.0}, {"x": 300, "y": 20}]}]
+
+    assert client.put(url, json=[{"cable_id": foreign["id"], "points": points}]).status_code == 422
+    # Senza punti: il cavo torna al percorso automatico
+    assert client.put(url, json=[{"cable_id": cable["id"], "points": []}]).json() == {"saved": 0}
+    assert client.get(f"/api/maps/{the_map['id']}/view").json()["routes"] == []
+    # Eliminato il cavo, spariscono anche i suoi punti
+    client.put(url, json=[{"cable_id": cable["id"], "points": points}])
+    client.delete(f"/api/cables/{cable['id']}")
+    assert client.get(f"/api/maps/{the_map['id']}/view").json()["routes"] == []
