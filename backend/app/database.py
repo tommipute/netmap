@@ -13,3 +13,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Storico delle modifiche: si registra sulle sessioni (evento after_flush) appena il modulo viene importato
+import app.services.audit  # noqa: E402,F401

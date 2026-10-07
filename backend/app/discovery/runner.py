@@ -157,6 +157,7 @@ def reject(db: Session, ids: list[int]) -> dict:
 
 # ---------------------------------------------------------------- esecuzione di un job
 def execute_run(db: Session, run_id: int, collector: Collector | None = None) -> DiscoveryRun:
+    db.info["audit_source"] = "scansione"  # storico delle modifiche
     run = db.get(DiscoveryRun, run_id)
     job = db.get(DiscoveryJob, run.job_id)
     run.status, run.started_at = RunStatus.RUNNING.value, run.started_at or now()

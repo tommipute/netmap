@@ -89,6 +89,7 @@ def get_device_import_template(
 
 @router.post("/devices/import", response_model=DeviceImportResult, tags=["Device"], summary="Importa device da testo o file CSV")
 def post_device_import(payload: DeviceImportRequest, db: Session = Depends(get_db)):
+    db.info["audit_source"] = "import"  # storico delle modifiche
     return import_devices_from_csv(
         db,
         csv_text=payload.csv_data,

@@ -1,0 +1,83 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { qs } from '../api'
+import { ErrorBox, Loading } from '../components/Bits'
+import HistoryList, { OBJECT_TYPES, SOURCES } from '../components/HistoryList'
+import { IconButton } from '../components/Icon'
+import RefLabel from '../components/RefLabel'
+import { useApi, useDebounced } from '../hooks'
+
+const LIMIT = 50
+
+/** Storico delle modifiche: chi ha cambiato cosa e quando. Filtri nell'indirizzo (device_id, object_type, source, q). */
+export default function HistoryPage() {
+  const [params, setParams] = useSearchParams()
+  const [search, setSearch] = useState(params.get('q') || '')
+  const [offset, setOffset] = useState(0)
+  const q = useDebounced(search.trim())
+  const deviceId = params.get('device_id')
+  const objectType = params.get('object_type') || ''
+  const source = params.get('source') || ''
+
+  const setFilter = (name, value) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (value) next.set(name, value)
+      else next.delete(name)
+      return next
+    }, { replace: true })
+
+  useEffect(() => setFilter('q', q), [q]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setOffset(0), [q, deviceId, objectType, source])
+
+  const { data, error, loading } = useApi(
+    `/audit-log${qs({ q, device_id: deviceId, object_type: objectType, source, limit: LIMIT, offset })}`,
+  )
+
+  return (
+    <div className="page">
+      <header className="page-head">
+        <div>
+          <h1>Storico modifiche</h1>
+          <p className="page-intro">
+            Chi ha cambiato cosa e quando: a mano, con la scansione SNMP o con l'import. Lo stato live e i dati che la
+            scansione aggiorna da sola (ultima volta visto, porte su/giù) non compaiono.
+          </p>
+        </div>
+      </header>
+
+      <div className="toolbar">
+        <input type="search" className="input toolbar__search" placeholder="Cerca per nome o utente" value={search}
+          aria-label="Cerca nello storico" onChange={(e) => setSearch(e.target.value)} />
+        <select className="input" value={objectType} aria-label="Tipo di oggetto" onChange={(e) => setFilter('object_type', e.target.value)}>
+          <option value="">Tutti gli oggetti</option>
+          {OBJECT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        <select className="input" value={source} aria-label="Origine" onChange={(e) => setFilter('source', e.target.value)}>
+          <option value="">Tutte le origini</option>
+          {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        {deviceId && (
+          <span className="filter-chip">
+            Device <RefLabel resource="devices" id={Number(deviceId)} />
+            <IconButton icon="close" label="Togli il filtro del device" small className="btn--ghost" onClick={() => setFilter('device_id', '')} />
+          </span>
+        )}
+        {data && <span className="toolbar__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>}
+      </div>
+
+      <ErrorBox error={error} />
+      {!data && loading && <Loading />}
+      {data && data.items.length === 0 && <div className="empty"><p>Nessuna modifica con questi filtri.</p></div>}
+      {data && data.items.length > 0 && <HistoryList entries={data.items} />}
+
+      {data && data.total > LIMIT && (
+        <div className="pager">
+          <IconButton icon="prev" label="Pagina precedente" small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
+          <span>{offset + 1}–{Math.min(offset + LIMIT, data.total)} di {data.total}</span>
+          <IconButton icon="next" label="Pagina successiva" small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
+        </div>
+      )}
+    </div>
+  )
+}

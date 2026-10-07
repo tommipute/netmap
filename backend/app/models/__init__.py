@@ -2,6 +2,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import column_property
 
+from app.models.audit import AuditEntry
 from app.models.auth import User
 from app.models.base import Base
 from app.models.dcim import (
@@ -33,6 +34,7 @@ Device.management_ip = column_property(
 )
 
 __all__ = [
+    "AuditEntry",
     "Base",
     "Cable",
     "Device",

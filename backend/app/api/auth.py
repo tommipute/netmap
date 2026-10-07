@@ -49,6 +49,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User | None
     if user is None or not user.active or data.get("ver") != user.token_version:
         raise HTTPException(401, "Sessione scaduta o non valida: accedi di nuovo", headers={"WWW-Authenticate": "Bearer"})
     request.state.user = user
+    db.info["audit_user"] = (user.id, user.username)  # chi fa le modifiche: services/audit.py
     return user
 
 

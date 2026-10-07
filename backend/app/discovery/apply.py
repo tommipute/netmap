@@ -248,5 +248,11 @@ def apply_change(db: Session, change: DiscoveryChange) -> None:
     handler = HANDLERS.get((change.object_type, change.action))
     if handler is None:
         raise ApplyError(f"Modifica non gestita: {change.object_type} {change.action}")
-    handler(db, change.data or {}, change)
-    db.flush()
+    # Nello storico risulta "scansione" (con l'utente che ha approvato, se c'è)
+    previous = db.info.get("audit_source")
+    db.info["audit_source"] = "scansione"
+    try:
+        handler(db, change.data or {}, change)
+        db.flush()
+    finally:
+        db.info["audit_source"] = previous

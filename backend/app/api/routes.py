@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api import auth, discovery, extra
+from app.api import auth, discovery, extra, history
 from app.api.auth import require_admin, require_user
 from app.api.crud import build_crud_router
 from app.models import (
@@ -97,6 +97,7 @@ _routers = [
 
 protected.include_router(extra.router)
 protected.include_router(discovery.router)
+protected.include_router(history.router)
 
 for config in _routers:
     protected.include_router(build_crud_router(**config))

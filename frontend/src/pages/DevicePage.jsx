@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { Badge, ErrorBox, LiveStatus, Loading, Mono } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
+import HistoryList from '../components/HistoryList'
 import { IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
@@ -68,6 +69,27 @@ function EditPort({ portId, onClose, onSaved }) {
   }, [error, onClose])
   if (!data) return null
   return <ResourceForm resourceKey="interfaces" item={data} onClose={onClose} onSaved={onSaved} />
+}
+
+/** Ultime modifiche del device, delle sue porte, IP e cavi */
+function DeviceHistory({ deviceId }) {
+  const { data } = useApi(`/audit-log?device_id=${deviceId}&limit=8`)
+  if (!data || data.total === 0) return null
+  return (
+    <section className="section">
+      <header className="section__head">
+        <h2>
+          Storico <span className="section__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>
+        </h2>
+        {data.total > data.items.length && (
+          <div className="page-head__actions">
+            <Link className="btn btn--sm btn--ghost" to={`/history?device_id=${deviceId}`}>Tutto lo storico</Link>
+          </div>
+        )}
+      </header>
+      <HistoryList entries={data.items} />
+    </section>
+  )
 }
 
 export default function DevicePage() {
@@ -290,6 +312,8 @@ export default function DevicePage() {
           </div>
         )}
       </section>
+
+      <DeviceHistory deviceId={device.id} />
 
       {dialog?.kind === 'edit' && (
         <ResourceForm resourceKey="devices" item={device} onClose={() => setDialog(null)} onSaved={refresh} />

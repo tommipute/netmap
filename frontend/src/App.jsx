@@ -5,6 +5,7 @@ import ChangesPage from './pages/ChangesPage'
 import DevicePage from './pages/DevicePage'
 import DiscoveryJobPage from './pages/DiscoveryJobPage'
 import EndpointsPage from './pages/EndpointsPage'
+import HistoryPage from './pages/HistoryPage'
 import LoginPage from './pages/LoginPage'
 import MapEditor from './pages/MapEditor'
 import PrefixPage from './pages/PrefixPage'
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="racks/:id" element={<RackPage />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="where" element={<EndpointsPage />} />
+        <Route path="history" element={<HistoryPage />} />
         <Route path="discovery-jobs/:id" element={<DiscoveryJobPage />} />
         <Route path="discovery/changes" element={<ChangesPage />} />
         {Object.entries(resources).map(([key, config]) => (

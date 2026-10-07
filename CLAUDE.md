@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (41 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (44 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -207,6 +207,18 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Verifica nel browser (6/10/2026, Playwright): login admin e sola lettura, filtro "non rispondono",
   "Dov'è collegato?", rack, utenti, export PNG/SVG, logout, schermo da telefono. Corretti: filtro `reachable`
   mancante sui device (il parametro veniva ignorato), font e pallini nell'immagine esportata.
+
+## Storico modifiche (`services/audit.py`, tabella `audit_log`)
+
+- Scritto da solo all'evento `after_flush` di ogni sessione (registrato importando il modulo in `database.py`):
+  vale per API, modifiche in blocco, scansione, import. Righe nella stessa transazione (rollback = spariscono).
+- Chi: `session.info["audit_user"]` (lo mette `current_user` in `api/auth.py`), `session.info["audit_source"]`
+  (`scansione` in `execute_run` e `apply_change`, `import` nell'import CSV; altrimenti `utente`/`sistema`).
+- Non registra i campi in `IGNORED` (stato live, last_seen, if_index...), i segreti (solo "cambiata"), né porte e
+  IP creati insieme al loro device nella stessa transazione. I riferimenti (`*_id`) si salvano con il nome.
+- `device_id`/`device_id_2` (cavi) per lo storico nella scheda del device, anche dopo l'eliminazione.
+- API `GET /api/audit-log`; pagina "Storico modifiche" (`/history`) e sezione nella scheda device.
+- **Nelle prove**: dopo aver usato un utente di prova cancellare anche le sue righe di storico.
 
 ## Frontend (`frontend/src`)
 
