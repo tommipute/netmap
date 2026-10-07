@@ -60,13 +60,24 @@ export default function ResourcePage({ resourceKey }) {
   const config = resources[resourceKey]
   const navigate = useNavigate()
   const { canEdit } = useAuth()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [search, setSearch] = useState('')
-  // Filtri iniziali dall'indirizzo, es. /devices?reachable=false
-  const [filters, setFilters] = useState(() =>
-    Object.fromEntries((config.filters || []).filter((f) => params.get(f.name)).map((f) => [f.name, params.get(f.name)])),
+  // Filtri della barra: stanno nell'indirizzo (es. /devices?reachable=false), così un link verso la stessa pagina
+  // con altri filtri (i pallini dello stato live in alto) aggiorna l'elenco, e funzionano Indietro e i link condivisi
+  const filtersKey = (config.filters || []).map((f) => `${f.name}=${params.get(f.name) ?? ''}`).join('&')
+  const filters = useMemo(
+    () => Object.fromEntries((config.filters || []).filter((f) => params.get(f.name)).map((f) => [f.name, params.get(f.name)])),
+    [filtersKey], // eslint-disable-line react-hooks/exhaustive-deps
   )
+  const setFilter = (name, value) =>
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (value === '' || value === null || value === undefined) next.delete(name)
+      else next.set(name, String(value))
+      return next
+    }, { replace: true })
   const [offset, setOffset] = useState(0)
+  useEffect(() => setOffset(0), [filtersKey])
   const [editing, setEditing] = useState(null) // null | 'new' | elemento
   const [importing, setImporting] = useState(false)
   const [selected, setSelected] = useState(() => new Map()) // id -> elemento, solo nella pagina visibile
@@ -228,10 +239,7 @@ export default function ResourcePage({ resourceKey }) {
             key={f.name}
             filter={f}
             value={filters[f.name] ?? ''}
-            onChange={(v) => {
-              setFilters((prev) => ({ ...prev, [f.name]: v }))
-              setOffset(0)
-            }}
+            onChange={(v) => setFilter(f.name, v)}
           />
         ))}
         <ColumnsMenu layout={layout} save={saveColumns} customized={customized} />

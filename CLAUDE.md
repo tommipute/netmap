@@ -291,6 +291,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   → `__eq` con la voce "(vuoto)" → `__isnull`); le colonne con `render` lo dichiarano con `filter` (o `false`)
   e `sortField`. L'API (`api/crud.py`, `apply_column_filters`) accetta `<campo>__contains|__eq|__isnull` e
   `sort=[-]campo` per tutte le entità; anche l'export dei device usa gli stessi filtri.
+- Elenchi (`ResourcePage`): i filtri della barra stanno nell'indirizzo (`?site_id=…&reachable=…`, cambiati con
+  `replace`): un link alla stessa pagina con altri filtri aggiorna l'elenco (prima venivano letti solo all'apertura).
 - Elenchi (`ResourcePage`): selezione multipla (le azioni prendono il posto del conteggio nella riga dei filtri,
   così la tabella non si sposta) con eliminazione in blocco; modifica in blocco se la risorsa ha
   `bulkFields` (`components/BulkEditDialog.jsx`, una PATCH per elemento, riusa `FieldControl` del modulo): device,
