@@ -118,7 +118,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 
 | Endpoint | Uso |
 |---|---|
-| `GET /api/devices/{id}/ports` | porte in ordine naturale con cavo, device/porta remota, VLAN, IP, stato operativo |
+| `GET /api/devices/{id}/ports` | porte (prima quelle di management: `mgmt_only` o nome mgmt/management, poi in ordine naturale) con cavo, device/porta remota, VLAN, IP, stato operativo |
 | `GET /api/devices/{id}/neighbors` | device collegati via cavo |
 | `GET /api/prefixes/{id}/utilization` · `/ip-addresses` · `/available-ips?limit=` | IPAM |
 | `GET /api/topology?site_id=&location_id=` | nodi + cavi di un ambito |

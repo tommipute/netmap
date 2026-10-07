@@ -281,7 +281,12 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
     untagged = {v.id: v for v in db.scalars(select(VLAN).where(VLAN.id.in_(untagged_ids)))} if untagged_ids else {}
 
     result = []
-    for iface in sorted(interfaces, key=lambda i: natural_key(i.name)):
+    # Porte di management in cima (solo management, o di nome mgmt/management), poi in ordine naturale
+    def is_mgmt(i: Interface) -> bool:
+        name = i.name.lower()
+        return bool(i.mgmt_only) or name.startswith("mgmt") or name == "management"
+
+    for iface in sorted(interfaces, key=lambda i: (not is_mgmt(i), natural_key(i.name))):
         cable, remote = links.get(iface.id, (None, None))
         native = untagged.get(iface.untagged_vlan_id)
         vlan_names = {v.vid: v.name for v in [*iface.tagged_vlans, *([native] if native else [])]}
