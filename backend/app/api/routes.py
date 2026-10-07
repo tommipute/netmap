@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
 
-from app.api import auth, discovery, extra, history
+from app.api import alerts, auth, discovery, extra, history
 from app.api.auth import require_admin, require_user
 from app.api.crud import build_crud_router
 from app.models import (
+    AlertChannel,
     VLAN,
     VRF,
     Cable,
@@ -22,6 +23,7 @@ from app.models import (
     SnmpProfile,
     User,
 )
+from app.schemas import alerts as al
 from app.schemas import auth as sa
 from app.schemas import dcim as d
 from app.schemas import discovery as sd
@@ -94,11 +96,17 @@ _routers = [
          path="/users", tag="Utenti", filters=("role", "active"), search=("username", "full_name"),
          order_by=(User.username,), hook=rules.user_hook, delete_hook=rules.user_delete_hook,
          dependencies=[Depends(require_admin)]),
+    # ---------- Avvisi (solo amministratori) ----------
+    dict(model=AlertChannel, create_schema=al.AlertChannelCreate, update_schema=al.AlertChannelUpdate,
+         read_schema=al.AlertChannelRead, path="/alert-channels", tag="Avvisi", filters=("type", "enabled"),
+         search=("name",), order_by=(AlertChannel.name,), hook=rules.alert_channel_hook,
+         dependencies=[Depends(require_admin)]),
 ]
 
 protected.include_router(extra.router)
 protected.include_router(discovery.router)
 protected.include_router(history.router)
+protected.include_router(alerts.router)
 
 for config in _routers:
     protected.include_router(build_crud_router(**config))

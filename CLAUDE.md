@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (47 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (51 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -224,6 +224,15 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - `device_id`/`device_id_2` (cavi) per lo storico nella scheda del device, anche dopo l'eliminazione.
 - API `GET /api/audit-log`; pagina "Storico modifiche" (`/history`) e sezione nella scheda device.
 - **Nelle prove**: dopo aver usato un utente di prova cancellare anche le sue righe di storico.
+
+## Avvisi (`services/alerts.py`, tabelle `alert_channels`, `alert_states`)
+
+- Canali email (smtplib), webhook (JSON `{"text"}` o scheda adattiva per i Workflows di Teams), Telegram; invio con
+  la libreria standard. Segreto unico cifrato `secret_enc` (password SMTP / URL webhook / token), input
+  `smtp_password`/`webhook_url`/`telegram_token` gestiti da `alert_channel_hook`. Solo amministratori.
+- `process_alerts` gira nel monitor dopo ogni controllo: per canale, un messaggio con i device giù da almeno
+  `delay_minutes` (una volta, stato in `alert_states`) e uno con quelli tornati. Invio fallito → `last_error`,
+  si riprova al giro dopo. `POST /api/alert-channels/{id}/test` per la prova. Nei test: `sender` finto.
 
 ## Frontend (`frontend/src`)
 

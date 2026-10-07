@@ -243,6 +243,32 @@ def map_hook(db: Session, network_map, data: dict[str, Any], is_create: bool) ->
         _fail("La posizione appartiene a un'altra sede")
 
 
+# ---------- Avvisi ----------
+_ALERT_SECRET = {"email": "smtp_password", "webhook": "webhook_url", "telegram": "telegram_token"}
+
+
+def alert_channel_hook(db: Session, channel, data: dict[str, Any], is_create: bool) -> None:
+    """Il segreto (password SMTP, indirizzo del webhook, token Telegram) si salva solo cifrato; per tipo, i dati minimi."""
+    field = _ALERT_SECRET.get(channel.type)
+    try:
+        if field and field in data:
+            channel.secret_enc = encrypt(data[field]) if data[field] else None
+    except SecretError as exc:
+        raise HTTPException(500, str(exc)) from exc
+    if channel.type == "email":
+        if not channel.email_to or not channel.smtp_host:
+            _fail("Per l'email servono almeno un destinatario e il server SMTP")
+        if any("@" not in address for address in channel.email_to):
+            _fail("Un destinatario non sembra un indirizzo email")
+    elif channel.type == "webhook":
+        if not channel.secret_enc:
+            _fail("Serve l'indirizzo del webhook")
+        if field in data and data[field] and not str(data[field]).startswith(("https://", "http://")):
+            _fail("L'indirizzo del webhook deve iniziare con https://")
+    elif channel.type == "telegram" and (not channel.secret_enc or not channel.telegram_chat_id):
+        _fail("Per Telegram servono il token del bot e la chat")
+
+
 # ---------- Scansione SNMP ----------
 _SECRETS = {"community": "community_enc", "auth_key": "auth_key_enc", "priv_key": "priv_key_enc"}
 

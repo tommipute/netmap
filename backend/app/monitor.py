@@ -12,6 +12,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.config import settings
 from app.database import SessionLocal
+from app.services.alerts import process_alerts
 from app.services.monitor import check_devices
 
 logger = logging.getLogger("netmap.monitor")
@@ -30,7 +31,10 @@ def main() -> None:
         try:
             with SessionLocal() as db:
                 result = check_devices(db)
+                alerts = process_alerts(db)  # avvisi: device giù da abbastanza tempo, device tornati
             logger.info("Controllati %s device: %s raggiungibili, %s no", result["checked"], result["up"], result["down"])
+            if alerts["down"] or alerts["up"]:
+                logger.info("Avvisi inviati: %s device giù, %s tornati", alerts["down"], alerts["up"])
         except (OperationalError, ProgrammingError) as exc:
             logger.warning("Database non pronto, riprovo tra 10 secondi (%s)", str(exc.orig).splitlines()[0])
             time.sleep(10)

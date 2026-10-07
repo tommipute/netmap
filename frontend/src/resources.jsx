@@ -3,6 +3,7 @@
  * Per aggiungere un'entità basta una voce qui (più il backend).
  */
 import { ROLES } from './auth'
+import AlertTestButton from './components/AlertTestButton'
 import { Badge, CellLink, LiveStatus, Mono } from './components/Bits'
 import * as O from './options'
 
@@ -547,6 +548,84 @@ Object.assign(resources, {
   },
 })
 
+const ALERT_TYPES = [
+  { value: 'email', label: 'Email' },
+  { value: 'webhook', label: 'Webhook (Teams, Slack…)' },
+  { value: 'telegram', label: 'Telegram' },
+]
+const isType = (type) => (v) => v.type === type
+
+resources['alert-channels'] = {
+  path: 'alert-channels',
+  title: 'Avvisi',
+  newLabel: 'Nuovo canale di avviso',
+  editLabel: 'Modifica canale di avviso',
+  intro:
+    'Dove arrivano gli avvisi quando un device con IP di management smette di rispondere (e quando torna). ' +
+    'Il ritardo evita avvisi per un singolo ping perso; più device giù insieme arrivano in un solo messaggio.',
+  label: (o) => o.name,
+  filters: [{ name: 'type', label: 'Tipo', options: ALERT_TYPES }],
+  columns: [
+    { name: 'name', label: 'Nome', render: (o) => <strong>{o.name}</strong> },
+    { name: 'type', label: 'Tipo', type: 'select', options: ALERT_TYPES },
+    { name: 'enabled', label: 'Attivo', type: 'bool' },
+    { name: 'delay_minutes', label: 'Ritardo', render: (o) => `${o.delay_minutes} min` },
+    {
+      name: 'last_sent_at',
+      label: 'Ultimo invio',
+      render: (o) =>
+        o.last_error ? (
+          <span className="live live--down" title={o.last_error}>Errore: {o.last_error}</span>
+        ) : (
+          O.formatDateTime(o.last_sent_at)
+        ),
+    },
+    { name: 'test', label: 'Prova', render: (o) => <AlertTestButton channel={o} /> },
+  ],
+  fields: [
+    { name: 'name', label: 'Nome', required: true, placeholder: 'Teams reparto IT' },
+    { name: 'type', label: 'Tipo', type: 'select', options: ALERT_TYPES, default: 'webhook', required: true, createOnly: true },
+    { name: 'delay_minutes', label: 'Ritardo (minuti)', type: 'number', default: 5, help: 'Avvisa solo se il device non risponde da almeno questi minuti.' },
+    { name: 'enabled', label: 'Attivo', type: 'bool', default: true },
+    { name: 'notify_recovery', label: 'Avvisa anche quando torna a rispondere', type: 'bool', default: true },
+    // Webhook
+    {
+      name: 'webhook_url', label: 'Indirizzo del webhook', type: 'secret', showIf: isType('webhook'),
+      savedHint: (item) => (item?.has_secret ? 'Salvato: lascia vuoto per non cambiarlo' : 'https://…'),
+      help: 'In Teams: canale → Workflows → "Invia avvisi webhook a un canale", poi copia l\'indirizzo.',
+    },
+    {
+      name: 'webhook_format', label: 'Formato', type: 'select', showIf: isType('webhook'), default: 'text',
+      options: [
+        { value: 'text', label: 'Testo (Slack, Mattermost, Google Chat, vecchio connettore Teams)' },
+        { value: 'teams', label: 'Teams Workflows (scheda adattiva)' },
+      ],
+    },
+    // Telegram
+    {
+      name: 'telegram_token', label: 'Token del bot', type: 'secret', showIf: isType('telegram'),
+      savedHint: (item) => (item?.has_secret ? 'Salvato: lascia vuoto per non cambiarlo' : '123456:ABC…'),
+      help: 'Da @BotFather. Aggiungi il bot al gruppo che deve ricevere gli avvisi.',
+    },
+    { name: 'telegram_chat_id', label: 'Chat', showIf: isType('telegram'), placeholder: '-1001234567890', help: 'Id del gruppo o della chat.' },
+    // Email
+    { name: 'email_to', label: 'Destinatari', type: 'lines', showIf: isType('email'), placeholder: 'it@azienda.it', help: 'Uno per riga.' },
+    { name: 'smtp_host', label: 'Server SMTP', showIf: isType('email'), placeholder: 'smtp.azienda.it' },
+    { name: 'smtp_port', label: 'Porta', type: 'number', showIf: isType('email'), placeholder: '587' },
+    {
+      name: 'smtp_security', label: 'Sicurezza', type: 'select', showIf: isType('email'), default: 'starttls',
+      options: [{ value: 'starttls', label: 'STARTTLS (587)' }, { value: 'ssl', label: 'SSL/TLS (465)' }, { value: 'none', label: 'Nessuna (25)' }],
+    },
+    { name: 'smtp_user', label: 'Utente SMTP', showIf: isType('email') },
+    {
+      name: 'smtp_password', label: 'Password SMTP', type: 'secret', showIf: isType('email'),
+      savedHint: (item) => (item?.has_secret ? 'Salvata: lascia vuoto per non cambiarla' : undefined),
+    },
+    { name: 'smtp_from', label: 'Mittente', showIf: isType('email'), placeholder: 'netmap@azienda.it' },
+    description,
+  ],
+}
+
 resources.users = {
   path: 'users',
   title: 'Utenti',
@@ -589,5 +668,5 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: 'Da approvare', badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: 'Attività', items: [{ to: 'history', title: 'Storico modifiche' }] },
-  { title: 'Amministrazione', admin: true, items: ['users'] },
+  { title: 'Amministrazione', admin: true, items: ['users', 'alert-channels'] },
 ]

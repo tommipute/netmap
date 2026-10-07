@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     VLAN,
     VRF,
+    AlertChannel,
     AuditEntry,
     Cable,
     Device,
@@ -40,16 +41,16 @@ TRACKED: dict[type, str] = {
     Site: "site", Location: "location", Rack: "rack", Manufacturer: "manufacturer", DeviceType: "device_type",
     DeviceRole: "device_role", Device: "device", Interface: "interface", Cable: "cable", VLAN: "vlan", VRF: "vrf",
     Prefix: "prefix", IPAddress: "ip", NetworkMap: "map", SnmpProfile: "snmp_profile", DiscoveryJob: "discovery_job",
-    User: "user",
+    User: "user", AlertChannel: "alert_channel",
 }
 
 # Campi che cambiano da soli o derivati: non sono modifiche di qualcuno
 IGNORED = {
     "id", "created_at", "updated_at", "last_seen_at", "oper_status", "if_index", "sys_name", "sys_descr",
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
-    "last_login_at", "host", "sort_key", "source",
+    "last_login_at", "host", "sort_key", "source", "last_sent_at", "last_error",
 }
-SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash"}
+SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc"}
 
 LABELS = {
     "name": "Nome", "status": "Stato", "site_id": "Sede", "location_id": "Posizione", "rack_id": "Rack",
@@ -64,7 +65,7 @@ LABELS = {
     "u_height": "Altezza (U)", "level": "Livello", "model": "Modello", "manufacturer_id": "Produttore",
     "part_number": "Codice prodotto", "sys_object_id": "sysObjectID", "auto_include": "Tutti i device",
     "targets": "Indirizzi", "profile_ids": "Profili", "interval_hours": "Ogni quante ore", "community_enc": "Community",
-    "auth_key_enc": "Chiave di autenticazione", "priv_key_enc": "Chiave di cifratura", "username": "Utente",
+    "auth_key_enc": "Chiave di autenticazione", "secret_enc": "Segreto", "last_sent_at": "Ultimo invio", "priv_key_enc": "Chiave di cifratura", "username": "Utente",
     "parent_id": "Dentro a", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
 }
 
