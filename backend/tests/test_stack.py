@@ -46,11 +46,16 @@ def test_stack_nel_rack_e_in_mappa(client):
 
     view = client.get(f"/api/racks/{rack['id']}/elevation").json()
     assert [(d["name"], d["member"], d["position"]) for d in view["devices"]] == [("stack", 1, 10), ("stack", 2, 12)]
+    assert all(d["member_id"] for d in view["devices"])
     assert view["used_units"] == 2
 
     the_map = create(client, "/maps", {"name": "Sede", "site_id": site["id"]})
     nodes = {n["name"]: n["stack_size"] for n in client.get(f"/api/maps/{the_map['id']}/view").json()["nodes"]}
     assert nodes == {"stack": 2, "senza-rack": 0}
+
+    # Lo stack esce dal rack: le unità dei membri si svuotano
+    client.patch(f"/api/devices/{stack['id']}", json={"rack_id": None, "rack_position": None})
+    assert [m["rack_position"] for m in client.get("/api/stack-members", params={"device_id": stack["id"]}).json()["items"]] == [None, None]
 
     # Eliminato il device, spariscono anche i membri
     client.delete(f"/api/devices/{stack['id']}")

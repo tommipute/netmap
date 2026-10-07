@@ -450,7 +450,8 @@ def rack_elevation(db: Session, rack: Rack) -> dict:
             continue
         # Stack con le unità dei membri: ogni switch al suo posto
         for m in stack:
-            place({**item, "position": m.rack_position, "member": m.number, "face_label": m.model or item["face_label"]})
+            place({**item, "position": m.rack_position, "member": m.number, "member_id": m.id,
+                   "face_label": m.model or item["face_label"]})
     for items in occupied.values():
         if len(items) > 1:
             for item in items:

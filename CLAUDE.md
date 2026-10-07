@@ -216,6 +216,12 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   **Stampa**: pulsante su scheda device, rack e mappa; in `@media print` il foglio è sempre chiaro (token
   ridefiniti), spariscono pulsanti, colonna azioni, avvisi e ciò che ha `.no-print` (storico del device);
   `PrintFooter` (Bits.jsx, `.print-only`) scrive data e utente. Le unità del rack si stringono a 17 px e il layout a una colonna (il foglio è largo come un telefono) è annullato.
+  **Rack** (`RackPage`): "+" e clic su un'unità libera → `AddDeviceDialog` (device della sede del rack, unità con
+  controllo delle sovrapposizioni lato client usando l'altezza del modello); i device si trascinano (eventi pointer,
+  anche col dito, soglia 5 px: sotto è un clic che apre il device) su un'altra unità (riquadro verde/rosso, unità
+  occupate rifiutate) o in "Nel rack senza unità" (unità tolta); X nell'elenco = fuori dal rack. Per i membri
+  di uno stack si salva `rack_position` del membro (`member_id` nella vista rack). Uscendo dal rack (o cambiando
+  rack) `device_hook` svuota le unità dei membri.
   Mappa: aggiornamento ogni 30 s (senza toccare le posizioni), export PNG/SVG con `html-to-image` (tutta la mappa,
   senza pallini di collegamento; il CSS di Google Fonts ha `crossorigin` apposta per incorporare i font), stampa.
 - Verifica nel browser (6/10/2026, Playwright): login admin e sola lettura, filtro "non rispondono",

@@ -192,6 +192,7 @@ class RackDevice(BaseModel):
     reachable: bool | None = None
     conflict: bool = False  # si sovrappone a un altro device o esce dal rack
     member: int | None = None  # membro di uno stack (lo stesso device compare una volta per membro)
+    member_id: int | None = None  # per spostarlo: PATCH /stack-members/{member_id}
 
 
 class RackElevation(BaseModel):

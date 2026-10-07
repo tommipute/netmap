@@ -49,6 +49,10 @@ def device_hook(db: Session, device: Device, data: dict[str, Any], is_create: bo
         _fail("La posizione appartiene a un'altra sede")
     if device.rack_id is not None and db.get(Rack, device.rack_id).site_id != device.site_id:
         _fail("Il rack appartiene a un'altra sede")
+    # Fuori dal rack (o in un altro rack): le unità dei membri di uno stack non valgono più
+    if not is_create and inspect(device).attrs.rack_id.history.has_changes():
+        for member in db.scalars(select(StackMember).where(StackMember.device_id == device.id)):
+            member.rack_position = None
     # Senza ruolo: quello predefinito del modello (alla creazione o quando cambia il modello)
     type_changed = is_create or inspect(device).attrs.device_type_id.history.has_changes()
     if device.role_id is None and device.device_type_id and type_changed:
