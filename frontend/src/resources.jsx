@@ -667,6 +667,6 @@ export const NAV = [
     title: 'Scansione SNMP',
     items: [{ to: 'discovery/changes', title: 'Da approvare', badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
-  { title: 'Attività', items: [{ to: 'history', title: 'Storico modifiche' }] },
+  { title: 'Attività', items: [{ to: 'whats-changed', title: 'Cosa è cambiato' }, { to: 'history', title: 'Storico modifiche' }] },
   { title: 'Amministrazione', admin: true, items: ['users', 'alert-channels'] },
 ]

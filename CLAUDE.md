@@ -16,7 +16,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (52 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (53 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -224,6 +224,9 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - `device_id`/`device_id_2` (cavi) per lo storico nella scheda del device, anche dopo l'eliminazione.
 - API `GET /api/audit-log`; pagina "Storico modifiche" (`/history`) e sezione nella scheda device.
 - **Nelle prove**: dopo aver usato un utente di prova cancellare anche le sue righe di storico.
+- **Cosa è cambiato** (`services/summary.py`, `GET /api/whats-changed?hours=|since=`, pagina `/whats-changed`):
+  conteggi dello storico per origine e azione, device creati/eliminati, giù adesso (`new` = caduti nel periodo),
+  tornati su, endpoint nuovi (`first_seen_at`) e spostati (`moved_at`), scansioni (fallite) e modifiche da approvare.
 
 ## Avvisi (`services/alerts.py`, tabelle `alert_channels`, `alert_states`)
 

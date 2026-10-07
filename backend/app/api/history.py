@@ -1,5 +1,5 @@
 """Storico delle modifiche (sola lettura): lo scrive services/audit.py a ogni salvataggio."""
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import AuditEntry
 from app.schemas.common import Page
+from app.services.summary import whats_changed
 
 router = APIRouter(tags=["Storico"])
 
@@ -57,3 +58,16 @@ def audit_log(
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows = db.scalars(stmt.order_by(AuditEntry.at.desc(), AuditEntry.id.desc()).limit(limit).offset(offset)).all()
     return {"total": total, "items": rows}
+
+
+@router.get("/whats-changed", summary="Cosa è cambiato da una certa data (predefinito: ultime 24 ore)")
+def whats_changed_view(
+    since: datetime | None = Query(None, description="Da quando; vuoto = ultime 24 ore"),
+    hours: int | None = Query(None, ge=1, le=24 * 365, description="In alternativa a since: ultime N ore"),
+    db: Session = Depends(get_db),
+):
+    if since is None:
+        since = datetime.now(timezone.utc) - timedelta(hours=hours or 24)
+    elif since.tzinfo is None:
+        since = since.astimezone()  # data senza fuso: ora locale del server
+    return whats_changed(db, since)
