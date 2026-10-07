@@ -116,3 +116,32 @@ export function cableGeometry(nodes, bubbles, edges, mode) {
   }
   return result
 }
+
+const BASE_WIDTH = 172 // larghezza normale di un device (.dnode)
+const SLOT = LABEL_H + 6 // spazio per un nome verticale, con un po' di aria tra uno e l'altro
+
+/**
+ * Larghezza che serve a ogni device perché i nomi verticali delle porte (cavi che escono da sopra o da sotto)
+ * non si tocchino: { nodeId: larghezza } solo per quelli più larghi del normale. Senza nomi nessuno.
+ */
+export function nodeWidths(nodes, edges) {
+  if (!edges.some((e) => e.data?.sourceLabel)) return {}
+  const anchors = assignAnchors(nodes, edges, { separate: true })
+  const counts = {}
+  for (const e of edges) {
+    const anchor = anchors[e.id]
+    if (!anchor) continue
+    for (const [nodeId, end] of [[e.source, anchor.source], [e.target, anchor.target]]) {
+      if (end.side !== 'top' && end.side !== 'bottom') continue
+      const key = `${nodeId}|${end.side}`
+      counts[key] = (counts[key] || 0) + 1
+    }
+  }
+  const widths = {}
+  for (const [key, n] of Object.entries(counts)) {
+    const nodeId = key.split('|')[0]
+    const width = (n + 1) * SLOT
+    if (width > BASE_WIDTH && width > (widths[nodeId] || 0)) widths[nodeId] = Math.ceil(width)
+  }
+  return widths
+}

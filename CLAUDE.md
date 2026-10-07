@@ -279,7 +279,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   **Nomi delle porte** (`map/geometry.js`): sul bordo del device, non a metà cavo. Con i nomi attivi ogni cavo ha il
   suo punto di attacco; il tratto dritto in uscita si allunga quanto il nome, scritto lungo il tratto (verticale se
   il cavo esce da sopra/sotto, `CableEdge` lo ruota). Tra due device vicini e allineati i nomi vanno in orizzontale
-  accanto al cavo. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
+  accanto al cavo. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
+  `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
   **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   I pallini (4, per collegare trascinando) si vedono solo passando sopra il device o se è selezionato.

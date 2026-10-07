@@ -23,7 +23,7 @@ import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
 import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
-import { cableGeometry } from '../map/geometry'
+import { cableGeometry, nodeWidths } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
 import RackNode from '../map/RackNode'
 import { X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout } from '../map/layout'
@@ -318,6 +318,8 @@ function Editor() {
   const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
   // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni, si ricalcolano mentre si sposta un device
   const geometry = useMemo(() => cableGeometry(nodes, bubbles, baseEdges, edgeStyle), [nodes, bubbles, baseEdges, edgeStyle])
+  // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga quanto serve
+  const widths = useMemo(() => nodeWidths(nodes, baseEdges), [nodes, baseEdges])
 
   // Evidenza: con un device, un cavo o un rack selezionato restano in primo piano lui, i suoi cavi e i device
   // collegati; il resto va in dissolvenza
@@ -354,9 +356,13 @@ function Editor() {
     const faded = (node, inFocus) => (focus && !inFocus ? { ...node, className: 'is-faded' } : node)
     return [
       ...bubbles.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
-      ...nodes.map((n) => faded(n, focus?.devices.has(n.id))),
+      ...nodes.map((n) => {
+        const width = widths[n.id]
+        const sized = width === n.data.width ? n : { ...n, data: { ...n.data, width } }
+        return faded(sized, focus?.devices.has(n.id))
+      }),
     ]
-  }, [bubbles, nodes, focus])
+  }, [bubbles, nodes, focus, widths])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -377,7 +383,7 @@ function Editor() {
 
   const arrange = () => {
     const heights = Object.fromEntries(nodesRef.current.map((n) => [n.id, n.measured?.height]))
-    const layout = hierarchicalLayout(view.nodes, view.edges, heights, { withPorts: showLabels })
+    const layout = hierarchicalLayout(view.nodes, view.edges, heights, { withPorts: showLabels, widths })
     setNodes((current) => current.map((n) => ({ ...n, position: layout[n.id] ?? n.position })))
     setDirty(true)
     setTimeout(() => fitRef.current({ padding: 0.25, duration: 300 }), 50)

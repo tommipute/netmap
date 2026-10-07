@@ -109,10 +109,14 @@ function buildBlocks(nodes, heights, levels) {
  * Dentro una riga i blocchi stanno vicino ai device a cui sono collegati sopra
  * (media delle x dei vicini già posizionati). Righe troppo lunghe vanno a capo.
  * nodes: [{ id, name, level, rack_id, rack_name, rack_position, primary_ip }], edges: [{ source, target }],
- * heights: { id: altezza misurata } se disponibili; withPorts: righe più distanti per i nomi delle porte
+ * heights: { id: altezza misurata } se disponibili; withPorts: righe più distanti per i nomi delle porte;
+ * widths: { id: larghezza } dei device allargati per i nomi delle porte (stanno centrati sul loro posto e
+ * allontanano i vicini nella fila)
  * -> { "id": { x, y } }
  */
-export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = false } = {}) {
+export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = false, widths = {} } = {}) {
+  const widthOf = (id) => widths[id] || NODE_HALF * 2
+  const blockWidth = (block) => Math.max(...block.ids.map(widthOf))
   const rowGap = (withPorts ? Y_GAP_WITH_PORTS : Y_GAP) - NODE_H
   const neighbors = new Map(nodes.map((n) => [String(n.id), []]))
   for (const e of edges) {
@@ -135,7 +139,7 @@ export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = fal
   const place = (chunk, xs) => {
     chunk.forEach((block, j) => {
       block.ids.forEach((id, k) => {
-        positions[id] = { x: xs[j], y: y + block.offsets[k] }
+        positions[id] = { x: xs[j] + NODE_HALF - widthOf(id) / 2, y: y + block.offsets[k] }
       })
     })
     y += Math.max(...chunk.map((b) => b.height)) + rowGap
@@ -158,8 +162,14 @@ export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = fal
       return a.name.localeCompare(b.name, 'it', { numeric: true })
     })
     if (row.length <= MAX_PER_ROW) {
-      const width = (row.length - 1) * X_GAP
-      place(row, row.map((_, j) => j * X_GAP - width / 2))
+      // Passo normale X_GAP; un device allargato spinge più in là i vicini
+      const xs = [0]
+      for (let j = 1; j < row.length; j++) {
+        const extra = (blockWidth(row[j - 1]) + blockWidth(row[j])) / 2 - NODE_HALF * 2
+        xs.push(xs[j - 1] + X_GAP + Math.max(0, extra))
+      }
+      const width = xs[xs.length - 1]
+      place(row, xs.map((x) => x - width / 2))
       continue
     }
     // Fila che va a capo: i cavi verso le file più in basso scendono in verticale sotto i device sopra,
