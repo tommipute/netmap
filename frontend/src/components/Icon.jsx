@@ -28,6 +28,7 @@ const PATHS = {
   close: <path d="M6 6l12 12M18 6 6 18" />,
   prev: <path d="m15 6-6 6 6 6" />,
   up: <path d="m6 15 6-6 6 6" />,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   down: <path d="m6 9 6 6 6-6" />,
   columns: <><rect x="3.5" y="4" width="17" height="16" rx="2" /><path d="M9.5 4v16M15 4v16" /></>,
   filter: <path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5Z" />,

@@ -14,6 +14,13 @@
     />
   </head>
   <body>
+    <!-- Tema scelto nel menu utente (theme.js): applicato subito, così la pagina non lampeggia col tema sbagliato -->
+    <script>
+      try {
+        var t = localStorage.getItem('netmap.theme')
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

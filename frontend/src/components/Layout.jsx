@@ -1,37 +1,112 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { ROLES, useAuth } from '../auth'
 import { usePendingCount, useStatusSummary } from '../hooks'
 import { labelOf } from '../options'
 import { NAV, resources } from '../resources'
+import { useTheme } from '../theme'
 import PasswordDialog from './PasswordDialog'
-import { IconButton } from './Icon'
+import { Icon } from './Icon'
 
+const THEMES = [
+  { value: 'system', label: 'Automatico' },
+  { value: 'light', label: 'Chiaro' },
+  { value: 'dark', label: 'Scuro' },
+]
+const ROLE_HELP = {
+  viewer: 'Consulta tutto, senza modificare.',
+  editor: 'Modifica i dati e approva le modifiche della scansione.',
+  admin: 'Tutto, compresi utenti e avvisi.',
+}
+
+/** Stato live: solo pallini e numeri (verde = rispondono, rosso = non rispondono), ognuno porta all'elenco. */
 function StatusChip() {
   const summary = useStatusSummary()
   if (!summary || summary.up + summary.down === 0) return null
   return (
-    <Link to="/devices?reachable=false" className="live-chip" title="Stato live dei device con IP di management">
-      <span className="live-chip__item"><span className="live-dot live-dot--up" />{summary.up}</span>
-      <span className={`live-chip__item${summary.down ? ' live-chip__item--down' : ''}`}>
-        <span className="live-dot live-dot--down" />{summary.down} non rispondono
-      </span>
-    </Link>
+    <span className="live-chip" aria-label="Stato live dei device con IP di management">
+      <Link to="/devices?reachable=true" className="live-chip__item" title={`${summary.up} rispondono`}>
+        <span className="live-dot live-dot--up" />{summary.up}
+      </Link>
+      <Link to="/devices?reachable=false" className={`live-chip__item${summary.down ? ' live-chip__item--down' : ''}`}
+        title={`${summary.down} non rispondono`}>
+        <span className="live-dot live-dot--down" />{summary.down}
+      </Link>
+    </span>
   )
 }
 
+const initials = (name) =>
+  name.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?'
+
+/** Utente in alto a destra: menu con ruolo, tema chiaro/scuro, password, documentazione API, esci. */
 function UserMenu() {
   const { enabled, user, logout } = useAuth()
+  const [theme, setTheme] = useTheme()
+  const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState(false)
-  if (!enabled || !user) return null
+  const boxRef = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const close = (e) => !boxRef.current?.contains(e.target) && setOpen(false)
+    const esc = (e) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open])
+
+  const signedIn = enabled && user
+  const name = signedIn ? user.full_name || user.username : 'Impostazioni'
   return (
-    <div className="user-menu">
-      <span className="user-menu__name" title={labelOf(ROLES, user.role)}>
-        {user.full_name || user.username}
-        <span className="tag">{labelOf(ROLES, user.role)}</span>
-      </span>
-      <IconButton icon="key" label="Cambia password" small className="btn--ghost" onClick={() => setDialog(true)} />
-      <IconButton icon="logout" label="Esci" small className="btn--ghost" onClick={logout} />
+    <div className="user-menu" ref={boxRef}>
+      <button type="button" className="user-menu__button" aria-haspopup="menu" aria-expanded={open}
+        onClick={() => setOpen((v) => !v)} title={signedIn ? `${name} · ${labelOf(ROLES, user.role)}` : 'Impostazioni'}>
+        <span className="user-menu__avatar" aria-hidden="true">{signedIn ? initials(name) : <Icon name="user" />}</span>
+        {signedIn && <span className="user-menu__name">{name}</span>}
+        <Icon name="down" size={14} />
+      </button>
+      {open && (
+        <div className="user-menu__panel" role="menu">
+          {signedIn && (
+            <div className="user-menu__head">
+              <strong>{name}</strong>
+              <span className="muted">{user.username}</span> <span className="tag">{labelOf(ROLES, user.role)}</span>
+              <p className="hint">{ROLE_HELP[user.role]}</p>
+            </div>
+          )}
+          <div className="user-menu__section">
+            <span className="hint">Tema</span>
+            <div className="segmented" role="group" aria-label="Tema">
+              {THEMES.map((t) => (
+                <button key={t.value} type="button" className={`segmented__item${theme === t.value ? ' segmented__item--on' : ''}`}
+                  aria-pressed={theme === t.value} onClick={() => setTheme(t.value)}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="user-menu__sep" />
+          {signedIn && (
+            <button type="button" role="menuitem" className="user-menu__item" onClick={() => { setOpen(false); setDialog(true) }}>
+              <Icon name="key" /> Cambia password
+            </button>
+          )}
+          <a role="menuitem" className="user-menu__item" href="/docs" target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
+            <Icon name="open" /> Documentazione API
+          </a>
+          {signedIn && (
+            <>
+              <div className="user-menu__sep" />
+              <button type="button" role="menuitem" className="user-menu__item user-menu__item--danger" onClick={logout}>
+                <Icon name="logout" /> Esci
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {dialog && <PasswordDialog onClose={() => setDialog(false)} />}
     </div>
   )
@@ -94,9 +169,7 @@ export default function Layout() {
             />
           </form>
           <StatusChip />
-          <a className="topbar__link" href="/docs" target="_blank" rel="noreferrer">
-            API
-          </a>
+          <span className="topbar__spacer" />
           <UserMenu />
         </header>
         <main className="content">

@@ -360,7 +360,13 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
 
 ### Stile
 
-Token in `styles.css` (chiaro/scuro con `prefers-color-scheme`). Palette ispirata ai rack: grigio-azzurro, etichette
+Token in `styles.css`. Tema chiaro/scuro: segue il sistema (`prefers-color-scheme`, regola su
+`:root:not([data-theme="light"])`) oppure la scelta nel menu utente (`theme.js`, localStorage `netmap.theme`,
+`:root[data-theme]`; `index.html` lo applica prima del primo disegno; la mappa passa il tema a React Flow
+come `colorMode`; la stampa usa selettori con la stessa specificità per restare chiara).
+Barra in alto: ricerca (300 px), pallini dello stato live con i soli numeri (verde → `?reachable=true`, rosso →
+`?reachable=false`), menu utente a destra (iniziali + nome: ruolo e cosa può fare, tema, cambia password,
+documentazione API, esci). Con il login spento il menu resta, con il solo tema. Palette ispirata ai rack: grigio-azzurro, etichette
 bianche, accento acqua come la fibra OM3 (`--accent`). Font IBM Plex Sans + IBM Plex Mono (solo per porte, IP, MAC).
 Device in mappa = etichetta da rack con banda colorata del ruolo. Colori cavi da convenzione reale:
 rame blu, fibra multimodale acqua, monomodale gialla, DAC grigio scuro.

@@ -16,6 +16,7 @@ import {
 import { toPng, toSvg } from 'html-to-image'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { useTheme } from '../theme'
 import { Badge, LiveStatus } from '../components/Bits'
 import CableDialog from '../components/CableDialog'
 import { IconButton, IconLink } from '../components/Icon'
@@ -225,6 +226,7 @@ function Legend({ edges, nodes, racks, vlan }) {
 function Editor() {
   const { id } = useParams()
   const { canEdit } = useAuth()
+  const [theme] = useTheme()
   const { fitView, getNodes, getZoom, setCenter } = useReactFlow()
   const [view, setView] = useState(null)
   const [error, setError] = useState(null)
@@ -634,7 +636,7 @@ function Editor() {
           deleteKeyCode={null}
           minZoom={0.15}
           maxZoom={2}
-          colorMode="system"
+          colorMode={theme}
         >
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
           <Controls showInteractive={false} />
