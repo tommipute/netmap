@@ -112,7 +112,7 @@ services:
     environment:
       VITE_API_PROXY: http://api:8000
       CHOKIDAR_USEPOLLING: ${FILE_POLLING:-true}
-      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-.netbird.cloud}   # nomi host accettati oltre a IP e localhost
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-}   # nomi host accettati oltre a IP e localhost
     depends_on:
       - api
     ports:

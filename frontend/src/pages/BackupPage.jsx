@@ -171,7 +171,7 @@ export default function BackupPage() {
           </p>
           <pre className="log">updater/updater.sh restore backups/{files[0]?.file || 'NOME-DEL-FILE.dump'}</pre>
           <p className="hint">
-            {t('Questi backup stanno sullo stesso disco di NetMap: per proteggerti anche da un guasto del server, pianifica in Proxmox un backup della VM su un altro disco.')}
+            {t('Questi backup stanno sullo stesso disco di NetMap: per proteggerti anche da un guasto del server, copiali altrove o pianifica un backup del server (o della VM) su un altro disco.')}
           </p>
         </div>
       </section>

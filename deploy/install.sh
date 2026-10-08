@@ -64,7 +64,7 @@ fi
 # ---------------------------------------------------------------------------------------------- immagini
 say "Scarico NetMap ($IMAGE, canale $CHANNEL)"
 docker pull -q "$IMAGE-backend:$CHANNEL" >/dev/null ||
-  fail "non riesco a scaricare $IMAGE-backend:$CHANNEL (registro privato? docker login ghcr.io)"
+  fail "non riesco a scaricare $IMAGE-backend:$CHANNEL (nessuna versione stabile ancora? prova --channel beta; registro privato? docker login)"
 VERSION=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$IMAGE-backend:$CHANNEL")
 [ -n "$VERSION" ] || fail "l'immagine non dice la sua versione"
 echo "Versione $VERSION"

@@ -1,5 +1,5 @@
 # HTTPS davanti a NetMap (Caddy). Indirizzo e certificato arrivano dal file .env:
-#   NETMAP_HOST     nome del server o IP (netmap.azienda.local, 192.168.1.75)
+#   NETMAP_HOST     nome del server o IP (netmap.azienda.local, 192.168.1.10)
 #   NETMAP_SCHEME   https, oppure http per restare senza HTTPS (con NETMAP_TLS vuoto e COOKIE_SECURE=false)
 #   NETMAP_TLS      tls internal                         certificato della CA di Caddy (da installare nei PC)
 #                   tls admin@azienda.it                 Let's Encrypt (server raggiungibile da Internet sulle porte 80 e 443)

@@ -971,7 +971,7 @@ const strings = {
   'Notturno': 'Nightly',
   'Ora del backup': 'Backup time',
   'Prima di un aggiornamento': 'Before an update',
-  'Questi backup stanno sullo stesso disco di NetMap: per proteggerti anche da un guasto del server, pianifica in Proxmox un backup della VM su un altro disco.': 'These backups are on the same disk as NetMap: to be safe from a server failure too, schedule a backup of the VM to another disk in Proxmox.',
+  'Questi backup stanno sullo stesso disco di NetMap: per proteggerti anche da un guasto del server, copiali altrove o pianifica un backup del server (o della VM) su un altro disco.': 'These backups are on the same disk as NetMap: to be safe from a server failure too, copy them elsewhere or schedule a backup of the server (or VM) to another disk.',
   'Riuscito': 'Succeeded',
   "Se a quell'ora il server è spento, il backup parte appena si riaccende.": 'If the server is off at that time, the backup starts as soon as it is back on.',
   'Ultimo backup: {file}': 'Last backup: {file}',

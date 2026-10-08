@@ -6,8 +6,17 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.0.0-rc.2] - 2026-10-09
+
+NetMap diventa software libero: codice e immagini pubblici su GitHub.
+
 ### Novità
 - Licenza AGPL-3.0 e link al codice sorgente della versione installata in fondo a ogni pagina.
+
+### Modifiche
+- Immagini scaricabili senza login; l'updater in modalità docker accetta il repository clonato in https
+  (la deploy key serve solo per una copia privata).
+- Se manca ancora una versione stabile, l'installer suggerisce `--channel beta`.
 
 ## [1.0.0-rc.1] - 2026-10-08
 

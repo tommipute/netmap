@@ -89,13 +89,13 @@ url=$( [ "$MODE" = image ] || as_user git -C "$APP_DIR" remote get-url origin 2>
 key_ok=false
 if [ "$MODE" = image ]; then
   key_ok=true # niente git: le versioni nuove arrivano dal registro delle immagini
+elif as_user env GIT_TERMINAL_PROMPT=0 git -C "$APP_DIR" ls-remote --heads origin >/dev/null 2>&1; then
+  key_ok=true # repo pubblico in https, oppure SSH con la deploy key
+  echo "Accesso a GitHub: ok ($url)"
 elif [[ $url == https://* ]]; then
   echo
-  echo "Il repo usa HTTPS ($url): con la deploy key serve l'indirizzo SSH. Esegui:"
+  echo "Il repo usa HTTPS ($url) ma non risponde senza credenziali: con la deploy key serve l'indirizzo SSH. Esegui:"
   echo "  git -C $APP_DIR remote set-url origin $(sed -E 's#https://([^/]+)/(.*)#git@\1:\2#; s#(\.git)?$#.git#' <<<"$url")"
-elif as_user git -C "$APP_DIR" ls-remote --heads origin >/dev/null 2>&1; then
-  key_ok=true
-  echo "Accesso a GitHub: ok ($url)"
 fi
 if ! $key_ok; then
   cat <<EOF

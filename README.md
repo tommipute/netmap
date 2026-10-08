@@ -27,7 +27,10 @@ docker run --rm ghcr.io/tommipute/netmap-backend:stable cat /app/deploy/install.
 sudo bash install-netmap.sh                       # oppure: --address https://netmap.azienda.local
 ```
 
-L'installer (`deploy/install.sh`, anche allegato a ogni release su GitHub) installa `jq` se manca, scarica
+Finché non esce la 1.0.0 ci sono solo pre-release: usa `netmap-backend:beta` nel primo comando e aggiungi
+`--channel beta` al secondo. Serve Docker con il plugin compose (per esempio da https://get.docker.com).
+
+L'installer (`deploy/install.sh`, anche allegato a ogni [release su GitHub](https://github.com/tommipute/netmap/releases)) installa `jq` se manca, scarica
 l'ultima versione stabile, crea `/opt/netmap` con `.env` (password del database casuale), avvia NetMap dietro
 HTTPS e installa l'updater (timer systemd). Opzioni: `--address`, `--tls`, `--dir`, `--channel beta`, `--image`,
 `--user`; rilanciarlo su un'installazione esistente non tocca `.env`, database e backup.
@@ -48,8 +51,7 @@ HTTPS e installa l'updater (timer systemd). Opzioni: `--address`, `--tls`, `--di
 - `tls /certs/netmap.crt /certs/netmap.key`: certificato vostro, file in `/opt/netmap/certs/`.
 - Senza HTTPS: `NETMAP_SCHEME=http`, `NETMAP_TLS=` vuoto e `COOKIE_SECURE=false` (solo per prove).
 
-Le immagini stanno su `ghcr.io/tommipute/netmap-backend` e `-web`: finché il repository è privato servono
-`docker login ghcr.io` sul server (token con `read:packages`) oppure i pacchetti resi pubblici su GitHub.
+Le immagini stanno su `ghcr.io/tommipute/netmap-backend` e `-web` (pubbliche, senza login).
 Per togliere tutto: `cd /opt/netmap && docker compose down -v && sudo updater/install.sh --uninstall`.
 
 ## Avvio (sviluppo)
@@ -180,7 +182,10 @@ storto torna al commit precedente, ripristina il backup se le migration avevano 
 Un commit fallito non viene riprovato in automatico (si può forzare con "Aggiorna ora").
 Tutto si vede e si comanda come amministratore in **Amministrazione → Aggiornamenti**.
 
-### 1. Deploy key (accesso in sola lettura al repo privato)
+### 1. Accesso al repository
+
+Il repository è pubblico: clonandolo con l'indirizzo https l'updater lo legge senza credenziali e questo passo
+non serve. La deploy key serve solo per una copia privata del repository (un fork o un mirror interno).
 
 Sul server, con l'utente che farà girare lo script:
 
@@ -203,7 +208,7 @@ La chiave sta solo sul server, mai nell'app né nel repo.
 ### 2. Installazione
 
 ```bash
-git clone git@github.com:tommipute/netmap.git /opt/netmap   # indirizzo SSH, non https
+git clone https://github.com/tommipute/netmap.git /opt/netmap   # repo privato con deploy key: git@github.com:…
 cd /opt/netmap
 cp .env.example .env        # cambia POSTGRES_PASSWORD; FILE_POLLING=false; togli il # da COMPOSE_FILE
 sudo updater/install.sh     # modalità docker
@@ -244,7 +249,7 @@ Oltre a quello prima di ogni aggiornamento, lo script fa un backup ogni notte (0
 appena si riaccende) e quando lo chiedi da **Amministrazione → Backup → Backup ora**. I file stanno in `backups/`:
 `daily-…` e `manual-…` restano per i giorni impostati (14), `netmap-…` (prima degli aggiornamenti) sono gli ultimi
 N. Ripristino: `updater/updater.sh restore backups/NOME.dump` (ferma l'app, ripristina, riavvia).
-Questi file stanno sullo stesso disco di NetMap: pianifica anche un backup della VM in Proxmox su un altro disco.
+Questi file stanno sullo stesso disco di NetMap: copiali altrove o pianifica un backup del server (o della VM) su un altro disco.
 
 ### Migration
 
