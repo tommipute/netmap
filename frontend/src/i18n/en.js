@@ -633,6 +633,7 @@ const strings = {
   "Edifici, piani e stanze. Una posizione può stare dentro un'altra.": 'Buildings, floors and rooms. A location can be inside another one.',
   'Dentro a': 'Inside',
   'Piano (quota)': 'Floor (height)',
+  'Presa dal rack: il device sta dove sta il rack.': 'Taken from the rack: the device is where the rack is.',
   'Per i piani: in mappa quello con il numero più alto sta in cima (es. -1 interrato, 0 terra, 1 primo).': 'For floors: on the map the highest number goes on top (e.g. -1 basement, 0 ground, 1 first).',
   'Edifici, piani e stanze come riquadri colorati; "Disponi" raggruppa i device per posizione': 'Buildings, floors and rooms as coloured boxes; "Arrange" groups devices by location',
   '{name}: clic per selezionare i suoi device e spostarli insieme': '{name}: click to select its devices and move them together',

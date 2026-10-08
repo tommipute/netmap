@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { invalidate, useApi } from '../hooks'
 import { resources } from '../resources'
@@ -147,6 +147,31 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  // Campi con fillFrom = { field, resource, key, hint }: li decide un altro campo (es. la posizione dal rack).
+  // Quando quello ha un valore leggo l'elemento scelto e ne copio la chiave; finché la copia vale il campo è bloccato.
+  const [filled, setFilled] = useState({})
+  const fillers = config.fields.filter((f) => f.fillFrom)
+  const fillKey = fillers.map((f) => `${f.name}=${values[f.fillFrom.field] ?? ''}`).join('&')
+  useEffect(() => {
+    let alive = true
+    for (const f of fillers) {
+      const source = values[f.fillFrom.field]
+      if (isEmpty(source)) {
+        setFilled((prev) => ({ ...prev, [f.name]: false }))
+        continue
+      }
+      api.get(`/${resources[f.fillFrom.resource].path}/${source}`).then((obj) => {
+        if (!alive) return
+        const value = obj?.[f.fillFrom.key]
+        setFilled((prev) => ({ ...prev, [f.name]: value != null }))
+        if (value != null) setValues((prev) => ({ ...prev, [f.name]: value }))
+      }).catch(() => {})
+    }
+    return () => {
+      alive = false
+    }
+  }, [fillKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const setValue = (name, value) =>
     setValues((prev) => {
       const next = { ...prev, [name]: value }
@@ -191,7 +216,8 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
         <div className="form__grid">
           {config.fields.map((f) => {
             if (f.showIf && !f.showIf(values)) return null
-            const disabled = isEdit && f.createOnly
+            const locked = isEdit && f.createOnly
+            const disabled = locked || Boolean(filled[f.name])
             const wide = WIDE_TYPES.has(f.type)
             if (f.type === 'bool') {
               return <BoolField key={f.name} field={f} value={values[f.name]} values={values} item={item} onChange={(v) => setValue(f.name, v)} />
@@ -206,7 +232,8 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
                 </Label>
                 <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields}
                   onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />
-                {disabled && <span className="hint">{t('Non modificabile dopo la creazione.')}</span>}
+                {locked && <span className="hint">{t('Non modificabile dopo la creazione.')}</span>}
+                {!locked && filled[f.name] && <span className="hint">{f.fillFrom.hint}</span>}
                 {!disabled && f.help && <span className="hint">{f.help}</span>}
               </div>
             )

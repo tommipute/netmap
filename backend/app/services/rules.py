@@ -49,9 +49,18 @@ def location_hook(db: Session, loc: Location, data: dict[str, Any], is_create: b
 def rack_hook(db: Session, rack: Rack, data: dict[str, Any], is_create: bool) -> None:
     if rack.location_id is not None and db.get(Location, rack.location_id).site_id != rack.site_id:
         _fail("La posizione appartiene a un'altra sede")
+    # Rack spostato in un'altra posizione: i suoi device lo seguono (uno per uno, così finiscono nello storico)
+    if not is_create and rack.location_id is not None and inspect(rack).attrs.location_id.history.has_changes():
+        for device in db.scalars(select(Device).where(Device.rack_id == rack.id, Device.location_id.is_distinct_from(rack.location_id))):
+            device.location_id = rack.location_id
 
 
 def device_hook(db: Session, device: Device, data: dict[str, Any], is_create: bool) -> None:
+    # Un device nel rack sta dove sta il rack: prende la sua posizione (se il rack ne ha una)
+    if device.rack_id is not None:
+        rack = db.get(Rack, device.rack_id)
+        if rack is not None and rack.location_id is not None and rack.site_id == device.site_id:
+            device.location_id = rack.location_id
     if device.location_id is not None and db.get(Location, device.location_id).site_id != device.site_id:
         _fail("La posizione appartiene a un'altra sede")
     if device.rack_id is not None and db.get(Rack, device.rack_id).site_id != device.site_id:

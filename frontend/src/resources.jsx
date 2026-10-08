@@ -137,7 +137,9 @@ export const resources = {
       { name: 'name', label: t('Nome'), required: true, placeholder: t('sw-p1-01') },
       { name: 'status', label: t('Stato'), type: 'select', options: O.DEVICE_STATUS, default: 'active', required: true },
       { name: 'site_id', label: t('Sede'), type: 'ref', ref: 'sites', required: true },
-      { name: 'location_id', label: t('Posizione'), type: 'ref', ref: 'locations', dependsOn: 'site_id', waitLabel: WAIT_SITE },
+      // Nel rack: la posizione è quella del rack (la impone anche il backend)
+      { name: 'location_id', label: t('Posizione'), type: 'ref', ref: 'locations', dependsOn: 'site_id', waitLabel: WAIT_SITE,
+        fillFrom: { field: 'rack_id', resource: 'racks', key: 'location_id', hint: t('Presa dal rack: il device sta dove sta il rack.') } },
       { name: 'rack_id', label: t('Rack'), type: 'ref', ref: 'racks', dependsOn: 'site_id', waitLabel: WAIT_SITE },
       { name: 'rack_position', label: t('Unità nel rack (U)'), type: 'number', showIf: (v) => !!v.rack_id, hiddenValue: null },
       { name: 'role_id', label: t('Ruolo'), type: 'ref', ref: 'device-roles' },

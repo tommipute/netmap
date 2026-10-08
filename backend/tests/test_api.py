@@ -299,3 +299,22 @@ def test_mappa_con_le_posizioni(client):
     assert [(l["name"], l["parent_id"], l["floor"]) for l in view["locations"]] == [
         ("Palazzina A", None, None), ("P1", pal["id"], 1),
     ]
+
+
+def test_device_nel_rack_prende_la_posizione_del_rack(client):
+    site = create(client, "/sites", {"name": "Sede rack"})
+    ced = create(client, "/locations", {"name": "CED", "site_id": site["id"]})
+    altra = create(client, "/locations", {"name": "Magazzino", "site_id": site["id"]})
+    rack = create(client, "/racks", {"name": "R1", "site_id": site["id"], "location_id": ced["id"]})
+    nudo = create(client, "/racks", {"name": "R2", "site_id": site["id"]})  # rack senza posizione
+
+    dev = create(client, "/devices", {"name": "sw1", "site_id": site["id"], "location_id": altra["id"], "rack_id": rack["id"]})
+    assert dev["location_id"] == ced["id"]
+    # Nel rack senza posizione resta quella che ha
+    assert client.patch(f"/api/devices/{dev['id']}", json={"rack_id": nudo["id"]}).json()["location_id"] == ced["id"]
+    # Spostato in un rack: prende la sua posizione anche se il modulo ne manda un'altra
+    moved = client.patch(f"/api/devices/{dev['id']}", json={"rack_id": rack["id"], "location_id": altra["id"]}).json()
+    assert moved["location_id"] == ced["id"]
+    # Il rack cambia posizione: i suoi device lo seguono
+    client.patch(f"/api/racks/{rack['id']}", json={"location_id": altra["id"]})
+    assert client.get(f"/api/devices/{dev['id']}").json()["location_id"] == altra["id"]
