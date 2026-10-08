@@ -69,7 +69,12 @@ function LiveState({ status, request }) {
   )
 }
 
-function SettingsForm({ settings, disabled, onSaved }) {
+const CHANNELS = [
+  { value: 'stable', label: t('Stabile') },
+  { value: 'beta', label: t('Beta (anche le versioni di prova)') },
+]
+
+function SettingsForm({ settings, mode, disabled, onSaved }) {
   const [form, setForm] = useState(settings)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -109,18 +114,28 @@ function SettingsForm({ settings, disabled, onSaved }) {
           </span>
         </div>
         <label className="field">
-          <span className="field__label">{t('Controlla GitHub')}</span>
+          <span className="field__label">{t('Controlla gli aggiornamenti')}</span>
           <select className="input" value={form.check_interval_minutes} disabled={disabled}
             onChange={(e) => set('check_interval_minutes', Number(e.target.value))}>
             {intervals.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
-        <label className="field">
-          <span className="field__label">{t('Branch')}</span>
-          <input className="input" value={form.branch} disabled={disabled} required maxLength={100}
-            onChange={(e) => set('branch', e.target.value.trim())} />
-          <span className="hint">{t('Di solito main. Cambiandolo, il prossimo aggiornamento passa a quel branch.')}</span>
-        </label>
+        {mode === 'image' ? (
+          <label className="field">
+            <span className="field__label">{t('Canale')}</span>
+            <select className="input" value={form.channel} disabled={disabled} onChange={(e) => set('channel', e.target.value)}>
+              {CHANNELS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <span className="hint">{t('Si installano solo versioni più nuove di quella attuale: tornando a Stabile resti dove sei finché non esce una stabile più recente.')}</span>
+          </label>
+        ) : (
+          <label className="field">
+            <span className="field__label">{t('Branch')}</span>
+            <input className="input" value={form.branch} disabled={disabled} required maxLength={100}
+              onChange={(e) => set('branch', e.target.value.trim())} />
+            <span className="hint">{t('Di solito main. Cambiandolo, il prossimo aggiornamento passa a quel branch.')}</span>
+          </label>
+        )}
         <label className="field">
           <span className="field__label">{t('Backup del database da tenere')}</span>
           <input className="input" type="number" min={1} max={100} value={form.keep_backups} disabled={disabled}
@@ -208,7 +223,7 @@ export default function UpdatesPage() {
         <div>
           <h1>{t('Aggiornamenti')}</h1>
           <p className="page-intro">
-            {t("NetMap si aggiorna da GitHub con uno script che gira sul server, fuori dall'app: qui vedi a che punto è, chiedi un controllo o un aggiornamento e scegli se farlo in automatico.")}
+            {t("NetMap si aggiorna con uno script che gira sul server, fuori dall'app: qui vedi a che punto è, chiedi un controllo o un aggiornamento e scegli se farlo in automatico.")}
           </p>
         </div>
         <div className="page-head__actions">
@@ -228,7 +243,9 @@ export default function UpdatesPage() {
       {status?.check_error && (
         <div className="notice notice--warn">
           <strong>{t('Ultimo controllo non riuscito')}:</strong> {tMessage(status.check_error)}{' '}
-          {t('Di solito è la deploy key: sul server prova git fetch origin nella cartella di NetMap.')}
+          {status.updater?.mode === 'image'
+            ? t('Di solito è il registro delle immagini: sul server prova docker compose pull nella cartella di NetMap.')
+            : t('Di solito è la deploy key: sul server prova git fetch origin nella cartella di NetMap.')}
         </div>
       )}
 
@@ -262,7 +279,7 @@ export default function UpdatesPage() {
 
       <section className="section">
         <header className="section__head"><h2>{t('Impostazioni')}</h2></header>
-        <SettingsForm settings={data.settings} disabled={!usable} onSaved={reload} />
+        <SettingsForm settings={data.settings} mode={status?.updater?.mode} disabled={!usable} onSaved={reload} />
       </section>
 
       <section className="section">
@@ -299,7 +316,7 @@ export default function UpdatesPage() {
               })}
             </p>
             <p className="hint">
-              {t("Lo script fa il backup del database, scarica il codice e riavvia l'app: per qualche minuto NetMap non risponde. Se la versione nuova non parte, torna da solo a quella di adesso.")}
+              {t("Lo script fa il backup del database, scarica la versione nuova e riavvia l'app: per qualche minuto NetMap non risponde. Se la versione nuova non parte, torna da solo a quella di adesso.")}
             </p>
             <ErrorBox error={actionError} />
             <div className="modal__footer">

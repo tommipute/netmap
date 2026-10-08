@@ -26,7 +26,9 @@ Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**:
 GitHub: repository privato https://github.com/tommipute/netmap (remote `origin` sul server, creato l'8/10/2026).
 Sull'altro PC Docker l'utente aggiorna scaricando lo ZIP da GitHub. **Versione**: `frontend/src/version.js`
 (data + progressivo del giorno, es. `2026.10.08-2`), mostrata in basso al centro e nella pagina di accesso:
-aggiornarla a ogni commit che va su GitHub.
+aggiornarla a ogni commit che va su GitHub (resta la stringa dopo `||`: nelle immagini pubblicate vale
+`VITE_APP_VERSION` = numero della release). **Release** semver con tag `vX.Y.Z` + sezione in `CHANGELOG.md`
+(il workflow si ferma se manca): vedi "Distribuzione" più sotto.
 
 | Copia | Percorso | Note |
 |---|---|---|
@@ -85,6 +87,23 @@ in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf`, 
   `request.json` `backup`; tiene `daily-*`/`manual-*` per `backup_keep_days`, i `netmap-*` (prima degli
   aggiornamenti) per numero (`keep_backups`). Elenco e ultimo esito in `status.backup`. Priorità delle richieste in
   attesa: update > backup > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
+- **Distribuzione** (`deploy/`, `.github/workflows/release.yml`, decisa con l'utente l'8/10/2026): al tag
+  `vX.Y.Z` il workflow fa i test e `deploy/build-images.sh` costruisce `ghcr.io/tommipute/netmap-{backend,web}`.
+  Backend: stadio `release` del Dockerfile (contesto `deploy` = `deploy/` + `updater/`, finisce in `/app/deploy`;
+  versione e commit in ENV ed etichette OCI; ultimo stadio `dev` = quello che compose costruisce, così sviluppo e
+  `docker-compose.prod.yml` non hanno bisogno del contesto). Tag dei canali: `stable`/`beta` (pre-release solo
+  `beta`). `deploy/install.sh` (lo si estrae dall'immagine con `docker run … cat`) crea `/opt/netmap` con
+  `deploy/docker-compose.yml` (immagini, Caddy davanti, API e web senza porte sull'host), `.env` da
+  `deploy/env.example` e l'updater in **modalità image**: `check_image` scarica `:<canale>` e legge le etichette,
+  `version_gt` (semver, mai indietro), aggiornamento = `NETMAP_VERSION` nel `.env` + `deploy_files` (estrae
+  `/app/deploy` dall'immagine: compose, Caddyfile e lo script stesso) + `compose up -d`; health check con
+  `compose exec` dentro api/web. Impostazione `channel` (stable/beta) al posto di `branch` nella pagina.
+  HTTPS: `deploy/Caddyfile` con `NETMAP_SCHEME://NETMAP_HOST`, `NETMAP_TLS` = direttiva intera (`tls internal`,
+  email, file) e `default_sni` (senza, `https://IP` fallisce: il client non manda SNI). Collaudo (8/10/2026) su
+  una VM pulita 105 `netmap-test` (192.168.1.76, stessa chiave SSH della 104) con un registro di prova sul dev
+  (`docker run -d --name registro-prova -p 5000:5000 registry:2`, `insecure-registries` nella VM): installazione,
+  HTTPS con CA verificata, aggiornamento rc.1 → rc.2 dalla pagina, rc.3 rotta con migration → rollback con
+  ripristino del database.
 - **Produzione** (`docker-compose.prod.yml`, attivato con `COMPOSE_FILE` nel `.env` della VM): immagini
   `netmap-backend` (Dockerfile con `ARG REQUIREMENTS=requirements.txt`, senza pytest/snmpsim) e `netmap-web`
   (`frontend/Dockerfile`: build Vite + nginx, `frontend/nginx.conf` passa `/api`, `/docs`, `/openapi.json` all'api

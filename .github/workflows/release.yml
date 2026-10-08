@@ -1,0 +1,54 @@
+# Release: si parte con un tag, es.  git tag v1.2.0 && git push origin v1.2.0
+# Test del backend → immagini su ghcr.io (canali stable/beta, vedi deploy/build-images.sh) → release su GitHub
+# con le note del CHANGELOG e install.sh allegato.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Note della release dal CHANGELOG
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md non ha la sezione ## [$version]"
+            exit 1
+          fi
+
+      - name: Test del backend
+        run: |
+          docker build -q -t netmap-test ./backend
+          docker run --rm netmap-test pytest -q
+
+      - name: Accesso al registro
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Immagini
+        run: deploy/build-images.sh "$GITHUB_REF_NAME" "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/netmap" --push
+
+      - name: Release su GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pre=()
+          [[ $GITHUB_REF_NAME == *-* ]] && pre=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" --title "NetMap ${GITHUB_REF_NAME#v}" \
+            --notes-file release-notes.md "${pre[@]}" deploy/install.sh

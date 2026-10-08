@@ -49,3 +49,28 @@ services:
     ports: !override
       - "5174:80"
     volumes: !reset []
+
+  # HTTPS (facoltativo): nel .env COMPOSE_PROFILES=https, NETMAP_HOST, NETMAP_TLS e COOKIE_SECURE=true.
+  # Stesso Caddyfile delle installazioni con le immagini pronte (deploy/Caddyfile).
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    environment:
+      NETMAP_HOST: ${NETMAP_HOST:-localhost}
+      NETMAP_SCHEME: ${NETMAP_SCHEME:-https}
+      NETMAP_TLS: ${NETMAP_TLS:-tls internal}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

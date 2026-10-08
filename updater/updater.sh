@@ -3,8 +3,8 @@
 # systemd o da cron (vedi install.sh). L'app non si aggiorna da sola: scrive le richieste e le impostazioni nella
 # cartella condivisa e legge lo stato che scrive questo script.
 #
-#   updater-data/settings.json  impostazioni (scritte dall'app): auto_update, branch, intervallo, backup da tenere,
-#                               backup notturno (sì/no, ora, giorni da tenere)
+#   updater-data/settings.json  impostazioni (scritte dall'app): auto_update, branch (o canale), intervallo, backup
+#                               da tenere, backup notturno (sì/no, ora, giorni da tenere)
 #   updater-data/request.json   richiesta dall'app ("check", "update" o "backup"): letta e svuotata qui
 #   updater-data/status.json    stato per l'app: versioni, ultimo controllo, attività in corso, storico, backup
 #   updater-data/updater.log    log dell'ultimo aggiornamento (più le righe dei controlli successivi)
@@ -12,6 +12,10 @@
 # Uso:  updater.sh               un giro normale (quello del timer)
 #       updater.sh version-env   riscrive solo version.env con il commit installato
 #       updater.sh restore FILE  ripristina un backup del database (app ferma durante il ripristino)
+#
+# Modalità (updater.conf): docker = repo git + docker compose build (sviluppo, server con il codice sorgente),
+# vm = repo git senza Docker, image = installazione con deploy/install.sh: immagini già pronte dal registro, canale
+# stable/beta, versione in .env (NETMAP_VERSION); compose, Caddyfile e questo script arrivano dall'immagine nuova.
 #
 # Tutto il codice è dentro funzioni e l'ultima riga chiama main ed esce: bash legge l'intero file prima di
 # eseguirlo, così il git pull che riscrive questo script durante l'aggiornamento non lo rompe.
@@ -41,6 +45,12 @@ load_config() {
     export GIT_SSH_COMMAND="ssh -i $GIT_SSH_KEY -o IdentitiesOnly=yes -o BatchMode=yes"
   fi
   export GIT_TERMINAL_PROMPT=0
+  # Modalità image: registro e versione installata stanno nel .env dell'installazione
+  ENV_FILE=$APP_DIR/.env
+  if [ "$MODE" = image ]; then
+    IMAGE=$(env_get NETMAP_IMAGE)
+    IMAGE=${IMAGE:-ghcr.io/tommipute/netmap}
+  fi
   STATUS=$DATA_DIR/status.json
   SETTINGS=$DATA_DIR/settings.json
   REQUEST=$DATA_DIR/request.json
@@ -82,6 +92,38 @@ setting() { # chiave, valore predefinito
   echo "${value:-$2}"
 }
 
+# Valori del file .env (modalità image)
+env_get() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -n1 | sed "s/^[\"']//; s/[\"']\$//"; }
+
+env_set() { # chiave, valore: copia con gli stessi permessi (il .env contiene la password del database)
+  cp -p "$ENV_FILE" "$ENV_FILE.tmp" &&
+    if grep -q "^$1=" "$ENV_FILE.tmp"; then sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE.tmp"; else echo "$1=$2" >>"$ENV_FILE.tmp"; fi &&
+    mv -f "$ENV_FILE.tmp" "$ENV_FILE"
+}
+
+# Versione di un'immagine (modalità image), dalle etichette scritte al build: stesso JSON di commit_info
+image_info() { # tag dell'immagine
+  local labels
+  labels=$(docker image inspect --format '{{json .Config.Labels}}' "$IMAGE-backend:$1" 2>/dev/null) || return 1
+  jq -e '(.["org.opencontainers.image.revision"] // "") as $c | select($c != "")
+    | {commit: $c, short: $c[0:7], date: (.["io.netmap.commit-date"] // ""), version: (.["org.opencontainers.image.version"] // ""),
+       tag: ("v" + (.["org.opencontainers.image.version"] // "")), subject: ""}' <<<"$labels"
+}
+
+# true se la versione $1 è più nuova di $2 (semver: 1.2.0 > 1.2.0-rc.2 > 1.2.0-rc.1 > 1.1.9)
+version_gt() {
+  jq -n -e --arg a "$1" --arg b "$2" '
+    def key: ltrimstr("v") | (index("-") // length) as $i | .[:$i] as $main | .[$i + 1:] as $pre
+      | [($main | split(".") | map(tonumber? // 0)), (if $pre == "" then [1] else [0, ($pre | split(".") | map(tonumber? // .))] end)];
+    ($a | key) > ($b | key)' >/dev/null
+}
+
+# Copia nella cartella dell'installazione i file che viaggiano dentro l'immagine (/app/deploy): docker-compose.yml,
+# Caddyfile, env.example, install.sh e updater/ (compreso questo script, riscritto senza danni: vedi sopra)
+deploy_files() { # tag
+  docker run --rm --entrypoint tar "$IMAGE-backend:$1" -C /app/deploy -cf - . | tar -xf - -C "$APP_DIR" --no-same-owner
+}
+
 # Versione di un commit: hash, data, tag e numero di version.js, come JSON
 commit_info() {
   local ref=$1 commit date tag version subject
@@ -89,13 +131,15 @@ commit_info() {
   date=$(git show -s --format=%cI "$commit")
   subject=$(git show -s --format=%s "$commit")
   tag=$(git describe --tags --exact-match "$commit" 2>/dev/null || git describe --tags --abbrev=0 "$commit" 2>/dev/null || true)
-  version=$(git show "$commit:frontend/src/version.js" 2>/dev/null | sed -n "s/.*VERSION *= *['\"]\([^'\"]*\)['\"].*/\1/p" | head -n1)
+  # L'ultima stringa tra virgolette della riga di VERSION (anche "VITE_APP_VERSION || '2026.10.08-5'")
+  version=$(git show "$commit:frontend/src/version.js" 2>/dev/null | sed -n "/VERSION *=/s/.*['\"]\([^'\"]*\)['\"].*/\1/p" | head -n1)
   jq -n --arg commit "$commit" --arg date "$date" --arg tag "$tag" --arg version "$version" --arg subject "$subject" \
     '{commit: $commit, short: $commit[0:7], date: $date, tag: $tag, version: $version, subject: $subject}'
 }
 
 # Il commit installato arriva all'app come variabili d'ambiente (compose: env_file version.env)
 write_version_env() {
+  [ "$MODE" = image ] && return 0 # la versione è scritta dentro le immagini
   local info
   info=$(commit_info HEAD) || return 1
   jq -r '"# Scritto da updater/updater.sh: versione installata, letta dall'"'"'app all'"'"'avvio\n" +
@@ -107,7 +151,7 @@ write_version_env() {
 compose() { docker compose --project-directory "$APP_DIR" "$@"; }
 
 db_revision() {
-  if [ "$MODE" = docker ]; then
+  if [ "$MODE" != vm ]; then
     compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT version_num FROM alembic_version"' 2>/dev/null | tr -d '[:space:]'
   else
     psql "$VM_DATABASE_URL" -tAc "SELECT version_num FROM alembic_version" 2>/dev/null | tr -d '[:space:]'
@@ -115,7 +159,7 @@ db_revision() {
 }
 
 db_backup() { # file
-  if [ "$MODE" = docker ]; then
+  if [ "$MODE" != vm ]; then
     compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' >"$1"
   else
     pg_dump "$VM_DATABASE_URL" -Fc >"$1"
@@ -125,7 +169,7 @@ db_backup() { # file
 # Svuota lo schema e ricarica il backup: le tabelle create dalle migration nuove spariscono del tutto
 db_restore() { # file
   local reset='DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
-  if [ "$MODE" = docker ]; then
+  if [ "$MODE" != vm ]; then
     compose exec -T db sh -c "psql -v ON_ERROR_STOP=1 -q -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c '$reset'" &&
       compose exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --exit-on-error' <"$1"
   else
@@ -135,7 +179,7 @@ db_restore() { # file
 }
 
 app_stop() {
-  if [ "$MODE" = docker ]; then
+  if [ "$MODE" != vm ]; then
     compose stop api worker monitor web
   else
     bash -c "$VM_STOP_CMD"
@@ -146,21 +190,40 @@ app_deploy() {
   if [ "$MODE" = docker ]; then
     # version.env cambia a ogni aggiornamento: compose ricrea i container dell'app (api applica le migration)
     compose up -d --build
+  elif [ "$MODE" = image ]; then
+    compose up -d --remove-orphans # le immagini sono già scaricate
   else
     (cd "$APP_DIR" && bash -c "$VM_DEPLOY_CMD")
   fi
 }
 
 # L'API deve rispondere "ok" con il commit atteso (non quello vecchio ancora acceso); poi anche l'interfaccia
+# Modalità image: API e interfaccia non hanno porte sull'host, si interrogano da dentro i loro container
+fetch_health() {
+  if [ "$MODE" = image ]; then
+    compose exec -T api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).read().decode())" 2>/dev/null
+  else
+    curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null
+  fi
+}
+
+web_ok() {
+  if [ "$MODE" = image ]; then
+    compose exec -T web wget -q -T 5 -O /dev/null http://127.0.0.1/ 2>/dev/null
+  else
+    [ -z "$WEB_URL" ] || curl -fsS --max-time 5 -o /dev/null "$WEB_URL" 2>/dev/null
+  fi
+}
+
 health_check() { # commit atteso
   local expected=$1 deadline body status commit
   deadline=$(($(date +%s) + HEALTH_TIMEOUT))
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    body=$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null) || body=
+    body=$(fetch_health) || body=
     status=$(jq -r '.status // empty' <<<"$body" 2>/dev/null)
     commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null)
     if [ "$status" = ok ] && [ "$commit" = "$expected" ]; then
-      if [ -z "$WEB_URL" ] || curl -fsS --max-time 5 -o /dev/null "$WEB_URL" 2>/dev/null; then
+      if web_ok; then
         log "Health check superato (commit ${expected:0:7})"
         return 0
       fi
@@ -195,12 +258,14 @@ rollback() { # motivo
   local reason=$1 restored=false
   step rolling_back "Ripristino la versione precedente (${PREV_COMMIT:0:7}): $reason"
   app_stop >>"$LOG" 2>&1 || log "Attenzione: non riesco a fermare l'app"
-  if [ -n "$PREV_BRANCH" ]; then
+  if [ "$MODE" = image ]; then
+    env_set NETMAP_VERSION "$PREV_VERSION" && deploy_files "$PREV_VERSION" >>"$LOG" 2>&1
+  elif [ -n "$PREV_BRANCH" ]; then
     git checkout -q -f -B "$PREV_BRANCH" "$PREV_COMMIT" >>"$LOG" 2>&1
   else
     git checkout -q -f --detach "$PREV_COMMIT" >>"$LOG" 2>&1
   fi || {
-    finish error "Rollback fallito: git non torna al commit ${PREV_COMMIT:0:7}. $reason"
+    finish error "Rollback fallito: non riesco a tornare alla versione ${PREV_COMMIT:0:7}. $reason"
     return 1
   }
   if [ "$(db_revision)" != "$DB_REV_BEFORE" ]; then
@@ -227,14 +292,29 @@ rollback() { # motivo
 
 do_update() {
   STARTED=$(now)
-  PREV_COMMIT=$(git rev-parse HEAD)
-  PREV_BRANCH=$(git symbolic-ref --short -q HEAD || true)
-  FROM=$(commit_info HEAD)
   BACKUP_FILE=
+  if [ "$MODE" = image ]; then
+    PREV_VERSION=$(env_get NETMAP_VERSION)
+    FROM=$INSTALLED
+    PREV_COMMIT=$(jq -r .commit <<<"$FROM")
+  else
+    PREV_COMMIT=$(git rev-parse HEAD)
+    PREV_BRANCH=$(git symbolic-ref --short -q HEAD || true)
+    FROM=$(commit_info HEAD)
+  fi
   : >"$LOG"
   step updating "Aggiornamento ${PREV_COMMIT:0:7} → $(jq -r .short <<<"$TO") ($TRIGGER${REQUESTED_BY:+, $REQUESTED_BY})"
 
-  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  if [ "$MODE" = image ]; then
+    # Prima di toccare qualsiasi cosa: se il download non riesce, resta tutto com'è
+    step updating "Scarico la versione nuova"
+    local new
+    new=$(jq -r .version <<<"$TO")
+    if ! { docker pull -q "$IMAGE-backend:$new" && docker pull -q "$IMAGE-web:$new"; } >>"$LOG" 2>&1; then
+      finish error "Download della versione nuova non riuscito: aggiornamento annullato, nulla è cambiato."
+      return 1
+    fi
+  elif [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     finish error "Nella cartella dell'app ci sono file modificati a mano: aggiornamento annullato, nulla è cambiato. $(git status --porcelain --untracked-files=no | head -5 | tr '\n' ' ')"
     return 1
   fi
@@ -257,13 +337,21 @@ do_update() {
   echo "$PREV_COMMIT" >"$DATA_DIR/previous_commit"
   status '.previous = $p' --argjson p "$FROM"
 
-  step updating "Scarico il codice nuovo (branch $BRANCH)"
-  # Equivale a git pull, ma funziona anche cambiando branch o dopo un force push
-  if ! git checkout -q -B "$BRANCH" "$REMOTE/$BRANCH" >>"$LOG" 2>&1; then
-    rollback "git non riesce a passare al codice nuovo."
-    return 1
+  if [ "$MODE" = image ]; then
+    echo "$PREV_VERSION" >"$DATA_DIR/previous_version"
+    if ! { deploy_files "$new" && env_set NETMAP_VERSION "$new" && compose pull -q --ignore-pull-failures; } >>"$LOG" 2>&1; then
+      rollback "I file della versione nuova non si installano."
+      return 1
+    fi
+  else
+    step updating "Scarico il codice nuovo (branch $BRANCH)"
+    # Equivale a git pull, ma funziona anche cambiando branch o dopo un force push
+    if ! git checkout -q -B "$BRANCH" "$REMOTE/$BRANCH" >>"$LOG" 2>&1; then
+      rollback "git non riesce a passare al codice nuovo."
+      return 1
+    fi
+    write_version_env
   fi
-  write_version_env
 
   step updating "Ricostruisco e riavvio l'app"
   if ! app_deploy >>"$LOG" 2>&1; then
@@ -271,11 +359,11 @@ do_update() {
     return 1
   fi
   step updating "Controllo che l'app risponda"
-  if ! health_check "$(git rev-parse HEAD)"; then
+  if ! health_check "$(jq -r .commit <<<"$TO")"; then
     rollback "La versione nuova non risponde al controllo di salute."
     return 1
   fi
-  status '.installed = $i | .update_available = false | .failed_commit = null' --argjson i "$(commit_info HEAD)"
+  status '.installed = $i | .update_available = false | .failed_commit = null' --argjson i "$TO"
   finish success "Installata la versione $(jq -r '.version // empty' <<<"$TO") ($(jq -r .short <<<"$TO"))."
 }
 
@@ -334,6 +422,8 @@ run() {
 
   AUTO=$(setting auto_update false)
   BRANCH=$(setting branch main)
+  CHANNEL=$(setting channel stable)
+  [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || CHANNEL=stable
   INTERVAL=$(setting check_interval_minutes 60)
   KEEP=$(setting keep_backups 10)
   [[ $INTERVAL =~ ^[0-9]+$ ]] && [ "$INTERVAL" -ge 1 ] || INTERVAL=60
@@ -351,16 +441,23 @@ run() {
   case $ACTION in check | update | backup | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
 
   status '.updater = {mode: $mode, app_dir: $dir} | .last_run = $t | .activity = (.activity // "idle")
-    | .settings = {auto_update: ($auto == "true"), branch: $branch, check_interval_minutes: ($int | tonumber), keep_backups: ($keep | tonumber),
+    | .settings = {auto_update: ($auto == "true"), branch: $branch, channel: $channel, check_interval_minutes: ($int | tonumber), keep_backups: ($keep | tonumber),
                    backup_daily: ($daily == "true"), backup_time: $time, backup_keep_days: ($days | tonumber)}' \
-    --arg mode "$MODE" --arg dir "$APP_DIR" --arg t "$(now)" --arg auto "$AUTO" --arg branch "$BRANCH" \
+    --arg mode "$MODE" --arg dir "$APP_DIR" --arg t "$(now)" --arg auto "$AUTO" --arg branch "$BRANCH" --arg channel "$CHANNEL" \
     --arg int "$INTERVAL" --arg keep "$KEEP" --arg daily "$BACKUP_DAILY" --arg time "$BACKUP_TIME" --arg days "$BACKUP_KEEP_DAYS" || exit 1
   # Un giro precedente interrotto a metà (es. riavvio dell'host) non deve lasciare "in corso" per sempre
   status '.activity = "idle"'
-  INSTALLED=$(commit_info HEAD) && status '.installed = $i' --argjson i "$INSTALLED"
+  if [ "$MODE" = image ]; then
+    local version
+    version=$(env_get NETMAP_VERSION)
+    INSTALLED=$(image_info "$version" || jq -n --arg v "$version" '{commit: "", short: "", date: "", version: $v, tag: ("v" + $v), subject: ""}')
+  else
+    INSTALLED=$(commit_info HEAD)
+  fi
+  [ -n "$INSTALLED" ] && status '.installed = $i' --argjson i "$INSTALLED"
   run_backups
 
-  if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1 || [[ $BRANCH == -* ]]; then
+  if [ "$MODE" != image ] && ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1 || [[ $BRANCH == -* ]]; then
     status '.check_error = $e | .last_check = $t' --arg e "Branch non valido: $BRANCH" --arg t "$(now)"
     die "Branch non valido nelle impostazioni: $BRANCH"
   fi
@@ -376,6 +473,7 @@ run() {
   $due || exit 0
 
   status '.activity = "checking" | .activity_message = "Controllo se ci sono aggiornamenti" | .activity_since = $t' --arg t "$(now)"
+  [ "$MODE" = image ] && { check_image; return; }
   local fetch_out
   if ! fetch_out=$(git fetch --quiet --prune "$REMOTE" "+refs/heads/$BRANCH:refs/remotes/$REMOTE/$BRANCH" 2>&1); then
     status '.activity = "idle" | .last_check = $t | .check_error = $e' --arg t "$(now)" \
@@ -384,16 +482,22 @@ run() {
     exit 1
   fi
   TO=$(commit_info "$REMOTE/$BRANCH")
-  local local_commit remote_commit failed available=false
+  local local_commit remote_commit available=false
   local_commit=$(git rev-parse HEAD)
   remote_commit=$(jq -r .commit <<<"$TO")
-  failed=$(jq -r '.failed_commit // empty' "$STATUS")
   [ "$local_commit" != "$remote_commit" ] && available=true
   status '.activity = "idle" | .activity_message = "" | .activity_since = null | .last_check = $t | .check_error = null
     | .available = $to | .update_available = $av' --arg t "$(now)" --argjson to "$TO" --argjson av "$available"
   log "Controllo: installato ${local_commit:0:7}, disponibile ${remote_commit:0:7} su $BRANCH${ACTION:+ (richiesta: $ACTION)}"
 
   $available || exit 0
+  decide_update "$remote_commit"
+}
+
+# Aggiorna se l'ha chiesto l'app, oppure in automatico se il commit non è già fallito una volta
+decide_update() { # commit disponibile
+  local remote_commit=$1 failed
+  failed=$(jq -r '.failed_commit // empty' "$STATUS")
   if [ "$ACTION" = update ]; then
     TRIGGER=manual
   elif [ "$AUTO" = true ] && [ "$remote_commit" != "$failed" ]; then
@@ -405,12 +509,33 @@ run() {
   do_update
 }
 
+# Modalità image: l'ultima versione del canale è l'immagine con tag stable (o beta); la si scarica (se non è cambiata
+# docker scarica solo l'indice) e si leggono le etichette. Si aggiorna solo verso versioni più nuove.
+check_image() {
+  local out installed_version available=false
+  if ! out=$(docker pull -q "$IMAGE-backend:$CHANNEL" 2>&1) || ! TO=$(image_info "$CHANNEL"); then
+    status '.activity = "idle" | .activity_message = "" | .activity_since = null | .last_check = $t | .check_error = $e' --arg t "$(now)" \
+      --arg e "Download dal registro non riuscito: ${out:-etichette della versione mancanti}"
+    log "Controllo non riuscito: $out"
+    exit 1
+  fi
+  installed_version=$(jq -r .version <<<"$INSTALLED")
+  version_gt "$(jq -r .version <<<"$TO")" "$installed_version" && available=true
+  status '.activity = "idle" | .activity_message = "" | .activity_since = null | .last_check = $t | .check_error = null
+    | .available = $to | .update_available = $av' --arg t "$(now)" --argjson to "$TO" --argjson av "$available"
+  log "Controllo: installata $installed_version, disponibile $(jq -r .version <<<"$TO") sul canale $CHANNEL${ACTION:+ (richiesta: $ACTION)}"
+  $available || exit 0
+  decide_update "$(jq -r .commit <<<"$TO")"
+}
+
 main() {
   load_config
   command -v jq >/dev/null || { echo "Manca jq: installalo (apt install jq)" >&2; exit 1; }
   case ${1:-run} in
     run) run ;;
-    version-env) cd "$APP_DIR" && write_version_env && echo "Scritto $APP_DIR/version.env" ;;
+    version-env)
+      [ "$MODE" = image ] && { echo "Modalità image: la versione è dentro le immagini, version.env non serve"; exit 0; }
+      cd "$APP_DIR" && write_version_env && echo "Scritto $APP_DIR/version.env" ;;
     restore)
       [ -f "${2:-}" ] || { echo "Uso: $0 restore FILE.dump" >&2; exit 1; }
       cd "$APP_DIR" || exit 1

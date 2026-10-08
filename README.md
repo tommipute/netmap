@@ -9,7 +9,41 @@ automatiche o disegnate a mano.
 - **Fase 3** ✔ scansione SNMP (v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
 - Fase 4: stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login
 
-## Avvio
+## Installazione su un server (immagini pronte)
+
+Per usare NetMap su un proprio server Linux con Docker, senza codice sorgente né build:
+
+```bash
+docker run --rm ghcr.io/tommipute/netmap-backend:stable cat /app/deploy/install.sh > install-netmap.sh
+sudo bash install-netmap.sh                       # oppure: --address https://netmap.azienda.local
+```
+
+L'installer (`deploy/install.sh`, anche allegato a ogni release su GitHub) installa `jq` se manca, scarica
+l'ultima versione stabile, crea `/opt/netmap` con `.env` (password del database casuale), avvia NetMap dietro
+HTTPS e installa l'updater (timer systemd). Opzioni: `--address`, `--tls`, `--dir`, `--channel beta`, `--image`,
+`--user`; rilanciarlo su un'installazione esistente non tocca `.env`, database e backup.
+
+| Cosa | Dove |
+|---|---|
+| Interfaccia | `https://<server>` (al primo accesso si crea l'amministratore); http reindirizza a https |
+| Impostazioni | `/opt/netmap/.env` (indirizzo, certificato, porte), poi `docker compose up -d` |
+| Aggiornamenti e backup | NetMap → Amministrazione (canale stabile o beta) |
+| Da tenere al sicuro | `.env`, `data/` (chiave delle credenziali SNMP) e `backups/` |
+
+**Certificato** (`NETMAP_TLS` nel `.env`, letto da `deploy/Caddyfile`):
+
+- `tls internal` (predefinito): CA interna di Caddy. Il browser avvisa finché non installi la CA nei PC:
+  `docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt netmap-ca.crt`, poi su Windows
+  *Installa certificato → Computer locale → Autorità di certificazione radice attendibili* (o con un GPO).
+- `tls admin@azienda.it`: Let's Encrypt, solo se il server è raggiungibile da Internet sulle porte 80 e 443.
+- `tls /certs/netmap.crt /certs/netmap.key`: certificato vostro, file in `/opt/netmap/certs/`.
+- Senza HTTPS: `NETMAP_SCHEME=http`, `NETMAP_TLS=` vuoto e `COOKIE_SECURE=false` (solo per prove).
+
+Le immagini stanno su `ghcr.io/tommipute/netmap-backend` e `-web`: finché il repository è privato servono
+`docker login ghcr.io` sul server (token con `read:packages`) oppure i pacchetti resi pubblici su GitHub.
+Per togliere tutto: `cd /opt/netmap && docker compose down -v && sudo updater/install.sh --uninstall`.
+
+## Avvio (sviluppo)
 
 ```powershell
 copy .env.example .env      # poi cambia la password dentro .env
@@ -94,7 +128,30 @@ approva i 4 cavi. Un guasto si simula fermando un apparato (`docker compose stop
 Docker Desktop): entro un minuto risulta "Non risponde". `docker compose start lab-sw-p3` lo riaccende.
 Senza `--profile lab` gli apparati non partono; per spegnerli tutti: `docker compose --profile lab stop`.
 
+## Rilasci (per chi sviluppa)
+
+Versioni semver con tag git: `1.2.0` stabile, `1.2.0-rc.1` / `1.2.0-beta.1` pre-release. Per pubblicarne una:
+
+1. In `CHANGELOG.md` sposta le voci di `## [Non rilasciato]` in una sezione `## [1.2.0] - AAAA-MM-GG`.
+2. `git tag v1.2.0 && git push origin main v1.2.0`
+
+Il workflow `.github/workflows/release.yml` fa girare i test, costruisce le immagini con `deploy/build-images.sh`
+(versione e commit scritti dentro, pacchetto d'installazione in `/app/deploy`), le pubblica su ghcr.io con i tag
+dei canali (stabile: `1.2.0`, `1.2`, `stable`, `beta`, `latest`; pre-release: `1.2.0-rc.1`, `beta`) e crea la
+release su GitHub con le note del CHANGELOG e `install.sh` allegato. Le installazioni con l'aggiornamento
+automatico acceso la installano entro l'intervallo impostato; le altre la vedono nella pagina Aggiornamenti.
+Prova locale: `deploy/build-images.sh 1.2.0-rc.1 localhost:5000/netmap --push` verso un registro di prova.
+
+Una versione nuova deve funzionare partendo da qualsiasi versione vecchia: le migration vanno in catena e il
+`.env` delle installazioni non si tocca (un'impostazione nuova deve avere un valore predefinito nel compose).
+
 ## Aggiornamenti automatici
+
+L'updater ha tre modalità: **image** (installazioni fatte con `install.sh`: scarica le immagini del canale scelto,
+mai versioni più vecchie di quella installata, e prende dall'immagine nuova anche `docker-compose.yml`,
+`Caddyfile` e sé stesso), **docker** (server con il repo git, come la VM di produzione: segue un branch e
+ricostruisce le immagini) e **vm** (senza Docker). Quello che segue vale per tutte e tre; dove si parla di
+git e deploy key riguarda solo docker e vm.
 
 Sul server di produzione NetMap si aggiorna da GitHub con lo script `updater/updater.sh`, che gira **sull'host**
 (fuori dai container) ogni minuto grazie a un timer systemd. L'app non si aggiorna da sola: niente socket Docker nel
@@ -161,7 +218,7 @@ Controlli utili: `systemctl list-timers netmap-updater.timer`, `journalctl -u ne
   `psql` e `pg_restore`); i servizi devono leggere `version.env` (systemd: `EnvironmentFile=`). Esempi in
   `updater/updater.conf.example`.
 
-### Produzione (`docker-compose.prod.yml`)
+### Produzione dal repo (`docker-compose.prod.yml`)
 
 Con `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` nel `.env` del server, `docker compose` usa la
 configurazione di produzione: il codice sta dentro le immagini (`netmap-backend`, `netmap-web`), l'interfaccia è
@@ -169,6 +226,8 @@ compilata e servita da nginx sulla porta 5174 (che passa `/api` e `/docs` all'AP
 pytest né il simulatore SNMP e la porta 8001 dell'API risponde solo sul server stesso (serve all'updater).
 La chiave dei segreti, se `SECRETS_KEY` è vuota, sta in `data/secrets_key`: tienila insieme ai backup, senza di
 lei i profili SNMP di un database ripristinato vanno reinseriti.
+HTTPS anche qui con lo stesso Caddy delle installazioni con le immagini: nel `.env` `COMPOSE_PROFILES=https`,
+`NETMAP_HOST`, `NETMAP_TLS` e `COOKIE_SECURE=true` (vedi `.env.example`).
 
 ### Backup del database
 

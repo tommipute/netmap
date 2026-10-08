@@ -76,6 +76,8 @@ def health(response: Response, db: Session = Depends(get_db)):
 class UpdateSettings(BaseModel):
     auto_update: bool = False
     branch: str = "main"
+    # Solo installazioni con le immagini pronte (updater in modalità image): stable o beta
+    channel: Literal["stable", "beta"] = "stable"
     check_interval_minutes: int = Field(60, ge=5, le=10080)
     keep_backups: int = Field(10, ge=1, le=100)
     backup_daily: bool = True

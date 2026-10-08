@@ -15,6 +15,7 @@ from app.config import settings
 DEFAULT_SETTINGS = {
     "auto_update": False,
     "branch": "main",
+    "channel": "stable",
     "check_interval_minutes": 60,
     "keep_backups": 10,
     # Backup notturno del database fatto dallo script (oltre a quello prima di ogni aggiornamento)

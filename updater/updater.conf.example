@@ -2,7 +2,9 @@
 # Le impostazioni che cambiano spesso (aggiornamento automatico, branch, intervallo, backup da tenere)
 # si gestiscono dall'app, pagina Aggiornamenti: finiscono in updater-data/settings.json.
 
-# docker = l'app gira con docker compose (consigliato) | vm = l'app gira direttamente sul server
+# docker = repo git + docker compose build | vm = repo git, app direttamente sul server
+# image = installata con deploy/install.sh: immagini dal registro, canale stable/beta (scelto nell'app);
+#         il registro e la versione installata stanno nel .env (NETMAP_IMAGE, NETMAP_VERSION), git non serve
 MODE=docker
 
 # Cartella del repo (vuota = la cartella sopra updater/), cartella condivisa con l'app, backup del database
@@ -14,7 +16,7 @@ MODE=docker
 REMOTE=origin
 #GIT_SSH_KEY=/home/netmap/.ssh/netmap_deploy
 
-# Controllo di salute dopo l'aggiornamento: l'API deve rispondere ok con il commit nuovo entro HEALTH_TIMEOUT secondi
+# Controllo di salute dopo l'aggiornamento (modalità image: dall'interno dei container, gli indirizzi non servono): l'API deve rispondere ok con il commit nuovo entro HEALTH_TIMEOUT secondi
 HEALTH_URL=http://127.0.0.1:8001/api/health
 # Anche l'interfaccia deve rispondere (vuoto = non controllarla)
 WEB_URL=http://127.0.0.1:5174/

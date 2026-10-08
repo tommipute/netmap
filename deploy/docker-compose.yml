@@ -1,0 +1,99 @@
+# NetMap installato con deploy/install.sh: immagini già pronte dal registro, niente codice sorgente sul server.
+# Le impostazioni stanno in .env (accanto a questo file). Questo file viene sostituito a ogni aggiornamento
+# (lo script lo prende dall'immagine nuova): non modificarlo, usa .env o un docker-compose.override.yml.
+
+x-backend: &backend
+  image: ${NETMAP_IMAGE:-ghcr.io/tommipute/netmap}-backend:${NETMAP_VERSION:?manca NETMAP_VERSION nel file .env}
+  restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+  volumes:
+    - ./data:/data   # chiave che cifra le credenziali SNMP (se SECRETS_KEY è vuota): non cancellarla
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-netmap}:${POSTGRES_PASSWORD:?manca POSTGRES_PASSWORD nel file .env}@db:5432/${POSTGRES_DB:-netmap}
+  SECRETS_KEY: ${SECRETS_KEY:-}
+  SECRETS_KEY_FILE: /data/secrets_key
+  TZ: ${TZ:-Europe/Rome}
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-netmap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-netmap}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    <<: *backend
+    environment:
+      <<: *backend-env
+      AUTH_ENABLED: "true"
+      SESSION_HOURS: ${SESSION_HOURS:-12}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}   # false solo con un indirizzo http://
+      UVICORN_EXTRA_ARGS: ""
+    volumes:
+      - ./data:/data
+      - ./updater-data:/updater-data   # cartella condivisa con l'updater sull'host
+
+  worker:
+    <<: *backend
+    command: python -m app.worker
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started   # l'API applica le migration all'avvio
+
+  monitor:
+    <<: *backend
+    command: python -m app.monitor
+    environment:
+      <<: *backend-env
+      MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}   # 0 = stato live spento
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  web:
+    image: ${NETMAP_IMAGE:-ghcr.io/tommipute/netmap}-web:${NETMAP_VERSION}
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  # HTTPS: certificato e indirizzo dal file .env (vedi Caddyfile)
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      NETMAP_HOST: ${NETMAP_HOST:?manca NETMAP_HOST nel file .env}
+      NETMAP_SCHEME: ${NETMAP_SCHEME:-https}
+      NETMAP_TLS: ${NETMAP_TLS:-tls internal}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data   # certificati e CA interna: https://<indirizzo>/ dopo averla installata nei PC
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
