@@ -3,6 +3,7 @@ import { BaseEdge, useReactFlow } from '@xyflow/react'
 import { OUTWARD } from './anchors'
 import { PLUG, endOnRect, labelLength, moveSegment } from './geometry'
 import { roundedPath } from './routing'
+import { t } from '../i18n'
 
 const RADIUS = 8
 const LABEL_H = 16
@@ -76,14 +77,14 @@ function RouteHandles({ edit, onRoute }) {
           <rect key={`s${s.index}`} className={`cable-handle cable-handle--segment cable-handle--${horizontal ? 'ns' : 'ew'}`}
             x={s.x - (horizontal ? 9 : 3)} y={s.y - (horizontal ? 3 : 9)} width={horizontal ? 18 : 6} height={horizontal ? 6 : 18} rx={3}
             onPointerDown={(e) => drag(e, (p) => onRoute({ points: moveSegment(edit, s.index, p[s.axis]) }))}>
-            <title>Trascina per spostare questo tratto del cavo</title>
+            <title>{t('Trascina per spostare questo tratto del cavo')}</title>
           </rect>
         )
       })}
       {edit.ends.filter((end) => end.rect).map((end) => (
         <circle key={end.end} className="cable-handle cable-handle--end" cx={end.x} cy={end.y} r={4.5}
           onPointerDown={(e) => drag(e, (p) => onRoute({ [`${end.end}End`]: endOnRect(end.rect, p) }))}>
-          <title>Trascina lungo il bordo del device per spostare dove si attacca il cavo</title>
+          <title>{t('Trascina lungo il bordo del device per spostare dove si attacca il cavo')}</title>
         </circle>
       ))}
     </g>

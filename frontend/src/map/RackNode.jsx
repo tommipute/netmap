@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { t } from '../i18n'
 
 /**
  * "Bolla" di un rack in mappa: sta sotto device e cavi e li racchiude (posizione e misure le calcola MapEditor).
@@ -6,14 +7,14 @@ import { memo } from 'react'
  * così si spostano insieme.
  */
 function RackNode({ data }) {
-  const what = data.count === 1 ? '1 device' : `${data.count} device`
+  const what = data.count === 1 ? t('1 device') : t('{n} device', { n: data.count })
   return (
     <div className="rack-bubble">
       <button type="button" className={`rack-bubble__label nodrag${data.labelSide === 'right' ? ' rack-bubble__label--right' : ''}`} onClick={(e) => {
           e.stopPropagation()
           data.onSelect()
         }}
-        title={`Rack ${data.name}, ${what}: clic per selezionarli e spostarli insieme`}>
+        title={t('Rack {name}, {what}: clic per selezionarli e spostarli insieme', { name: data.name, what })}>
         {data.name}
       </button>
     </div>

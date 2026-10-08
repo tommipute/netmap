@@ -7,16 +7,17 @@ import { NAV, resources } from '../resources'
 import { useTheme } from '../theme'
 import PasswordDialog from './PasswordDialog'
 import { Icon } from './Icon'
+import { LANG, LANGUAGES, setLang, t } from '../i18n'
 
 const THEMES = [
-  { value: 'system', label: 'Automatico' },
-  { value: 'light', label: 'Chiaro' },
-  { value: 'dark', label: 'Scuro' },
+  { value: 'system', label: t('Automatico') },
+  { value: 'light', label: t('Chiaro') },
+  { value: 'dark', label: t('Scuro') },
 ]
 const ROLE_HELP = {
-  viewer: 'Consulta tutto, senza modificare.',
-  editor: 'Modifica i dati e approva le modifiche della scansione.',
-  admin: 'Tutto, compresi utenti e avvisi.',
+  viewer: t('Consulta tutto, senza modificare.'),
+  editor: t('Modifica i dati e approva le modifiche della scansione.'),
+  admin: t('Tutto, compresi utenti e avvisi.'),
 }
 
 /** Stato live: solo pallini e numeri (verde = rispondono, rosso = non rispondono), ognuno porta all'elenco. */
@@ -24,12 +25,12 @@ function StatusChip() {
   const summary = useStatusSummary()
   if (!summary || summary.up + summary.down === 0) return null
   return (
-    <span className="live-chip" aria-label="Stato live dei device con IP di management">
-      <Link to="/devices?reachable=true" className="live-chip__item" title={`${summary.up} rispondono`}>
+    <span className="live-chip" aria-label={t('Stato live dei device con IP di management')}>
+      <Link to="/devices?reachable=true" className="live-chip__item" title={t('{n} rispondono', { n: summary.up })}>
         <span className="live-dot live-dot--up" />{summary.up}
       </Link>
       <Link to="/devices?reachable=false" className={`live-chip__item${summary.down ? ' live-chip__item--down' : ''}`}
-        title={`${summary.down} non rispondono`}>
+        title={t('{n} non rispondono', { n: summary.down })}>
         <span className="live-dot live-dot--down" />{summary.down}
       </Link>
     </span>
@@ -59,11 +60,11 @@ function UserMenu() {
   }, [open])
 
   const signedIn = enabled && user
-  const name = signedIn ? user.full_name || user.username : 'Impostazioni'
+  const name = signedIn ? user.full_name || user.username : t('Impostazioni')
   return (
     <div className="user-menu" ref={boxRef}>
       <button type="button" className="user-menu__button" aria-haspopup="menu" aria-expanded={open}
-        onClick={() => setOpen((v) => !v)} title={signedIn ? `${name} · ${labelOf(ROLES, user.role)}` : 'Impostazioni'}>
+        onClick={() => setOpen((v) => !v)} title={signedIn ? `${name} · ${labelOf(ROLES, user.role)}` : t('Impostazioni')}>
         <span className="user-menu__avatar" aria-hidden="true">{signedIn ? initials(name) : <Icon name="user" />}</span>
         {signedIn && <span className="user-menu__name">{name}</span>}
         <Icon name="down" size={14} />
@@ -78,12 +79,23 @@ function UserMenu() {
             </div>
           )}
           <div className="user-menu__section">
-            <span className="hint">Tema</span>
-            <div className="segmented" role="group" aria-label="Tema">
-              {THEMES.map((t) => (
-                <button key={t.value} type="button" className={`segmented__item${theme === t.value ? ' segmented__item--on' : ''}`}
-                  aria-pressed={theme === t.value} onClick={() => setTheme(t.value)}>
-                  {t.label}
+            <span className="hint">{t('Tema')}</span>
+            <div className="segmented" role="group" aria-label={t('Tema')}>
+              {THEMES.map((option) => (
+                <button key={option.value} type="button" className={`segmented__item${theme === option.value ? ' segmented__item--on' : ''}`}
+                  aria-pressed={theme === option.value} onClick={() => setTheme(option.value)}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="user-menu__section">
+            <span className="hint">{t('Lingua')}</span>
+            <div className="segmented" role="group" aria-label={t('Lingua')}>
+              {LANGUAGES.map((option) => (
+                <button key={option.value} type="button" className={`segmented__item${LANG === option.value ? ' segmented__item--on' : ''}`}
+                  aria-pressed={LANG === option.value} onClick={() => LANG !== option.value && setLang(option.value)}>
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -91,17 +103,17 @@ function UserMenu() {
           <div className="user-menu__sep" />
           {signedIn && (
             <button type="button" role="menuitem" className="user-menu__item" onClick={() => { setOpen(false); setDialog(true) }}>
-              <Icon name="key" /> Cambia password
+              <Icon name="key" /> {t('Cambia password')}
             </button>
           )}
           <a role="menuitem" className="user-menu__item" href="/docs" target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-            <Icon name="open" /> Documentazione API
+            <Icon name="open" /> {t('Documentazione API')}
           </a>
           {signedIn && (
             <>
               <div className="user-menu__sep" />
               <button type="button" role="menuitem" className="user-menu__item user-menu__item--danger" onClick={logout}>
-                <Icon name="logout" /> Esci
+                <Icon name="logout" /> {t('Esci')}
               </button>
             </>
           )}
@@ -127,14 +139,14 @@ export default function Layout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <NavLink to="/" className="brand" aria-label="NetMap, vai alle mappe">
+        <NavLink to="/" className="brand" aria-label={t('NetMap, vai alle mappe')}>
           <span className="brand__mark" aria-hidden="true">
             <span />
             <span />
           </span>
           NetMap
         </NavLink>
-        <nav aria-label="Sezioni">
+        <nav aria-label={t('Sezioni')}>
           {NAV.filter((group) => !group.admin || isAdmin).map((group) => (
             <div key={group.title} className="nav-group">
               <p className="nav-group__title">{group.title}</p>
@@ -145,7 +157,7 @@ export default function Layout() {
                   <NavLink key={to} to={`/${to}`} className="nav-link">
                     {title}
                     {count > 0 && (
-                      <span className="nav-badge" aria-label={`${count} in attesa`}>
+                      <span className="nav-badge" aria-label={t('{n} in attesa', { n: count })}>
                         {count > 999 ? '999+' : count}
                       </span>
                     )}
@@ -162,10 +174,10 @@ export default function Layout() {
             <input
               type="search"
               className="input"
-              placeholder="Cerca device, IP o MAC address"
+              placeholder={t('Cerca device, IP o MAC address')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              aria-label="Cerca device, IP o MAC address"
+              aria-label={t('Cerca device, IP o MAC address')}
             />
           </form>
           <StatusChip />

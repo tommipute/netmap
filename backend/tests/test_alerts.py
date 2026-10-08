@@ -80,3 +80,17 @@ def test_canali_segreti_e_prova(client, monkeypatch):
     res = client.post(f"/api/alert-channels/{channel['id']}/test")
     assert res.status_code == 502 and "404" in res.json()["detail"]
     assert client.get(f"/api/alert-channels/{channel['id']}").json()["last_error"].startswith("Il servizio")
+
+
+def test_avvisi_in_inglese(client, session_factory):
+    create(client, "/alert-channels", {"name": "Teams EN", "type": "webhook", "webhook_url": "https://esempio.test/hook",
+                                       "delay_minutes": 0, "language": "en"})
+    (sw,) = _devices(client, session_factory, ["sw-en"])
+    sent = []
+    fake = lambda ch, subject, text: sent.append((subject, text))  # noqa: E731
+    _set(session_factory, [sw], False, T0)
+    with session_factory() as db:
+        process_alerts(db, now=T0 + timedelta(minutes=95), sender=fake)
+    assert sent == [("NetMap: sw-en not responding", "🔴 sw-en (10.9.0.1) not responding for 2 hours · Sede")]
+    assert client.post("/api/alert-channels", json={"name": "X", "type": "webhook", "webhook_url": "https://x.test",
+                                                    "language": "fr"}).status_code == 422

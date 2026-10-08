@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from './Bits'
 import Modal from './Modal'
+import { t } from '../i18n'
 
 export default function DeviceImportDialog({ onClose, onImported }) {
   const [csvText, setCsvText] = useState('')
@@ -24,7 +25,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
       setCsvText(event.target.result || '')
     }
     reader.onerror = () => {
-      setError('Errore durante la lettura del file.')
+      setError(t('Errore durante la lettura del file.'))
     }
     reader.readAsText(file, 'utf-8')
   }
@@ -36,7 +37,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!csvText.trim()) {
-      setError('Seleziona un file CSV o incolla i dati da importare.')
+      setError(t('Seleziona un file CSV o incolla i dati da importare.'))
       return
     }
     setLoading(true)
@@ -53,7 +54,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
         onImported?.()
       }
     } catch (err) {
-      setError(err.message || 'Errore durante l\'importazione.')
+      setError(err.message || t('Errore durante l\'importazione.'))
     } finally {
       setLoading(false)
     }
@@ -62,19 +63,19 @@ export default function DeviceImportDialog({ onClose, onImported }) {
   const hasData = Boolean(csvText.trim())
 
   return (
-    <Modal title="Importa device" wide onClose={onClose}>
+    <Modal title={t('Importa device')} wide onClose={onClose}>
       <form onSubmit={handleSubmit} className="form">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <p className="page-intro" style={{ margin: 0 }}>
-            Importa o aggiorna device con sedi, posizioni, rack, modelli, ruoli e IP di management da un file CSV.
+            {t('Importa o aggiorna device con sedi, posizioni, rack, modelli, ruoli e IP di management da un file CSV.')}
           </p>
           <button
             type="button"
             className="btn btn--sm"
             onClick={handleDownloadTemplate}
-            title="Scarica un file CSV di esempio con le colonne corrette"
+            title={t('Scarica un file CSV di esempio con le colonne corrette')}
           >
-            Scarica modello CSV
+            {t('Scarica modello CSV')}
           </button>
         </div>
 
@@ -82,7 +83,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
 
         {/* Selezione file */}
         <div className="field" style={{ marginBottom: '14px' }}>
-          <label className="field__label">Seleziona file CSV</label>
+          <label className="field__label">{t('Seleziona file CSV')}</label>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input
               ref={fileInputRef}
@@ -96,7 +97,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
               className="btn btn--sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              {fileName ? 'Scegli un altro file...' : 'Sfoglia file...'}
+              {fileName ? t('Scegli un altro file...') : t('Sfoglia file...')}
             </button>
             {fileName && <span className="mono" style={{ fontSize: '13px' }}>{fileName}</span>}
           </div>
@@ -105,9 +106,9 @@ export default function DeviceImportDialog({ onClose, onImported }) {
         {/* Area di testo per incollare o visualizzare il CSV */}
         <div className="field" style={{ marginBottom: '14px' }}>
           <label className="field__label">
-            Anteprima o inserimento manuale CSV
+            {t('Anteprima o inserimento manuale CSV')}
             <span className="hint" style={{ marginLeft: '8px' }}>
-              (separatore virgola o punto e virgola, intestazioni in italiano o inglese)
+              {t('(separatore virgola o punto e virgola, intestazioni in italiano o inglese)')}
             </span>
           </label>
           <textarea
@@ -130,7 +131,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
               checked={updateExisting}
               onChange={(e) => setUpdateExisting(e.target.checked)}
             />
-            <span>Aggiorna i device se già esistenti (stessa sede e nome)</span>
+            <span>{t('Aggiorna i device se già esistenti (stessa sede e nome)')}</span>
           </label>
           <label className="check check--inline">
             <input
@@ -138,7 +139,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
               checked={dryRun}
               onChange={(e) => setDryRun(e.target.checked)}
             />
-            <span>Simulazione (Dry-run, non scrive nel database)</span>
+            <span>{t('Simulazione (Dry-run, non scrive nel database)')}</span>
           </label>
         </div>
 
@@ -154,7 +155,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
             }}
           >
             <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: result.errors.length ? '10px' : 0 }}>
-              <strong>{result.dry_run ? 'Risultato simulazione:' : 'Importazione completata:'}</strong>
+              <strong>{result.dry_run ? t('Risultato simulazione:') : t('Importazione completata:')}</strong>
               <span className="badge badge--ok">{result.created_count} creati</span>
               <span className="badge badge--info">{result.updated_count} aggiornati</span>
               {result.skipped_count > 0 && <span className="badge badge--muted">{result.skipped_count} ignorati</span>}
@@ -174,7 +175,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
 
             {result.errors.length > 0 && (
               <div style={{ marginTop: '12px' }}>
-                <strong style={{ color: 'var(--danger)', fontSize: '13px' }}>Errori riscontrati:</strong>
+                <strong style={{ color: 'var(--danger)', fontSize: '13px' }}>{t('Errori riscontrati:')}</strong>
                 <ul style={{ margin: '6px 0 0 18px', padding: 0, fontSize: '13px', color: 'var(--danger)' }}>
                   {result.errors.map((err, i) => (
                     <li key={i}>
@@ -191,14 +192,14 @@ export default function DeviceImportDialog({ onClose, onImported }) {
 
         <footer className="modal__footer">
           <button type="button" className="btn btn--ghost" onClick={onClose} disabled={loading}>
-            {result && !result.dry_run && (result.created_count > 0 || result.updated_count > 0) ? 'Fatto' : 'Annulla'}
+            {result && !result.dry_run && (result.created_count > 0 || result.updated_count > 0) ? t('Fatto') : t('Annulla')}
           </button>
           <button
             type="submit"
             className="btn btn--primary"
             disabled={!hasData || loading}
           >
-            {loading ? 'Elaborazione in corso...' : dryRun ? 'Esegui simulazione' : 'Avvia importazione'}
+            {loading ? t('Elaborazione in corso...') : dryRun ? t('Esegui simulazione') : t('Avvia importazione')}
           </button>
         </footer>
       </form>

@@ -4,6 +4,7 @@ import { invalidate } from '../hooks'
 import { CABLE_STATUS, CABLE_TYPES } from '../options'
 import InterfacePicker from './InterfacePicker'
 import Modal from './Modal'
+import { t } from '../i18n'
 
 /** Crea un cavo tra due porte. I device possono essere già fissati (es. dalla mappa). */
 export default function CableDialog({ aDeviceId, aInterfaceId, bDeviceId, onClose, onCreated }) {
@@ -18,7 +19,7 @@ export default function CableDialog({ aDeviceId, aInterfaceId, bDeviceId, onClos
   const submit = async (e) => {
     e.preventDefault()
     if (!a || !b) {
-      setError('Scegli una porta per entrambi i lati.')
+      setError(t('Scegli una porta per entrambi i lati.'))
       return
     }
     setSaving(true)
@@ -40,28 +41,28 @@ export default function CableDialog({ aDeviceId, aInterfaceId, bDeviceId, onClos
   }
 
   return (
-    <Modal title="Nuovo collegamento" onClose={onClose}>
+    <Modal title={t('Nuovo collegamento')} onClose={onClose}>
       <form className="form" onSubmit={submit} noValidate>
         <div className="form__grid">
           <div className="field field--wide">
-            <span className="field__label">Lato A</span>
-            <InterfacePicker fixedDeviceId={aDeviceId} value={a} onChange={setA} freeOnly label="Lato A" />
+            <span className="field__label">{t('Lato A')}</span>
+            <InterfacePicker fixedDeviceId={aDeviceId} value={a} onChange={setA} freeOnly label={t('Lato A')} />
           </div>
           <div className="field field--wide">
-            <span className="field__label">Lato B</span>
-            <InterfacePicker fixedDeviceId={bDeviceId} value={b} onChange={setB} freeOnly label="Lato B" />
+            <span className="field__label">{t('Lato B')}</span>
+            <InterfacePicker fixedDeviceId={bDeviceId} value={b} onChange={setB} freeOnly label={t('Lato B')} />
           </div>
           <div className="field">
-            <label className="field__label" htmlFor="cable-type">Tipo cavo</label>
+            <label className="field__label" htmlFor="cable-type">{t('Tipo cavo')}</label>
             <select id="cable-type" className="input" value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="">Non specificato</option>
+              <option value="">{t('Non specificato')}</option>
               {CABLE_TYPES.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label className="field__label" htmlFor="cable-status">Stato</label>
+            <label className="field__label" htmlFor="cable-status">{t('Stato')}</label>
             <select id="cable-status" className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
               {CABLE_STATUS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -69,15 +70,15 @@ export default function CableDialog({ aDeviceId, aInterfaceId, bDeviceId, onClos
             </select>
           </div>
           <div className="field field--wide">
-            <label className="field__label" htmlFor="cable-label">Etichetta</label>
-            <input id="cable-label" className="input" value={label} placeholder="C-0142" onChange={(e) => setLabel(e.target.value)} />
+            <label className="field__label" htmlFor="cable-label">{t('Etichetta')}</label>
+            <input id="cable-label" className="input" value={label} placeholder={t('C-0142')} onChange={(e) => setLabel(e.target.value)} />
           </div>
         </div>
         {error && <p className="form__error" role="alert">{error}</p>}
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Annulla</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('Annulla')}</button>
           <button type="submit" className="btn btn--primary" disabled={saving}>
-            {saving ? 'Salvataggio…' : 'Crea collegamento'}
+            {saving ? t('Salvataggio…') : t('Crea collegamento')}
           </button>
         </div>
       </form>

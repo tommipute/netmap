@@ -14,13 +14,14 @@ import RackPage from './pages/RackPage'
 import ResourcePage from './pages/ResourcePage'
 import SearchPage from './pages/SearchPage'
 import { resources } from './resources'
+import { t } from './i18n'
 
 function NotFound() {
   return (
     <div className="page">
-      <h1>Pagina non trovata</h1>
+      <h1>{t('Pagina non trovata')}</h1>
       <p>
-        Torna alle <Link to="/maps">mappe</Link>.
+        Torna alle <Link to="/maps">{t('mappe')}</Link>.
       </p>
     </div>
   )
@@ -28,7 +29,7 @@ function NotFound() {
 
 export default function App() {
   const { loading, enabled, user, error } = useAuth()
-  if (loading) return <div className="login"><p className="muted">Caricamento…</p></div>
+  if (loading) return <div className="login"><p className="muted">{t('Caricamento…')}</p></div>
   if (error && !user) {
     return (
       <div className="login">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { invalidate } from '../hooks'
 import { IconButton } from './Icon'
+import { t } from '../i18n'
 
 /** Pulsante "Prova" di un canale di avviso: manda un messaggio e dice com'è andata. */
 export default function AlertTestButton({ channel, onDone }) {
@@ -20,9 +21,9 @@ export default function AlertTestButton({ channel, onDone }) {
   }
   return (
     <span className="alert-test" onClick={(e) => e.stopPropagation()}>
-      <IconButton icon="play" label="Manda un messaggio di prova" small disabled={state === 'sending'} onClick={test} />
-      {state === 'ok' && <span className="live">Inviato</span>}
-      {state && state !== 'ok' && state !== 'sending' && <span className="live live--down" title={state}>Non inviato</span>}
+      <IconButton icon="play" label={t('Manda un messaggio di prova')} small disabled={state === 'sending'} onClick={test} />
+      {state === 'ok' && <span className="live">{t('Inviato')}</span>}
+      {state && state !== 'ok' && state !== 'sending' && <span className="live live--down" title={state}>{t('Non inviato')}</span>}
     </span>
   )
 }

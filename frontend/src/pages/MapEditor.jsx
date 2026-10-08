@@ -30,6 +30,7 @@ import MapSearch from '../map/MapSearch'
 import RackNode from '../map/RackNode'
 import { X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
+import { t } from '../i18n'
 
 const nodeTypes = { device: DeviceNode, rack: RackNode }
 const edgeTypes = { cable: CableEdge }
@@ -197,11 +198,11 @@ function Legend({ edges, nodes, racks, vlan }) {
   return (
     <div className="map-legend">
       {vlan && <span className="map-legend__item"><span className="map-legend__line map-legend__line--vlan" />VLAN {vlan.vid} {vlan.name}</span>}
-      {racks && <span className="map-legend__item"><span className="map-legend__rack" />Rack</span>}
+      {racks && <span className="map-legend__item"><span className="map-legend__rack" />{t('Rack')}</span>}
       {live && (
         <>
-          <span className="map-legend__item"><span className="live-dot live-dot--up" />Risponde</span>
-          <span className="map-legend__item"><span className="live-dot live-dot--down" />Non risponde</span>
+          <span className="map-legend__item"><span className="live-dot live-dot--up" />{t('Risponde')}</span>
+          <span className="map-legend__item"><span className="live-dot live-dot--down" />{t('Non risponde')}</span>
         </>
       )}
       {types.map((type) => {
@@ -216,7 +217,7 @@ function Legend({ edges, nodes, racks, vlan }) {
       {planned && (
         <span className="map-legend__item">
           <span className="map-legend__line map-legend__line--dashed" />
-          Pianificato
+          {t('Pianificato')}
         </span>
       )}
     </div>
@@ -480,7 +481,7 @@ function Editor() {
   }
 
   const deleteCable = async (cable) => {
-    if (!window.confirm('Eliminare questo cavo? Il collegamento sparirà anche dalle schede dei device.')) return
+    if (!window.confirm(t('Eliminare questo cavo? Il collegamento sparirà anche dalle schede dei device.'))) return
     try {
       await api.del(`/cables/${cable.id}`)
       invalidate()
@@ -516,7 +517,7 @@ function Editor() {
       const dataUrl = format === 'svg' ? await toSvg(element, options) : await toPng(element, { ...options, pixelRatio: 2 })
       download(dataUrl, `${view.map.name}.${format}`)
     } catch (err) {
-      setError(`Esportazione non riuscita: ${err.message || err}`)
+      setError(t('Esportazione non riuscita: {error}', { error: err.message || err }))
     }
   }
 
@@ -546,7 +547,7 @@ function Editor() {
   if (!view) {
     return (
       <div className="map-page">
-        <div className="map-message">{error ? <p className="error-box">{error}</p> : <p className="muted">Caricamento mappa…</p>}</div>
+        <div className="map-message">{error ? <p className="error-box">{error}</p> : <p className="muted">{t('Caricamento mappa…')}</p>}</div>
       </div>
     )
   }
@@ -559,7 +560,7 @@ function Editor() {
     <div className="map-page">
       <div className="map-toolbar">
         <div className="map-toolbar__title">
-          <Link to="/maps" className="crumbs">Mappe</Link>
+          <Link to="/maps" className="crumbs">{t('Mappe')}</Link>
           <h1>{view.map.name}</h1>
           <span className="muted">
             <RefLabel resource="sites" id={view.map.site_id} />
@@ -575,20 +576,20 @@ function Editor() {
           {liveCount(view.nodes)}
           {view.nodes.length > 0 && <MapSearch nodes={view.nodes} onPick={showFound} />}
           {view.vlans.length > 0 && (
-            <select className="input input--sm" value={vlanId ?? ''} aria-label="Evidenzia una VLAN"
+            <select className="input input--sm" value={vlanId ?? ''} aria-label={t('Evidenzia una VLAN')}
               onChange={(e) => {
                 setSelection(null)
                 setVlanId(e.target.value ? Number(e.target.value) : null)
               }}>
-              <option value="">Tutte le VLAN</option>
+              <option value="">{t('Tutte le VLAN')}</option>
               {view.vlans.map((v) => (
                 <option key={v.id} value={v.id}>VLAN {v.vid} · {v.name}</option>
               ))}
             </select>
           )}
           {canEdit && !view.map.auto_include && view.available.length > 0 && (
-            <select className="input input--sm" value="" onChange={(e) => e.target.value && addDevice(Number(e.target.value))} aria-label="Aggiungi un device alla mappa">
-              <option value="">Aggiungi device…</option>
+            <select className="input input--sm" value="" onChange={(e) => e.target.value && addDevice(Number(e.target.value))} aria-label={t('Aggiungi un device alla mappa')}>
+              <option value="">{t('Aggiungi device…')}</option>
               {view.available.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
@@ -596,19 +597,19 @@ function Editor() {
           )}
           <label className="check check--inline">
             <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
-            Nomi delle porte
+            {t('Nomi delle porte')}
           </label>
-          <select className="input input--sm" value="" onChange={(e) => exportAs(e.target.value)} aria-label="Esporta o stampa la mappa"
+          <select className="input input--sm" value="" onChange={(e) => exportAs(e.target.value)} aria-label={t('Esporta o stampa la mappa')}
             disabled={view.nodes.length === 0}>
-            <option value="">Esporta…</option>
-            <option value="png">Immagine PNG</option>
-            <option value="svg">Disegno SVG</option>
-            <option value="print">Stampa o PDF</option>
+            <option value="">{t('Esporta…')}</option>
+            <option value="png">{t('Immagine PNG')}</option>
+            <option value="svg">{t('Disegno SVG')}</option>
+            <option value="print">{t('Stampa o PDF')}</option>
           </select>
           {canEdit && (
             <>
-              <IconButton icon="layout" label="Disponi automaticamente" small onClick={arrange} disabled={view.nodes.length === 0} />
-              <IconButton icon="save" label={saving ? 'Salvataggio…' : dirty ? 'Salva disposizione' : 'Disposizione salvata'} small
+              <IconButton icon="layout" label={t('Disponi automaticamente')} small onClick={arrange} disabled={view.nodes.length === 0} />
+              <IconButton icon="save" label={saving ? t('Salvataggio…') : dirty ? t('Salva disposizione') : t('Disposizione salvata')} small
                 className="btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
                 {dirty && <span className="btn__dot" aria-hidden="true" />}
               </IconButton>
@@ -647,7 +648,7 @@ function Editor() {
           </Panel>
           {canEdit && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">
-              Per collegare due device passa sopra uno dei due e trascina da un suo pallino all'altro.
+              {t("Per collegare due device passa sopra uno dei due e trascina da un suo pallino all'altro.")}
             </Panel>
           )}
         </ReactFlow>
@@ -656,39 +657,39 @@ function Editor() {
           <div className="map-message">
             {view.map.auto_include ? (
               <p>
-                In questa sede non ci sono ancora device. <Link to="/devices">Aggiungine uno</Link> e torna qui.
+                In questa sede non ci sono ancora device. <Link to="/devices">{t('Aggiungine uno')}</Link> e torna qui.
               </p>
             ) : (
-              <p>La mappa è vuota: scegli i device da "Aggiungi device…" in alto.</p>
+              <p>{t('La mappa è vuota: scegli i device da "Aggiungi device…" in alto.')}</p>
             )}
           </div>
         )}
 
         {selectedNode && (
-          <aside className="map-panel" aria-label="Dettagli device">
-            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label="Chiudi dettagli">×</button>
+          <aside className="map-panel" aria-label={t('Dettagli device')}>
+            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label={t('Chiudi dettagli')}>{t('×')}</button>
             <h2>{selectedNode.name}</h2>
-            {selection.found && <p className="map-found"><span className="muted">Trovato:</span> <span className="mono">{selection.found}</span></p>}
+            {selection.found && <p className="map-found"><span className="muted">{t('Trovato:')}</span> <span className="mono">{selection.found}</span></p>}
             <dl className="facts facts--stack">
-              <div><dt>Ruolo</dt><dd>{selectedNode.role || '—'}</dd></div>
-              <div><dt>Stato</dt><dd><Badge value={selectedNode.status} options={DEVICE_STATUS} /></dd></div>
-              <div><dt>IP di management</dt><dd className="mono">{selectedNode.primary_ip || '—'}</dd></div>
+              <div><dt>{t('Ruolo')}</dt><dd>{selectedNode.role || '—'}</dd></div>
+              <div><dt>{t('Stato')}</dt><dd><Badge value={selectedNode.status} options={DEVICE_STATUS} /></dd></div>
+              <div><dt>{t('IP di management')}</dt><dd className="mono">{selectedNode.primary_ip || '—'}</dd></div>
               {selectedNode.primary_ip && (
                 <div>
-                  <dt>Stato live</dt>
-                  <dd>{selectedNode.reachable === null ? <span className="muted">Non ancora controllato</span> : <LiveStatus device={selectedNode} long />}</dd>
+                  <dt>{t('Stato live')}</dt>
+                  <dd>{selectedNode.reachable === null ? <span className="muted">{t('Non ancora controllato')}</span> : <LiveStatus device={selectedNode} long />}</dd>
                 </div>
               )}
-              <div><dt>Collegamenti in mappa</dt><dd>{view.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}</dd></div>
+              <div><dt>{t('Collegamenti in mappa')}</dt><dd>{view.edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length}</dd></div>
             </dl>
             <div className="map-panel__actions">
-              <IconLink icon="open" label="Apri scheda del device" small className="btn--primary" to={`/devices/${selectedNode.id}`} />
+              <IconLink icon="open" label={t('Apri scheda del device')} small className="btn--primary" to={`/devices/${selectedNode.id}`} />
               {canEdit && selectedNode.primary_ip && (
-                <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : 'Controlla ora (ping e SNMP)'} small
+                <IconButton icon="refresh" label={checking ? t('Controllo in corso…') : t('Controlla ora (ping e SNMP)')} small
                   className={checking ? 'is-spinning' : ''} disabled={checking} onClick={() => checkNow(selectedNode.id)} />
               )}
               {canEdit && !view.map.auto_include && (
-                <IconButton icon="eyeOff" label="Togli dalla mappa (il device resta)" small className="btn--ghost"
+                <IconButton icon="eyeOff" label={t('Togli dalla mappa (il device resta)')} small className="btn--ghost"
                   onClick={() => removeFromMap(selectedNode.id)} />
               )}
             </div>
@@ -696,33 +697,32 @@ function Editor() {
         )}
 
         {selectedEdge && (
-          <aside className="map-panel" aria-label="Dettagli collegamento">
-            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label="Chiudi dettagli">×</button>
-            <h2>Collegamento</h2>
-            {selection.found && <p className="map-found"><span className="muted">Trovato:</span> <span className="mono">{selection.found}</span></p>}
+          <aside className="map-panel" aria-label={t('Dettagli collegamento')}>
+            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label={t('Chiudi dettagli')}>{t('×')}</button>
+            <h2>{t('Collegamento')}</h2>
+            {selection.found && <p className="map-found"><span className="muted">{t('Trovato:')}</span> <span className="mono">{selection.found}</span></p>}
             <p className="cable-ends">
               <Link to={`/devices/${selectedEdge.source}`}>{nameOf[selectedEdge.source]}</Link> <span className="mono">{selectedEdge.source_interface}</span>
               <span className="cable-ends__line" style={{ background: cableStyle(selectedEdge.type).color }} aria-hidden="true" />
               <Link to={`/devices/${selectedEdge.target}`}>{nameOf[selectedEdge.target]}</Link> <span className="mono">{selectedEdge.target_interface}</span>
             </p>
             <dl className="facts facts--stack">
-              <div><dt>Tipo</dt><dd>{selectedEdge.type ? labelOf(CABLE_TYPES, selectedEdge.type) : 'Non indicato'}</dd></div>
-              <div><dt>Stato</dt><dd>{labelOf(CABLE_STATUS, selectedEdge.status)}</dd></div>
-              <div><dt>Velocità porta</dt><dd>{formatSpeed(selectedEdge.speed_mbps)}</dd></div>
+              <div><dt>{t('Tipo')}</dt><dd>{selectedEdge.type ? labelOf(CABLE_TYPES, selectedEdge.type) : t('Non indicato')}</dd></div>
+              <div><dt>{t('Stato')}</dt><dd>{labelOf(CABLE_STATUS, selectedEdge.status)}</dd></div>
+              <div><dt>{t('Velocità porta')}</dt><dd>{formatSpeed(selectedEdge.speed_mbps)}</dd></div>
             </dl>
             {canEdit && (
               <p className="hint map-panel__hint">
-                Trascina le barrette per spostare i tratti del cavo e i pallini alle estremità per cambiare dove si
-                attacca al device. Poi salva la disposizione.
+                {t('Trascina le barrette per spostare i tratti del cavo e i pallini alle estremità per cambiare dove si attacca al device. Poi salva la disposizione.')}
               </p>
             )}
             {canEdit && (
               <div className="map-panel__actions">
                 {routes[selectedEdge.id] && (
-                  <IconButton icon="layout" label="Torna al percorso automatico" small
+                  <IconButton icon="layout" label={t('Torna al percorso automatico')} small
                     onClick={() => changeRoute(selectedEdge.id, false, { reset: true })} />
                 )}
-                <IconButton icon="trash" label="Elimina cavo" small danger className="btn--ghost" onClick={() => deleteCable(selectedEdge)} />
+                <IconButton icon="trash" label={t('Elimina cavo')} small danger className="btn--ghost" onClick={() => deleteCable(selectedEdge)} />
               </div>
             )}
           </aside>
@@ -752,7 +752,7 @@ function liveCount(nodes) {
   return (
     <span className={`map-live${down ? ' map-live--down' : ''}`}>
       <span className={`live-dot live-dot--${down ? 'down' : 'up'}`} />
-      {down ? `${down} su ${checked.length} non rispondono` : `Tutti i ${checked.length} device rispondono`}
+      {down ? t('{down} su {n} non rispondono', { down, n: checked.length }) : t('Tutti i {n} device rispondono', { n: checked.length })}
     </span>
   )
 }

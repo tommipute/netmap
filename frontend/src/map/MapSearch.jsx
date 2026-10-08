@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { t } from '../i18n'
 
-const KIND = { device: 'Device', interface: 'Porta', ip: 'IP', endpoint: 'Collegato' }
+const KIND = { device: t('Device'), interface: t('Porta'), ip: 'IP', endpoint: t('Collegato') }
 
 /**
  * Ricerca nella mappa: nome o IP di management dei device in mappa (subito), poi MAC, IP e "dov'è collegato"
@@ -68,8 +69,8 @@ export default function MapSearch({ nodes, onPick }) {
       <input
         type="search"
         className="input input--sm"
-        placeholder="Cerca nella mappa: nome, IP, MAC"
-        aria-label="Cerca nella mappa"
+        placeholder={t('Cerca nella mappa: nome, IP, MAC')}
+        aria-label={t('Cerca nella mappa')}
         role="combobox"
         aria-expanded={open && results.length > 0}
         value={q}
@@ -94,7 +95,7 @@ export default function MapSearch({ nodes, onPick }) {
               </button>
             </li>
           ))}
-          {results.length === 0 && <li className="combo__more hint">{term.length < 2 ? 'Scrivi ancora…' : 'Niente in questa mappa'}</li>}
+          {results.length === 0 && <li className="combo__more hint">{term.length < 2 ? t('Scrivi ancora…') : t('Niente in questa mappa')}</li>}
         </ul>
       )}
     </div>

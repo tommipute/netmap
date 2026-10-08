@@ -8,6 +8,7 @@ import Modal from '../components/Modal'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi, useOptions } from '../hooks'
+import { t } from '../i18n'
 
 const UNIT_PX = 26
 const DRAG_THRESHOLD = 5 // px: sotto è un clic (apre il device), sopra è un trascinamento
@@ -49,7 +50,7 @@ function Elevation({ view, canEdit, drag, onDragStart, onEmptyUnit, bayRef }) {
   const row = (unit) => view.u_height - unit + 1 // riga della griglia (dall'alto) dell'unità
   return (
     <div className="rack" style={{ '--units': view.u_height, '--unit': `${UNIT_PX}px` }} role="img"
-      aria-label={`Rack ${view.name}, ${view.u_height} unità, ${view.used_units} occupate`}>
+      aria-label={t('Rack {name}, {n} unità, {used} occupate', { name: view.name, n: view.u_height, used: view.used_units })}>
       <ol className="rack__scale" aria-hidden="true">
         {units.map((u) => <li key={u}>{u}</li>)}
       </ol>
@@ -57,7 +58,7 @@ function Elevation({ view, canEdit, drag, onDragStart, onEmptyUnit, bayRef }) {
         {units.map((u) =>
           canEdit && !used[u] ? (
             <button key={u} type="button" className="rack__slot rack__slot--free" style={{ gridRow: row(u) }}
-              title={`U${u} libera: aggiungi un device qui`} aria-label={`Aggiungi un device nell'unità ${u}`}
+              title={t('U{u} libera: aggiungi un device qui', { u })} aria-label={t("Aggiungi un device nell'unità {u}", { u })}
               onClick={() => onEmptyUnit(u)} />
           ) : (
             <div key={u} className="rack__slot" style={{ gridRow: row(u) }} />
@@ -73,7 +74,7 @@ function Elevation({ view, canEdit, drag, onDragStart, onEmptyUnit, bayRef }) {
             <Link key={keyOf(d)} to={`/devices/${d.id}`}
               className={`rack__device${d.conflict ? ' rack__device--conflict' : ''}${d.status !== 'active' ? ' rack__device--inactive' : ''}${canEdit ? ' rack__device--movable' : ''}${moving ? ' rack__device--moving' : ''}`}
               style={{ gridRow: `${top} / span ${span}`, '--role': d.color }}
-              title={`${nameOf(d)} · U${d.position}${d.u_height > 1 ? `–${d.position + d.u_height - 1}` : ''}${d.conflict ? ' · si sovrappone a un altro device' : ''}${canEdit ? ' · trascina per spostarlo' : ''}`}
+              title={`${nameOf(d)} · U${d.position}${d.u_height > 1 ? `–${d.position + d.u_height - 1}` : ''}${d.conflict ? ` · ${t('si sovrappone a un altro device')}` : ''}${canEdit ? ` · ${t('trascina per spostarlo')}` : ''}`}
               onPointerDown={canEdit ? (e) => onDragStart(e, d) : undefined}
               draggable={false}>
               {d.reachable !== null && <span className={`live-dot live-dot--${d.reachable ? 'up' : 'down'}`} />}
@@ -105,18 +106,18 @@ function AddDeviceDialog({ rack, view, unit, onClose, onDone }) {
   const placed = new Set(view.devices.filter((d) => !d.member_id).map((d) => d.id))
   const candidates = (data?.items || []).filter((d) => !placed.has(d.id))
   const chosen = candidates.find((d) => d.id === Number(deviceId))
-  const height = Math.max(1, types.find((t) => t.id === chosen?.device_type_id)?.u_height || 1)
+  const height = Math.max(1, types.find((dt) => dt.id === chosen?.device_type_id)?.u_height || 1)
 
   const submit = async (e) => {
     e.preventDefault()
     e.stopPropagation()
     if (!chosen) {
-      setError('Scegli il device.')
+      setError(t('Scegli il device.'))
       return
     }
     const pos = position === '' ? null : Number(position)
     if (pos !== null && !fits(view, pos, height, `${chosen.id}-0`)) {
-      setError(`Le unità U${pos}${height > 1 ? `–${pos + height - 1}` : ''} non sono libere (o escono dal rack).`)
+      setError(t('Le unità {units} non sono libere (o escono dal rack).', { units: `U${pos}${height > 1 ? `–${pos + height - 1}` : ''}` }))
       return
     }
     setSaving(true)
@@ -130,34 +131,34 @@ function AddDeviceDialog({ rack, view, unit, onClose, onDone }) {
   }
 
   return (
-    <Modal title="Aggiungi un device al rack" onClose={onClose}>
+    <Modal title={t('Aggiungi un device al rack')} onClose={onClose}>
       <form className="form" onSubmit={submit} noValidate>
         <div className="form__grid">
           <div className="field field--wide">
-            <label className="field__label" htmlFor="add-device">Device <span className="field__req" aria-hidden="true">*</span></label>
+            <label className="field__label" htmlFor="add-device">{t('Device')} <span className="field__req" aria-hidden="true">*</span></label>
             <select id="add-device" className="input" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
-              <option value="">{data ? (candidates.length ? 'Scegli…' : 'Nessun device da aggiungere in questa sede') : 'Caricamento…'}</option>
+              <option value="">{data ? (candidates.length ? t('Scegli…') : t('Nessun device da aggiungere in questa sede')) : t('Caricamento…')}</option>
               {candidates.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name}{d.rack_id === rack.id ? ' (in questo rack, senza unità)' : d.rack_id ? ' (ora in un altro rack)' : ''}
+                  {d.name}{d.rack_id === rack.id ? t(' (in questo rack, senza unità)') : d.rack_id ? t(' (ora in un altro rack)') : ''}
                 </option>
               ))}
             </select>
-            <span className="hint">Solo i device della sede del rack.</span>
+            <span className="hint">{t('Solo i device della sede del rack.')}</span>
           </div>
           <div className="field">
-            <label className="field__label" htmlFor="add-unit">Unità (U)</label>
+            <label className="field__label" htmlFor="add-unit">{t('Unità (U)')}</label>
             <input id="add-unit" type="number" className="input" min={1} max={view.u_height} value={position}
               onChange={(e) => setPosition(e.target.value)} />
             <span className="hint">
-              {chosen ? `Occupa ${height} U, dalla ${position || '…'} in su.` : "L'unità più bassa occupata."} Vuoto: nel rack senza unità.
+              {chosen ? `Occupa ${height} U, dalla ${position || '…'} in su.` : t("L'unità più bassa occupata.")} Vuoto: nel rack senza unità.
             </span>
           </div>
         </div>
         {error && <p className="form__error" role="alert">{error}</p>}
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Annulla</button>
-          <button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Salvataggio…' : 'Aggiungi'}</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('Annulla')}</button>
+          <button type="submit" className="btn btn--primary" disabled={saving}>{saving ? t('Salvataggio…') : t('Aggiungi')}</button>
         </div>
       </form>
     </Modal>
@@ -185,7 +186,7 @@ export default function RackPage() {
   }
 
   const remove = async () => {
-    if (!window.confirm(`Eliminare il rack ${rack.name}? I device restano, senza rack.`)) return
+    if (!window.confirm(t('Eliminare il rack {name}? I device restano, senza rack.', { name: rack.name }))) return
     try {
       await api.del(`/racks/${id}`)
       invalidate()
@@ -264,7 +265,7 @@ export default function RackPage() {
   }
 
   const takeOut = async (item) => {
-    const what = item.member_id ? `Togliere l'unità al membro ${item.member} di ${item.name}?` : `Togliere ${item.name} dal rack?`
+    const what = item.member_id ? t("Togliere l'unità al membro {n} di {name}?", { n: item.member, name: item.name }) : t('Togliere {name} dal rack?', { name: item.name })
     if (!window.confirm(what)) return
     try {
       setActionError(null)
@@ -293,21 +294,21 @@ export default function RackPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="crumbs"><Link to="/racks">Rack</Link></p>
+          <p className="crumbs"><Link to="/racks">{t('Rack')}</Link></p>
           <h1>{rack.name}</h1>
           <p className="page-intro">
             <RefLabel resource="sites" id={rack.site_id} />
             {rack.location_id && <>, <RefLabel resource="locations" id={rack.location_id} /></>}
-            {view && ` · ${view.used_units} di ${view.u_height} U occupate`}
+            {view && ` · ${t('{used} di {n} U occupate', { used: view.used_units, n: view.u_height })}`}
           </p>
         </div>
         <div className="page-head__actions">
-          <IconButton icon="print" label="Stampa il rack" onClick={() => window.print()} />
+          <IconButton icon="print" label={t('Stampa il rack')} onClick={() => window.print()} />
           {canEdit && view && (
-            <IconButton icon="plus" label="Aggiungi un device al rack" className="btn--primary" onClick={() => setAdding({ unit: null })} />
+            <IconButton icon="plus" label={t('Aggiungi un device al rack')} className="btn--primary" onClick={() => setAdding({ unit: null })} />
           )}
-          {canEdit && <IconButton icon="edit" label="Modifica rack" onClick={() => setEditing(true)} />}
-          {canEdit && <IconButton icon="trash" label="Elimina rack" danger className="btn--ghost" onClick={remove} />}
+          {canEdit && <IconButton icon="edit" label={t('Modifica rack')} onClick={() => setEditing(true)} />}
+          {canEdit && <IconButton icon="trash" label={t('Elimina rack')} danger className="btn--ghost" onClick={remove} />}
         </div>
       </header>
 
@@ -319,8 +320,7 @@ export default function RackPage() {
       )}
       {canEdit && view && (
         <p className="hint rack-hint no-print">
-          Trascina un device per cambiargli unità (anche in "Nel rack senza unità" per togliergliela); clicca un'unità
-          libera per aggiungerne uno.
+          {t('Trascina un device per cambiargli unità (anche in "Nel rack senza unità" per togliergliela); clicca un\'unità libera per aggiungerne uno.')}
         </p>
       )}
 
@@ -330,20 +330,20 @@ export default function RackPage() {
             onEmptyUnit={(unit) => setAdding({ unit })} />
           <div className="rack-side">
             <section className={`section rack-unplaced${drag?.overList ? ' rack-unplaced--drop' : ''}`} ref={listRef}>
-              <h2>Nel rack senza unità</h2>
+              <h2>{t('Nel rack senza unità')}</h2>
               {unplaced.length === 0 ? (
                 <p className="muted">
-                  {drag?.item.position ? "Lascia qui il device per togliergli l'unità." : 'Nessuno: tutti i device hanno la loro posizione.'}
+                  {drag?.item.position ? t("Lascia qui il device per togliergli l'unità.") : t('Nessuno: tutti i device hanno la loro posizione.')}
                 </p>
               ) : (
                 <ul className="results">
                   {unplaced.map((d) => (
                     <li key={keyOf(d)} className={canEdit ? 'rack-unplaced__item' : ''}
                       onPointerDown={canEdit ? (e) => startDrag(e, d) : undefined}
-                      title={canEdit ? "Trascinalo nel rack, sull'unità giusta" : undefined}>
+                      title={canEdit ? t("Trascinalo nel rack, sull'unità giusta") : undefined}>
                       <Link to={`/devices/${d.id}`} draggable={false}>{nameOf(d)}</Link>
                       <span className="results__detail">
-                        {d.position ? `U${d.position}: oltre l'altezza del rack` : "manca l'unità"}
+                        {d.position ? t("U{u}: oltre l'altezza del rack", { u: d.position }) : t("manca l'unità")}
                       </span>
                     </li>
                   ))}
@@ -351,9 +351,9 @@ export default function RackPage() {
               )}
             </section>
             <section className="section">
-              <h2>Device</h2>
+              <h2>{t('Device')}</h2>
               {view.devices.length === 0 ? (
-                <p className="muted">Nessun device in questo rack.{canEdit ? " Aggiungine uno con il +, o cliccando un'unità." : ''}</p>
+                <p className="muted">{t('Nessun device in questo rack.')}{canEdit ? ` ${t("Aggiungine uno con il +, o cliccando un'unità.")}` : ''}</p>
               ) : (
                 <ul className="results">
                   {[...view.devices].sort((a, b) => b.position - a.position).map((d) => (
@@ -363,7 +363,7 @@ export default function RackPage() {
                       <span className="results__detail">{d.face_label || d.role || ''}</span>
                       <LiveStatus device={d} />
                       {canEdit && (
-                        <IconButton icon="close" label={d.member_id ? `Togli l'unità al membro ${d.member}` : `Togli ${d.name} dal rack`}
+                        <IconButton icon="close" label={d.member_id ? t("Togli l'unità al membro {n}", { n: d.member }) : t('Togli {name} dal rack', { name: d.name })}
                           small className="btn--ghost results__action no-print" onClick={() => takeOut(d)} />
                       )}
                     </li>
@@ -379,7 +379,7 @@ export default function RackPage() {
         <div className="rack-ghost" style={{ left: drag.x + 14, top: drag.y + 10 }} aria-hidden="true">
           {nameOf(drag.item)}
           <span className="muted">
-            {drag.overList ? ' → senza unità' : drag.target ? (drag.target.ok ? ` → U${drag.target.position}` : ' → occupato') : ''}
+            {drag.overList ? t(' → senza unità') : drag.target ? (drag.target.ok ? ` → U${drag.target.position}` : t(' → occupato')) : ''}
           </span>
         </div>
       )}

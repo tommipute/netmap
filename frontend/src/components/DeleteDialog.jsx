@@ -3,6 +3,7 @@ import { api, qs } from '../api'
 import { invalidate } from '../hooks'
 import { resources } from '../resources'
 import Modal from './Modal'
+import { t } from '../i18n'
 
 /**
  * Conferma di eliminazione con le opzioni della risorsa (config.deleteOptions, es. per i device "elimina anche
@@ -31,11 +32,11 @@ export default function DeleteDialog({ resourceKey, items, note, onClose, onDone
   }
 
   return (
-    <Modal title={one ? `Eliminare ${config.label(items[0])}?` : `Eliminare ${items.length} elementi?`} onClose={onClose}>
+    <Modal title={one ? t('Eliminare {name}?', { name: config.label(items[0]) }) : t('Eliminare {n} elementi?', { n: items.length })} onClose={onClose}>
       <div className="form">
         {note && <p>{note}</p>}
         {!one && (
-          <p className="hint">{items.slice(0, 8).map((item) => config.label(item)).join(', ')}{items.length > 8 ? ` e altri ${items.length - 8}` : ''}</p>
+          <p className="hint">{items.slice(0, 8).map((item) => config.label(item)).join(', ')}{items.length > 8 ? ` ${t('e altri {n}', { n: items.length - 8 })}` : ''}</p>
         )}
         {options.map((o) => (
           <div key={o.name} className="field field--wide">
@@ -47,11 +48,11 @@ export default function DeleteDialog({ resourceKey, items, note, onClose, onDone
             {o.help && <span className="hint">{o.help}</span>}
           </div>
         ))}
-        <p className="hint">Non si può annullare.</p>
+        <p className="hint">{t('Non si può annullare.')}</p>
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose} disabled={progress !== null}>Annulla</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose} disabled={progress !== null}>{t('Annulla')}</button>
           <button type="button" className="btn btn--primary btn--danger-fill" onClick={submit} disabled={progress !== null}>
-            {progress !== null ? `Elimino ${progress} di ${items.length}…` : 'Elimina'}
+            {progress !== null ? t('Elimino {i} di {n}…', { i: progress, n: items.length }) : t('Elimina')}
           </button>
         </div>
       </div>

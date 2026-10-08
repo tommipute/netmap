@@ -1,6 +1,8 @@
 from datetime import datetime
 from enum import StrEnum
 
+from typing import Literal
+
 from pydantic import Field
 
 from app.schemas.common import InputSchema, Name, ReadSchema, make_partial
@@ -36,6 +38,7 @@ class AlertChannelBase(InputSchema):
     smtp_from: str | None = Field(None, max_length=255)
     webhook_format: WebhookFormat | None = WebhookFormat.TEXT
     telegram_chat_id: str | None = Field(None, max_length=100)
+    language: Literal["it", "en"] = Field("it", description="Lingua dei messaggi")
     description: str | None = None
     # Solo scrittura (salvati cifrati): assenti = invariati, vuoti = cancellati
     smtp_password: str | None = Field(None, max_length=255)
@@ -64,6 +67,7 @@ class AlertChannelRead(ReadSchema):
     smtp_from: str | None = None
     webhook_format: str | None = None
     telegram_chat_id: str | None = None
+    language: str = "it"
     description: str | None = None
     has_secret: bool
     last_sent_at: datetime | None = None

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOptions } from '../hooks'
 import { resources } from '../resources'
 import { IconButton } from './Icon'
+import { t } from '../i18n'
 
 /*
  * Strumenti delle tabelle degli elenchi (ResourcePage):
@@ -14,7 +15,7 @@ import { IconButton } from './Icon'
  */
 
 const EMPTY = '__empty__' // valore dei menu dei filtri per "campo vuoto"
-const BOOL_OPTIONS = [{ value: 'true', label: 'Sì' }, { value: 'false', label: 'No' }]
+const BOOL_OPTIONS = [{ value: 'true', label: t('Sì') }, { value: 'false', label: t('No') }]
 
 const storageKey = (resourceKey) => `netmap.table.${resourceKey}`
 
@@ -79,11 +80,11 @@ export function ColumnsMenu({ layout, save, customized }) {
 
   return (
     <div className="columns-menu" ref={boxRef}>
-      <IconButton icon="columns" label="Colonne della tabella" className={customized ? 'is-on' : ''}
+      <IconButton icon="columns" label={t('Colonne della tabella')} className={customized ? 'is-on' : ''}
         aria-expanded={open} onClick={() => setOpen((v) => !v)} />
       {open && (
-        <div className="columns-menu__panel" role="dialog" aria-label="Colonne della tabella">
-          <p className="columns-menu__title">Colonne</p>
+        <div className="columns-menu__panel" role="dialog" aria-label={t('Colonne della tabella')}>
+          <p className="columns-menu__title">{t('Colonne')}</p>
           <ul>
             {layout.map((l, i) => (
               <li key={l.column.name}>
@@ -91,14 +92,14 @@ export function ColumnsMenu({ layout, save, customized }) {
                   <input type="checkbox" checked={l.visible} onChange={(e) => toggle(i, e.target.checked)} />
                   {l.column.label}
                 </label>
-                <IconButton icon="up" label={`Sposta ${l.column.label} prima`} small className="btn--ghost" disabled={i === 0} onClick={() => move(i, -1)} />
-                <IconButton icon="down" label={`Sposta ${l.column.label} dopo`} small className="btn--ghost" disabled={i === layout.length - 1} onClick={() => move(i, 1)} />
+                <IconButton icon="up" label={t('Sposta {name} prima', { name: l.column.label })} small className="btn--ghost" disabled={i === 0} onClick={() => move(i, -1)} />
+                <IconButton icon="down" label={t('Sposta {name} dopo', { name: l.column.label })} small className="btn--ghost" disabled={i === layout.length - 1} onClick={() => move(i, 1)} />
               </li>
             ))}
           </ul>
           {customized && (
             <div className="columns-menu__footer">
-              <IconButton icon="refresh" label="Torna alle colonne predefinite" small className="btn--ghost" onClick={() => save(null)} />
+              <IconButton icon="refresh" label={t('Torna alle colonne predefinite')} small className="btn--ghost" onClick={() => save(null)} />
             </div>
           )}
         </div>
@@ -152,9 +153,9 @@ function RefFilter({ spec, value, onChange, label }) {
   const config = resources[spec.ref]
   const items = useOptions(config.path)
   return (
-    <select className="input input--sm" value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={`Filtro: ${label}`}>
-      <option value="">Tutti</option>
-      <option value={EMPTY}>(vuoto)</option>
+    <select className="input input--sm" value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={t('Filtro: {name}', { name: label })}>
+      <option value="">{t('Tutti')}</option>
+      <option value={EMPTY}>{t('(vuoto)')}</option>
       {items.map((o) => <option key={o.id} value={o.id}>{config.label(o)}</option>)}
     </select>
   )
@@ -166,15 +167,15 @@ export function ColumnFilter({ column, value, onChange }) {
   if (!spec) return null
   if (spec.kind === 'text') {
     return (
-      <input type="search" className="input input--sm" value={value ?? ''} placeholder="contiene…"
-        aria-label={`Filtro: ${column.label}`} onChange={(e) => onChange(e.target.value)} />
+      <input type="search" className="input input--sm" value={value ?? ''} placeholder={t('contiene…')}
+        aria-label={t('Filtro: {name}', { name: column.label })} onChange={(e) => onChange(e.target.value)} />
     )
   }
   if (spec.kind === 'ref') return <RefFilter spec={spec} value={value} onChange={onChange} label={column.label} />
   return (
-    <select className="input input--sm" value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={`Filtro: ${column.label}`}>
-      <option value="">Tutti</option>
-      {spec.empty !== false && <option value={EMPTY}>{spec.emptyLabel || '(vuoto)'}</option>}
+    <select className="input input--sm" value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-label={t('Filtro: {name}', { name: column.label })}>
+      <option value="">{t('Tutti')}</option>
+      {spec.empty !== false && <option value={EMPTY}>{spec.emptyLabel || t('(vuoto)')}</option>}
       {spec.options.map((o) => <option key={String(o.value)} value={o.value}>{o.label}</option>)}
     </select>
   )

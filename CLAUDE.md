@@ -2,6 +2,8 @@
 
 Rispondi sempre in **italiano**: l'utente lavora nell'IT aziendale (Windows, Docker Desktop) e legge l'inglese
 ma non lo scrive volentieri. Anche i testi dell'interfaccia sono in italiano.
+L'interfaccia è anche in **inglese** (scelta nel menu utente e nella pagina di accesso): ogni testo nuovo va
+scritto in italiano dentro `t()` e tradotto in `frontend/src/i18n/en.js` (sezione "Lingua" qui sotto).
 
 ## Cos'è
 
@@ -16,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (58 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (59 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
@@ -359,6 +361,24 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   tratteggio se pianificati. `deleteKeyCode={null}`: niente cancellazioni accidentali da tastiera.
   `fitView` parte quando tutti i device hanno `measured` (con un timer fisso non scattava a pagina nascosta;
   `useNodesInitialized()` non va bene perché le bolle dei rack hanno già le misure).
+
+### Lingua (`i18n/index.js`, `i18n/en.js`)
+
+- Italiano predefinito, inglese a scelta (localStorage `netmap.lang`; cambiandola la pagina si ricarica, così anche
+  le costanti dei moduli come `resources.jsx` e `options.js` si ricalcolano). Date e numeri con `LOCALE`.
+- **Il testo italiano è la chiave**: `t('Salva modifiche')`, variabili `t('{n} porte', { n })`, plurali
+  `tn(n, '1 modifica', '{n} modifiche')`, stessa parola con traduzioni diverse `tc('ruolo', 'Modifica')` →
+  chiave `'ruolo|Modifica'`. Una frase senza traduzione resta in italiano.
+- Testi che arrivano dal server (errori, riepiloghi e differenze della scansione, nomi dei campi dello storico, log
+  delle scansioni): **il backend resta in italiano**, li traduce il frontend con `tServer()` (frase esatta o uno dei
+  `patterns` di en.js, regex con `$1`...). Per i **dati** (etichette e valori dello storico, dettagli della ricerca)
+  `tData()`: solo i modelli, così un nome come "Primo piano" non viene tradotto. Un messaggio nuovo del backend con
+  nomi o numeri → un modello in `patterns`.
+- Gli avvisi (email, Teams, Telegram) li scrive il server nella lingua del canale (`AlertChannel.language`,
+  `TEXTS` in `services/alerts.py`).
+- Controlli: in sviluppo `window.__netmapMissing` raccoglie le frasi passate a `t()`/`tServer()` senza traduzione;
+  le parole lasciate fuori da `t()` (testo JSX su una riga a sé, template `` `...${x}...` ``) non le vede: quando
+  si aggiunge testo controllare la pagina in inglese.
 
 ### Stile
 

@@ -14,6 +14,7 @@ import { ColumnFilter, ColumnsMenu, filterParams, filterSpec, sortFieldOf, useTa
 import { invalidate, useApi, useDebounced } from '../hooks'
 import { labelOf } from '../options'
 import { resources } from '../resources'
+import { t, tn } from '../i18n'
 
 const LIMIT = 50
 
@@ -30,7 +31,7 @@ function Cell({ column, row }) {
     case 'mono':
       return <Mono>{value}</Mono>
     case 'bool':
-      return value ? 'Sì' : 'No'
+      return value ? t('Sì') : t('No')
     case 'color':
       return <span className="swatch" style={{ background: value }} title={value} />
     default:
@@ -41,12 +42,12 @@ function Cell({ column, row }) {
 function Filter({ filter, value, onChange }) {
   if (filter.ref) {
     return (
-      <RefSelect resource={filter.ref} value={value} onChange={onChange} emptyLabel={`${filter.label}: tutti`} ariaLabel={filter.label} />
+      <RefSelect resource={filter.ref} value={value} onChange={onChange} emptyLabel={t('{name}: tutti', { name: filter.label })} ariaLabel={filter.label} />
     )
   }
   return (
     <select className="input" value={value} onChange={(e) => onChange(e.target.value)} aria-label={filter.label}>
-      <option value="">{filter.label}: tutti</option>
+      <option value="">{t('{name}: tutti', { name: filter.label })}</option>
       {filter.options.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
@@ -143,10 +144,10 @@ export default function ResourcePage({ resourceKey }) {
       setDeleting(chosen)
       return
     }
-    if (!window.confirm(`Eliminare ${chosen.length === 1 ? '1 elemento' : `${chosen.length} elementi`}? Non si può annullare.`)) return
+    if (!window.confirm(tn(chosen.length, 'Eliminare 1 elemento? Non si può annullare.', 'Eliminare {n} elementi? Non si può annullare.'))) return
     const failed = []
     for (let i = 0; i < chosen.length; i++) {
-      setBulkBusy(`Elimino ${i + 1} di ${chosen.length}…`)
+      setBulkBusy(t('Elimino {i} di {n}…', { i: i + 1, n: chosen.length }))
       try {
         await api.del(`/${config.path}/${chosen[i].id}`)
       } catch (err) {
@@ -161,7 +162,7 @@ export default function ResourcePage({ resourceKey }) {
     try {
       const url = `/api/devices/export${qs({ format, q, ...filters, ...columnQuery })}`
       const res = await fetch(url)
-      if (!res.ok) throw new Error("Errore durante l'esportazione dei device")
+      if (!res.ok) throw new Error(t("Errore durante l'esportazione dei device"))
       const blob = await res.blob()
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
@@ -180,7 +181,7 @@ export default function ResourcePage({ resourceKey }) {
       setDeleting([item])
       return
     }
-    if (!window.confirm(`Eliminare "${config.label(item)}"?`)) return
+    if (!window.confirm(t('Eliminare "{name}"?', { name: config.label(item) }))) return
     try {
       await api.del(`/${config.path}/${item.id}`)
       invalidate()
@@ -207,13 +208,13 @@ export default function ResourcePage({ resourceKey }) {
         <div className="page-head__actions">
           {resourceKey === 'devices' && (
             <>
-              <IconButton icon="download" label="Esporta in CSV (si apre con Excel), con i filtri attivi" onClick={() => handleExport('csv')}>
-                <span className="btn__tag">CSV</span>
+              <IconButton icon="download" label={t('Esporta in CSV (si apre con Excel), con i filtri attivi')} onClick={() => handleExport('csv')}>
+                <span className="btn__tag">{t('CSV')}</span>
               </IconButton>
-              <IconButton icon="download" label="Esporta in JSON, con i filtri attivi" onClick={() => handleExport('json')}>
-                <span className="btn__tag">JSON</span>
+              <IconButton icon="download" label={t('Esporta in JSON, con i filtri attivi')} onClick={() => handleExport('json')}>
+                <span className="btn__tag">{t('JSON')}</span>
               </IconButton>
-              {canEdit && <IconButton icon="upload" label="Importa device da un file CSV" onClick={() => setImporting(true)} />}
+              {canEdit && <IconButton icon="upload" label={t('Importa device da un file CSV')} onClick={() => setImporting(true)} />}
             </>
           )}
           {canEdit && (
@@ -226,9 +227,9 @@ export default function ResourcePage({ resourceKey }) {
         <input
           type="search"
           className="input toolbar__search"
-          placeholder="Cerca"
+          placeholder={t('Cerca')}
           value={search}
-          aria-label={`Cerca in ${config.title}`}
+          aria-label={t('Cerca in {name}', { name: config.title })}
           onChange={(e) => {
             setSearch(e.target.value)
             setOffset(0)
@@ -244,33 +245,33 @@ export default function ResourcePage({ resourceKey }) {
         ))}
         <ColumnsMenu layout={layout} save={saveColumns} customized={customized} />
         {columns.some((c) => filterSpec(c)) && (
-          <IconButton icon="filter" label={showColumnFilters ? 'Togli i filtri sulle colonne' : 'Filtri sulle colonne'}
+          <IconButton icon="filter" label={showColumnFilters ? t('Togli i filtri sulle colonne') : t('Filtri sulle colonne')}
             className={showColumnFilters ? 'is-on' : ''} aria-pressed={showColumnFilters} onClick={toggleColumnFilters} />
         )}
         {/* Con una selezione, al posto del conteggio compaiono le azioni: la tabella non si sposta */}
         {canEdit && selected.size > 0 ? (
-          <div className="toolbar__count bulk-actions" role="region" aria-label="Elementi selezionati">
-            <strong>{selected.size === 1 ? '1 selezionato' : `${selected.size} selezionati`}</strong>
+          <div className="toolbar__count bulk-actions" role="region" aria-label={t('Elementi selezionati')}>
+            <strong>{tn(selected.size, '1 selezionato', '{n} selezionati')}</strong>
             {bulkBusy ? (
               <span className="muted">{bulkBusy}</span>
             ) : (
               <>
                 {config.bulkFields && (
-                  <IconButton icon="edit" label="Modifica i selezionati" small onClick={() => setBulkEditing(true)} />
+                  <IconButton icon="edit" label={t('Modifica i selezionati')} small onClick={() => setBulkEditing(true)} />
                 )}
-                <IconButton icon="trash" label="Elimina i selezionati" small danger onClick={removeSelected} />
-                <IconButton icon="close" label="Togli la selezione" small className="btn--ghost" onClick={() => toggleAll(false)} />
+                <IconButton icon="trash" label={t('Elimina i selezionati')} small danger onClick={removeSelected} />
+                <IconButton icon="close" label={t('Togli la selezione')} small className="btn--ghost" onClick={() => toggleAll(false)} />
               </>
             )}
           </div>
         ) : (
-          data && <span className="toolbar__count">{data.total === 1 ? '1 elemento' : `${data.total} elementi`}</span>
+          data && <span className="toolbar__count">{tn(data.total, '1 elemento', '{n} elementi')}</span>
         )}
       </div>
 
       {bulkResult && (
         <div className={`notice${bulkResult.failed.length ? ' notice--warn' : ''}`} role="status">
-          {bulkResult.done === 1 ? '1 elemento' : `${bulkResult.done} elementi`} {bulkResult.verb}.
+          {bulkResult.verb === 'eliminati' ? tn(bulkResult.done, '1 elemento eliminato.', '{n} elementi eliminati.') : tn(bulkResult.done, '1 elemento modificato.', '{n} elementi modificati.')}
           {bulkResult.failed.length > 0 && (
             <>
               {' '}Non riusciti:
@@ -279,7 +280,7 @@ export default function ResourcePage({ resourceKey }) {
               </ul>
             </>
           )}
-          <IconButton icon="close" label="Chiudi il messaggio" small className="btn--ghost notice__close" onClick={() => setBulkResult(null)} />
+          <IconButton icon="close" label={t('Chiudi il messaggio')} small className="btn--ghost notice__close" onClick={() => setBulkResult(null)} />
         </div>
       )}
 
@@ -289,10 +290,10 @@ export default function ResourcePage({ resourceKey }) {
       {data && data.items.length === 0 && !showColumnFilters && (
         <div className="empty">
           {filtered ? (
-            <p>Nessun risultato con questi filtri.</p>
+            <p>{t('Nessun risultato con questi filtri.')}</p>
           ) : (
             <>
-              <p>Non c'è ancora niente qui.</p>
+              <p>{t("Non c'è ancora niente qui.")}</p>
               {canEdit && (
                 <IconButton icon="plus" label={config.newLabel} className="btn--primary" onClick={() => setEditing('new')} />
               )}
@@ -308,7 +309,7 @@ export default function ResourcePage({ resourceKey }) {
               <tr>
                 {canEdit && (
                   <th className="table__select">
-                    <input type="checkbox" checked={allSelected} aria-label="Seleziona tutti quelli della pagina"
+                    <input type="checkbox" checked={allSelected} aria-label={t('Seleziona tutti quelli della pagina')}
                       onChange={(e) => toggleAll(e.target.checked)} />
                   </th>
                 )}
@@ -319,7 +320,7 @@ export default function ResourcePage({ resourceKey }) {
                   return (
                     <th key={c.name} aria-sort={state}>
                       <button type="button" className="th-sort" onClick={() => sortBy(field)}
-                        title={state === 'ascending' ? 'Ordina al contrario' : state === 'descending' ? "Togli l'ordinamento" : `Ordina per ${c.label}`}>
+                        title={state === 'ascending' ? t('Ordina al contrario') : state === 'descending' ? t("Togli l'ordinamento") : t('Ordina per {name}', { name: c.label })}>
                         {c.label}
                         <span className="th-sort__arrow" aria-hidden="true">{state === 'ascending' ? '▲' : state === 'descending' ? '▼' : ''}</span>
                       </button>
@@ -327,7 +328,7 @@ export default function ResourcePage({ resourceKey }) {
                   )
                 })}
                 <th className="table__actions">
-                  <span className="sr-only">Azioni</span>
+                  <span className="sr-only">{t('Azioni')}</span>
                 </th>
               </tr>
               {showColumnFilters && (
@@ -340,7 +341,7 @@ export default function ResourcePage({ resourceKey }) {
                   ))}
                   <th className="table__actions">
                     {columnQueryKey !== '{}' && (
-                      <IconButton icon="close" label="Svuota i filtri sulle colonne" small className="btn--ghost" onClick={() => setColumnFilters({})} />
+                      <IconButton icon="close" label={t('Svuota i filtri sulle colonne')} small className="btn--ghost" onClick={() => setColumnFilters({})} />
                     )}
                   </th>
                 </tr>
@@ -369,8 +370,8 @@ export default function ResourcePage({ resourceKey }) {
                   <td className="table__actions" onClick={(e) => e.stopPropagation()}>
                     {canEdit && (
                       <>
-                        <IconButton icon="edit" label="Modifica" small className="btn--ghost" onClick={() => setEditing(item)} />
-                        <IconButton icon="trash" label="Elimina" small danger className="btn--ghost" onClick={() => remove(item)} />
+                        <IconButton icon="edit" label={t('Modifica')} small className="btn--ghost" onClick={() => setEditing(item)} />
+                        <IconButton icon="trash" label={t('Elimina')} small danger className="btn--ghost" onClick={() => remove(item)} />
                       </>
                     )}
                   </td>
@@ -378,7 +379,7 @@ export default function ResourcePage({ resourceKey }) {
               ))}
               {data.items.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length + (canEdit ? 2 : 1)} className="muted table__none">Nessun risultato con questi filtri.</td>
+                  <td colSpan={columns.length + (canEdit ? 2 : 1)} className="muted table__none">{t('Nessun risultato con questi filtri.')}</td>
                 </tr>
               )}
             </tbody>
@@ -388,11 +389,11 @@ export default function ResourcePage({ resourceKey }) {
 
       {data && data.total > LIMIT && (
         <div className="pager">
-          <IconButton icon="prev" label="Pagina precedente" small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
+          <IconButton icon="prev" label={t('Pagina precedente')} small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
           <span>
             {offset + 1}–{Math.min(offset + LIMIT, data.total)} di {data.total}
           </span>
-          <IconButton icon="next" label="Pagina successiva" small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
+          <IconButton icon="next" label={t('Pagina successiva')} small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
         </div>
       )}
 
@@ -402,7 +403,7 @@ export default function ResourcePage({ resourceKey }) {
 
       {deleting && (
         <DeleteDialog resourceKey={resourceKey} items={deleting} onClose={() => setDeleting(null)}
-          note={resourceKey === 'devices' ? 'Vengono eliminate anche le porte e i cavi collegati.' : null}
+          note={resourceKey === 'devices' ? t('Vengono eliminate anche le porte e i cavi collegati.') : null}
           onDone={(result) => { setDeleting(null); bulkDone(result) }} />
       )}
       {bulkEditing && (

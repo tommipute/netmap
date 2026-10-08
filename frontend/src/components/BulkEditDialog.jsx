@@ -4,6 +4,7 @@ import { invalidate } from '../hooks'
 import { resources } from '../resources'
 import Modal from './Modal'
 import { FieldControl, convert, emptyValue, isEmpty } from './ResourceForm'
+import { t } from '../i18n'
 
 /** Valore comune a tutti gli elementi scelti (undefined se diverso). */
 function common(items, name) {
@@ -46,7 +47,7 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
     for (const f of fields) {
       if (!enabled[f.name]) continue
       if (f.required && isEmpty(values[f.name])) {
-        setError(`Scegli un valore per "${f.label}".`)
+        setError(t('Scegli un valore per "{field}".', { field: f.label }))
         return
       }
       payload[f.name] = convert(f, values[f.name], true)
@@ -56,7 +57,7 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
       if (f.dependsOn && enabled[f.dependsOn] && !enabled[f.name]) payload[f.name] = null
     }
     if (Object.keys(payload).length === 0) {
-      setError('Spunta almeno un campo da cambiare.')
+      setError(t('Spunta almeno un campo da cambiare.'))
       return
     }
     setError(null)
@@ -74,15 +75,15 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
   }
 
   return (
-    <Modal title={`Modifica ${items.length} elementi`} onClose={onClose}>
+    <Modal title={t('Modifica {n} elementi', { n: items.length })} onClose={onClose}>
       <form className="form" onSubmit={submit} noValidate>
-        <p className="hint">Spunta i campi da cambiare: il nuovo valore vale per tutti. Gli altri campi restano com'erano.</p>
+        <p className="hint">{t("Spunta i campi da cambiare: il nuovo valore vale per tutti. Gli altri campi restano com'erano.")}</p>
         <div className="bulk-fields">
           {fields.map((f) => {
             const parent = f.dependsOn ? context[f.dependsOn] : null
             const waiting = f.dependsOn && isEmpty(parent)
             const parentEditable = fields.some((p) => p.name === f.dependsOn)
-            const field = waiting ? { ...f, waitLabel: parentEditable ? 'Prima scegli la sede' : 'Sono di sedi diverse' } : f
+            const field = waiting ? { ...f, waitLabel: parentEditable ? t('Prima scegli la sede') : t('Sono di sedi diverse') } : f
             return (
               <div key={f.name} className={`bulk-field${enabled[f.name] ? ' bulk-field--on' : ''}`}>
                 <label className="check">
@@ -99,9 +100,9 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
         </div>
         {error && <p className="form__error" role="alert">{error}</p>}
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose} disabled={progress !== null}>Annulla</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose} disabled={progress !== null}>{t('Annulla')}</button>
           <button type="submit" className="btn btn--primary" disabled={progress !== null}>
-            {progress !== null ? `Modifico ${progress} di ${items.length}…` : `Modifica ${items.length} elementi`}
+            {progress !== null ? t('Modifico {i} di {n}…', { i: progress, n: items.length }) : t('Modifica {n} elementi', { n: items.length })}
           </button>
         </div>
       </form>

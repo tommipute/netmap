@@ -30,6 +30,8 @@ class AlertChannel(TimestampMixin, Base):
     webhook_format: Mapped[str | None] = mapped_column(String(10))
     # Telegram
     telegram_chat_id: Mapped[str | None] = mapped_column(String(100))
+    # Lingua dei messaggi: it / en (services/alerts.py, TEXTS)
+    language: Mapped[str] = mapped_column(String(2), default="it", server_default="it")
     # Segreto cifrato: password SMTP, indirizzo del webhook (contiene la chiave) o token del bot Telegram
     secret_enc: Mapped[str | None] = mapped_column(Text)
     last_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -67,7 +67,7 @@ LABELS = {
     "part_number": "Codice prodotto", "sys_object_id": "sysObjectID", "auto_include": "Tutti i device",
     "targets": "Indirizzi", "profile_ids": "Profili", "interval_hours": "Ogni quante ore", "community_enc": "Community",
     "auth_key_enc": "Chiave di autenticazione", "secret_enc": "Segreto", "last_sent_at": "Ultimo invio", "priv_key_enc": "Chiave di cifratura", "username": "Utente",
-    "parent_id": "Dentro a", "number": "Numero del membro", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
+    "parent_id": "Dentro a", "number": "Numero del membro", "language": "Lingua", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
 }
 
 # Colonne che puntano ad altri oggetti: nello storico il nome, non l'id

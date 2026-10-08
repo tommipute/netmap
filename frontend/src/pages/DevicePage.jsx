@@ -12,12 +12,13 @@ import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, SOURCES, formatDateTime, formatSpeed, labelOf } from '../options'
+import { t, tn } from '../i18n'
 
 /** Una VLAN come etichetta: numero e nome (es. "10 UFFICI") */
 function VlanTag({ vid, port, native = false }) {
   const name = port.vlan_names?.[vid]
   return (
-    <span className={`vlan-tag${native ? ' vlan-tag--native' : ''}`} title={native ? 'Untagged (nativa)' : name || undefined}>
+    <span className={`vlan-tag${native ? ' vlan-tag--native' : ''}`} title={native ? t('Untagged (nativa)') : name || undefined}>
       <span className="mono">{vid}</span>
       {name && <span className="vlan-tag__name">{name}</span>}
     </span>
@@ -32,10 +33,10 @@ function PortVlans({ port }) {
   if (port.mode === 'trunk') {
     return (
       <div className="vlan-list">
-        <span className="tag">trunk</span>
+        <span className="tag">{t('trunk')}</span>
         {port.untagged_vlan && <VlanTag vid={port.untagged_vlan} port={port} native />}
         {port.tagged_vlans.map((vid) => <VlanTag key={vid} vid={vid} port={port} />)}
-        {port.tagged_vlans.length === 0 && <span className="muted">nessuna tagged</span>}
+        {port.tagged_vlans.length === 0 && <span className="muted">{t('nessuna tagged')}</span>}
       </div>
     )
   }
@@ -75,7 +76,7 @@ function EditPort({ portId, onClose, onSaved }) {
 /** Switch dello stack: un device con più membri (seriale, modello, unità nel rack di ognuno). */
 function StackSection({ device, members, canEdit, onAdd, onEdit, onChanged }) {
   const remove = async (m) => {
-    if (!window.confirm(`Togliere il membro ${m.number} dallo stack? Le porte restano.`)) return
+    if (!window.confirm(t('Togliere il membro {n} dallo stack? Le porte restano.', { n: m.number }))) return
     try {
       await api.del(`/stack-members/${m.id}`)
       onChanged()
@@ -91,7 +92,7 @@ function StackSection({ device, members, canEdit, onAdd, onEdit, onChanged }) {
         </h2>
         {canEdit && (
           <div className="page-head__actions">
-            <IconButton icon="plus" label="Aggiungi un membro dello stack" small className="btn--primary" onClick={onAdd} />
+            <IconButton icon="plus" label={t('Aggiungi un membro dello stack')} small className="btn--primary" onClick={onAdd} />
           </div>
         )}
       </header>
@@ -99,12 +100,12 @@ function StackSection({ device, members, canEdit, onAdd, onEdit, onChanged }) {
         <table className="table table--dense">
           <thead>
             <tr>
-              <th>Membro</th>
-              <th>Modello</th>
-              <th>Numero di serie</th>
-              <th>Unità</th>
-              <th>Note</th>
-              <th className="table__actions"><span className="sr-only">Azioni</span></th>
+              <th>{t('Membro')}</th>
+              <th>{t('Modello')}</th>
+              <th>{t('Numero di serie')}</th>
+              <th>{t('Unità')}</th>
+              <th>{t('Note')}</th>
+              <th className="table__actions"><span className="sr-only">{t('Azioni')}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -120,8 +121,8 @@ function StackSection({ device, members, canEdit, onAdd, onEdit, onChanged }) {
                 <td className="table__actions">
                   {canEdit && (
                     <>
-                      <IconButton icon="edit" label={`Modifica il membro ${m.number}`} small className="btn--ghost" onClick={() => onEdit(m)} />
-                      <IconButton icon="trash" label={`Togli il membro ${m.number}`} small danger className="btn--ghost" onClick={() => remove(m)} />
+                      <IconButton icon="edit" label={t('Modifica il membro {n}', { n: m.number })} small className="btn--ghost" onClick={() => onEdit(m)} />
+                      <IconButton icon="trash" label={t('Togli il membro {n}', { n: m.number })} small danger className="btn--ghost" onClick={() => remove(m)} />
                     </>
                   )}
                 </td>
@@ -142,11 +143,11 @@ function DeviceHistory({ deviceId }) {
     <section className="section no-print">
       <header className="section__head">
         <h2>
-          Storico <span className="section__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>
+          {t('Storico')} <span className="section__count">{tn(data.total, '1 modifica', '{n} modifiche')}</span>
         </h2>
         {data.total > data.items.length && (
           <div className="page-head__actions">
-            <Link className="btn btn--sm btn--ghost" to={`/history?device_id=${deviceId}`}>Tutto lo storico</Link>
+            <Link className="btn btn--sm btn--ghost" to={`/history?device_id=${deviceId}`}>{t('Tutto lo storico')}</Link>
           </div>
         )}
       </header>
@@ -211,44 +212,44 @@ export default function DevicePage() {
       <header className="page-head">
         <div>
           <p className="crumbs">
-            <Link to="/devices">Device</Link>
+            <Link to="/devices">{t('Device')}</Link>
           </p>
           <h1 className="device-title">
             {device.name}
             <Badge value={device.status} options={DEVICE_STATUS} />
           </h1>
           <p className="page-intro">
-            <RefLabel resource="device-roles" id={device.role_id} empty="Nessun ruolo" />
+            <RefLabel resource="device-roles" id={device.role_id} empty={t('Nessun ruolo')} />
             {', '}
-            <RefLabel resource="device-types" id={device.device_type_id} empty="modello non indicato" />
+            <RefLabel resource="device-types" id={device.device_type_id} empty={t('modello non indicato')} />
           </p>
         </div>
         <div className="page-head__actions">
-          <IconButton icon="print" label="Stampa la scheda" onClick={() => window.print()} />
+          <IconButton icon="print" label={t('Stampa la scheda')} onClick={() => window.print()} />
           {canEdit && primary && (
-            <IconButton icon="refresh" label={checking ? 'Controllo in corso…' : "Controlla ora (ping e SNMP sull'IP di management)"}
+            <IconButton icon="refresh" label={checking ? t('Controllo in corso…') : t("Controlla ora (ping e SNMP sull'IP di management)")}
               className={checking ? 'is-spinning' : ''} onClick={checkNow} disabled={checking} />
           )}
           {canEdit && stack?.total === 0 && (
-            <IconButton icon="stack" label="È uno stack: aggiungi i suoi switch" onClick={() => setDialog({ kind: 'member' })} />
+            <IconButton icon="stack" label={t('È uno stack: aggiungi i suoi switch')} onClick={() => setDialog({ kind: 'member' })} />
           )}
-          {canEdit && <IconButton icon="edit" label="Modifica device" onClick={() => setDialog({ kind: 'edit' })} />}
-          {canEdit && <IconButton icon="trash" label="Elimina device" danger className="btn--ghost" onClick={removeDevice} />}
+          {canEdit && <IconButton icon="edit" label={t('Modifica device')} onClick={() => setDialog({ kind: 'edit' })} />}
+          {canEdit && <IconButton icon="trash" label={t('Elimina device')} danger className="btn--ghost" onClick={removeDevice} />}
         </div>
       </header>
 
       {pending?.total > 0 && (
         <p className="notice no-print">
-          La scansione SNMP ha {pending.total === 1 ? '1 modifica' : `${pending.total} modifiche`} da approvare per questo device.{' '}
-          <Link to={`/discovery/changes?device_id=${device.id}`}>Rivedile</Link>
+          {tn(pending.total, 'La scansione SNMP ha 1 modifica da approvare per questo device.', 'La scansione SNMP ha {n} modifiche da approvare per questo device.')}{' '}
+          <Link to={`/discovery/changes?device_id=${device.id}`}>{t('Rivedile')}</Link>
         </p>
       )}
 
       <dl className="facts">
-        <div><dt>Sede</dt><dd><RefLabel resource="sites" id={device.site_id} /></dd></div>
-        <div><dt>Posizione</dt><dd><RefLabel resource="locations" id={device.location_id} /></dd></div>
+        <div><dt>{t('Sede')}</dt><dd><RefLabel resource="sites" id={device.site_id} /></dd></div>
+        <div><dt>{t('Posizione')}</dt><dd><RefLabel resource="locations" id={device.location_id} /></dd></div>
         <div>
-          <dt>Rack</dt>
+          <dt>{t('Rack')}</dt>
           <dd>
             {device.rack_id ? (
               <Link to={`/racks/${device.rack_id}`}><RefLabel resource="racks" id={device.rack_id} /></Link>
@@ -258,30 +259,30 @@ export default function DevicePage() {
             {device.rack_position ? `, U${device.rack_position}` : ''}
           </dd>
         </div>
-        <div><dt>IP di management</dt><dd>{primary ? <Mono>{primary.address}</Mono> : <span className="muted">—</span>}</dd></div>
+        <div><dt>{t('IP di management')}</dt><dd>{primary ? <Mono>{primary.address}</Mono> : <span className="muted">—</span>}</dd></div>
         <div>
-          <dt>Stato live</dt>
+          <dt>{t('Stato live')}</dt>
           <dd>
             {device.reachable === null ? (
-              <span className="muted">{primary ? 'Non ancora controllato' : 'Serve un IP di management'}</span>
+              <span className="muted">{primary ? t('Non ancora controllato') : t('Serve un IP di management')}</span>
             ) : (
               <LiveStatus device={device} long />
             )}
           </dd>
         </div>
-        <div><dt>Numero di serie</dt><dd><Mono>{device.serial}</Mono></dd></div>
-        <div><dt>Asset tag</dt><dd><Mono>{device.asset_tag}</Mono></dd></div>
-        <div><dt>Origine dati</dt><dd>{labelOf(SOURCES, device.source)}</dd></div>
-        {device.last_seen_at && <div><dt>Ultima scansione</dt><dd>{formatDateTime(device.last_seen_at)}</dd></div>}
-        {device.sys_name && device.sys_name !== device.name && <div><dt>sysName</dt><dd><Mono>{device.sys_name}</Mono></dd></div>}
+        <div><dt>{t('Numero di serie')}</dt><dd><Mono>{device.serial}</Mono></dd></div>
+        <div><dt>{t('Asset tag')}</dt><dd><Mono>{device.asset_tag}</Mono></dd></div>
+        <div><dt>{t('Origine dati')}</dt><dd>{labelOf(SOURCES, device.source)}</dd></div>
+        {device.last_seen_at && <div><dt>{t('Ultima scansione')}</dt><dd>{formatDateTime(device.last_seen_at)}</dd></div>}
+        {device.sys_name && device.sys_name !== device.name && <div><dt>{t('sysName')}</dt><dd><Mono>{device.sys_name}</Mono></dd></div>}
         {customEntries.map(([key, value]) => (
           <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>
         ))}
         {device.sys_descr && (
-          <div className="facts__wide"><dt>Descrizione SNMP</dt><dd className="hint">{device.sys_descr}</dd></div>
+          <div className="facts__wide"><dt>{t('Descrizione SNMP')}</dt><dd className="hint">{device.sys_descr}</dd></div>
         )}
         {device.description && (
-          <div className="facts__wide"><dt>Note</dt><dd>{device.description}</dd></div>
+          <div className="facts__wide"><dt>{t('Note')}</dt><dd>{device.description}</dd></div>
         )}
       </dl>
 
@@ -293,21 +294,21 @@ export default function DevicePage() {
       <section className="section">
         <header className="section__head">
           <h2>
-            Porte
-            {ports && <span className="section__count">{ports.length} porte, {connected} collegate</span>}
+            {t('Porte')}
+            {ports && <span className="section__count">{t('{n} porte, {c} collegate', { n: ports.length, c: connected })}</span>}
           </h2>
           <div className="page-head__actions">
             {ports?.some((p) => p.endpoints > 0) && (
-              <IconLink icon="search" label="Endpoint collegati (dov'è collegato)" small to={`/where?device_id=${device.id}`} />
+              <IconLink icon="search" label={t("Endpoint collegati (dov'è collegato)")} small to={`/where?device_id=${device.id}`} />
             )}
-            {canEdit && <IconButton icon="plusMany" label="Aggiungi porte in blocco (es. Gi1/0/[1-48])" small onClick={() => setDialog({ kind: 'bulk' })} />}
-            {canEdit && <IconButton icon="plus" label="Aggiungi porta" small className="btn--primary" onClick={() => setDialog({ kind: 'port' })} />}
+            {canEdit && <IconButton icon="plusMany" label={t('Aggiungi porte in blocco (es. Gi1/0/[1-48])')} small onClick={() => setDialog({ kind: 'bulk' })} />}
+            {canEdit && <IconButton icon="plus" label={t('Aggiungi porta')} small className="btn--primary" onClick={() => setDialog({ kind: 'port' })} />}
           </div>
         </header>
         <ErrorBox error={portsError} />
         {ports && ports.length === 0 && (
           <div className="empty">
-            <p>Nessuna porta. Per uno switch aggiungile in blocco (il pulsante con i due quadrati qui sopra) con un intervallo come Gi1/0/[1-48].</p>
+            <p>{t('Nessuna porta. Per uno switch aggiungile in blocco (il pulsante con i due quadrati qui sopra) con un intervallo come Gi1/0/[1-48].')}</p>
           </div>
         )}
         {ports && ports.length > 0 && (
@@ -315,14 +316,14 @@ export default function DevicePage() {
             <table className="table table--dense">
               <thead>
                 <tr>
-                  <th>Porta</th>
-                  <th>Tipo</th>
-                  <th>VLAN</th>
-                  <th>Velocità</th>
-                  <th>Collegata a</th>
-                  <th>IP</th>
-                  <th title="MAC visti su questa porta nelle tabelle dello switch">Endpoint</th>
-                  <th className="table__actions"><span className="sr-only">Azioni</span></th>
+                  <th>{t('Porta')}</th>
+                  <th>{t('Tipo')}</th>
+                  <th>{t('VLAN')}</th>
+                  <th>{t('Velocità')}</th>
+                  <th>{t('Collegata a')}</th>
+                  <th>{t('IP')}</th>
+                  <th title={t('MAC visti su questa porta nelle tabelle dello switch')}>{t('Endpoint')}</th>
+                  <th className="table__actions"><span className="sr-only">{t('Azioni')}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -331,10 +332,10 @@ export default function DevicePage() {
                     <td>
                       {p.oper_status && (
                         <span className={`oper-dot oper-dot--${p.oper_status === 'up' ? 'up' : 'down'}`}
-                          title={`Stato all'ultimo controllo: ${p.oper_status === 'up' ? 'su' : 'giù'}`} />
+                          title={p.oper_status === 'up' ? t("Stato all'ultimo controllo: su") : t("Stato all'ultimo controllo: giù")} />
                       )}
                       <Mono>{p.name}</Mono>
-                      {!p.enabled && <span className="tag">disabilitata</span>}
+                      {!p.enabled && <span className="tag">{t('disabilitata')}</span>}
                     </td>
                     <td>{labelOf(INTERFACE_TYPES, p.type)}</td>
                     <td><PortVlans port={p} /></td>
@@ -343,7 +344,7 @@ export default function DevicePage() {
                       {p.cable_id ? (
                         <>
                           <Link to={`/devices/${p.remote_device_id}`}>{p.remote_device}</Link> <Mono>{p.remote_interface}</Mono>
-                          {p.cable_status === 'planned' && <span className="tag">pianificato</span>}
+                          {p.cable_status === 'planned' && <span className="tag">{t('pianificato')}</span>}
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -359,19 +360,19 @@ export default function DevicePage() {
                     <td className="table__actions">
                       {!canEdit ? null : p.cable_id ? (
                         <IconButton icon="unlink" label={`Scollega ${p.name}`} small className="btn--ghost"
-                          onClick={() => run(`Scollegare ${p.name} da ${p.remote_device} ${p.remote_interface}?`, () => api.del(`/cables/${p.cable_id}`))} />
+                          onClick={() => run(t('Scollegare {port} da {remote}?', { port: p.name, remote: `${p.remote_device} ${p.remote_interface}` }), () => api.del(`/cables/${p.cable_id}`))} />
                       ) : (
                         p.cableable && (
-                          <IconButton icon="link" label={`Collega ${p.name} a un'altra porta`} small className="btn--ghost"
+                          <IconButton icon="link" label={t("Collega {port} a un'altra porta", { port: p.name })} small className="btn--ghost"
                             onClick={() => setDialog({ kind: 'cable', portId: p.id })} />
                         )
                       )}
                       {canEdit && (
                         <>
-                          <IconButton icon="edit" label={`Modifica ${p.name}`} small className="btn--ghost"
+                          <IconButton icon="edit" label={t('Modifica {name}', { name: p.name })} small className="btn--ghost"
                             onClick={() => setDialog({ kind: 'editPort', portId: p.id })} />
-                          <IconButton icon="trash" label={`Elimina ${p.name}`} small danger className="btn--ghost"
-                            onClick={() => run(`Eliminare la porta ${p.name}?`, () => api.del(`/interfaces/${p.id}`))} />
+                          <IconButton icon="trash" label={t('Elimina {name}', { name: p.name })} small danger className="btn--ghost"
+                            onClick={() => run(t('Eliminare la porta {port}?', { port: p.name }), () => api.del(`/interfaces/${p.id}`))} />
                         </>
                       )}
                     </td>
@@ -388,7 +389,7 @@ export default function DevicePage() {
 
       {dialog?.kind === 'delete' && (
         <DeleteDialog resourceKey="devices" items={[device]} onClose={() => setDialog(null)}
-          note={`Vengono eliminate anche ${ports?.length === 1 ? 'la sua porta' : `le sue ${ports?.length ?? 0} porte`} e i cavi collegati.`}
+          note={tn(ports?.length ?? 0, 'Vengono eliminate anche la sua porta e i cavi collegati.', 'Vengono eliminate anche le sue {n} porte e i cavi collegati.')}
           onDone={(result) => (result.failed.length ? window.alert(result.failed[0].error) : navigate('/devices'))} />
       )}
       {dialog?.kind === 'edit' && (

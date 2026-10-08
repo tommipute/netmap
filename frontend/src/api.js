@@ -1,3 +1,5 @@
+import { t, tServer } from './i18n'
+
 export class ApiError extends Error {
   constructor(message, status) {
     super(message)
@@ -6,7 +8,7 @@ export class ApiError extends Error {
 }
 
 function formatError(data, status) {
-  if (data && typeof data.detail === 'string') return data.detail
+  if (data && typeof data.detail === 'string') return tServer(data.detail)
   if (data && Array.isArray(data.detail)) {
     return data.detail
       .map((d) => {
@@ -15,8 +17,8 @@ function formatError(data, status) {
       })
       .join('\n')
   }
-  if (status === 502 || status === 504) return "L'API non risponde: controlla che il container 'api' sia avviato."
-  return `Errore ${status}`
+  if (status === 502 || status === 504) return t("L'API non risponde: controlla che il container 'api' sia avviato.")
+  return t('Errore {status}', { status })
 }
 
 async function request(method, url, body) {
@@ -29,7 +31,7 @@ async function request(method, url, body) {
   try {
     response = await fetch(`/api${url}`, options)
   } catch {
-    throw new ApiError("Impossibile raggiungere l'API: controlla che il backend sia avviato.", 0)
+    throw new ApiError(t("Impossibile raggiungere l'API: controlla che il backend sia avviato."), 0)
   }
   if (response.status === 204) return null
   const text = await response.text()

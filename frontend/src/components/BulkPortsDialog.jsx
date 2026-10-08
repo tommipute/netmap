@@ -4,6 +4,7 @@ import { invalidate } from '../hooks'
 import { INTERFACE_MODES, INTERFACE_TYPES } from '../options'
 import Modal from './Modal'
 import { RefSelect } from './RefSelect'
+import { t } from '../i18n'
 
 const MAX_PORTS = 500
 
@@ -61,7 +62,7 @@ export default function BulkPortsDialog({ deviceId, onClose, onDone }) {
   }
 
   return (
-    <Modal title="Aggiungi porte in blocco" onClose={report ? onDone : onClose}>
+    <Modal title={t('Aggiungi porte in blocco')} onClose={report ? onDone : onClose}>
       {report ? (
         <div className="form">
           <p>
@@ -73,23 +74,23 @@ export default function BulkPortsDialog({ deviceId, onClose, onDone }) {
             ))}
           </ul>
           <div className="modal__footer">
-            <button type="button" className="btn btn--primary" onClick={onDone}>Chiudi</button>
+            <button type="button" className="btn btn--primary" onClick={onDone}>{t('Chiudi')}</button>
           </div>
         </div>
       ) : (
         <form className="form" onSubmit={submit} noValidate>
           <div className="form__grid">
             <div className="field field--wide">
-              <label className="field__label" htmlFor="bulk-pattern">Nomi delle porte</label>
-              <input id="bulk-pattern" className="input mono" value={pattern} placeholder="Gi1/0/[1-48]" onChange={(e) => setPattern(e.target.value)} />
+              <label className="field__label" htmlFor="bulk-pattern">{t('Nomi delle porte')}</label>
+              <input id="bulk-pattern" className="input mono" value={pattern} placeholder={t('Gi1/0/[1-48]')} onChange={(e) => setPattern(e.target.value)} />
               <span className="hint">
-                {names.length === 0 && 'Usa [da-a] per un intervallo, ad esempio Gi1/0/[1-48] oppure [1-52].'}
-                {names.length > 0 && !tooMany && `${names.length} porte: ${names[0]}${names.length > 1 ? ` … ${names[names.length - 1]}` : ''}`}
-                {tooMany && `Troppe porte: massimo ${MAX_PORTS} alla volta.`}
+                {names.length === 0 && t('Usa [da-a] per un intervallo, ad esempio Gi1/0/[1-48] oppure [1-52].')}
+                {names.length > 0 && !tooMany && `${t('{n} porte', { n: names.length })}: ${names[0]}${names.length > 1 ? ` … ${names[names.length - 1]}` : ''}`}
+                {tooMany && t('Troppe porte: massimo {n} alla volta.', { n: MAX_PORTS })}
               </span>
             </div>
             <div className="field">
-              <label className="field__label" htmlFor="bulk-type">Tipo</label>
+              <label className="field__label" htmlFor="bulk-type">{t('Tipo')}</label>
               <select id="bulk-type" className="input" value={type} onChange={(e) => setType(e.target.value)}>
                 {INTERFACE_TYPES.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -97,13 +98,13 @@ export default function BulkPortsDialog({ deviceId, onClose, onDone }) {
               </select>
             </div>
             <div className="field">
-              <label className="field__label" htmlFor="bulk-speed">Velocità (Mbps)</label>
+              <label className="field__label" htmlFor="bulk-speed">{t('Velocità (Mbps)')}</label>
               <input id="bulk-speed" type="number" className="input" value={speed} onChange={(e) => setSpeed(e.target.value)} />
             </div>
             <div className="field">
-              <label className="field__label" htmlFor="bulk-mode">Modalità VLAN</label>
+              <label className="field__label" htmlFor="bulk-mode">{t('Modalità VLAN')}</label>
               <select id="bulk-mode" className="input" value={mode} onChange={(e) => setMode(e.target.value)}>
-                <option value="">Nessuna (routed)</option>
+                <option value="">{t('Nessuna (routed)')}</option>
                 {INTERFACE_MODES.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
@@ -111,15 +112,15 @@ export default function BulkPortsDialog({ deviceId, onClose, onDone }) {
             </div>
             {mode && (
               <div className="field">
-                <label className="field__label" htmlFor="bulk-vlan">VLAN</label>
+                <label className="field__label" htmlFor="bulk-vlan">{t('VLAN')}</label>
                 <RefSelect id="bulk-vlan" resource="vlans" value={vlan} onChange={setVlan} />
               </div>
             )}
           </div>
           <div className="modal__footer">
-            <button type="button" className="btn btn--ghost" onClick={onClose} disabled={progress !== null}>Annulla</button>
+            <button type="button" className="btn btn--ghost" onClick={onClose} disabled={progress !== null}>{t('Annulla')}</button>
             <button type="submit" className="btn btn--primary" disabled={names.length === 0 || tooMany || progress !== null}>
-              {progress !== null ? `Creo ${progress} di ${names.length}…` : `Crea ${names.length || ''} porte`.replace('  ', ' ')}
+              {progress !== null ? t('Creo {i} di {n}…', { i: progress, n: names.length }) : names.length ? t('Crea {n} porte', { n: names.length }) : t('Crea porte')}
             </button>
           </div>
         </form>

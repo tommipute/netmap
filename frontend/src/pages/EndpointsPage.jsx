@@ -5,6 +5,7 @@ import { ErrorBox, Loading, Mono } from '../components/Bits'
 import { IconButton } from '../components/Icon'
 import { useApi, useDebounced } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
+import { t } from '../i18n'
 
 const LIMIT = 50
 
@@ -20,7 +21,7 @@ function vlanText(e) {
 /** Risposta in evidenza quando la ricerca trova un solo endpoint. */
 function Answer({ e }) {
   return (
-    <section className="answer" aria-label="Dove è collegato">
+    <section className="answer" aria-label={t('Dove è collegato')}>
       <p className="answer__what">
         <Mono>{e.mac}</Mono>
         {e.ip && <> · <Mono>{e.ip}</Mono></>}
@@ -28,17 +29,17 @@ function Answer({ e }) {
       </p>
       {e.device_id ? (
         <p className="answer__where">
-          Collegato a <Link to={`/devices/${e.device_id}`}>{e.device_name}</Link>, porta <Mono>{e.interface_name}</Mono>
+          Collegato a <Link to={`/devices/${e.device_id}`}>{e.device_name}</Link>{t(', porta')} <Mono>{e.interface_name}</Mono>
           {e.interface_description && <span className="muted"> ({e.interface_description})</span>}
         </p>
       ) : (
-        <p className="answer__where">La porta dove era stato visto non esiste più.</p>
+        <p className="answer__where">{t('La porta dove era stato visto non esiste più.')}</p>
       )}
       <dl className="facts facts--inline">
-        {place(e) && <div><dt>Dove</dt><dd>{place(e)}</dd></div>}
-        {vlanText(e) && <div><dt>VLAN</dt><dd>{vlanText(e)}</dd></div>}
-        <div><dt>Visto l'ultima volta</dt><dd>{formatDateTime(e.last_seen_at)}</dd></div>
-        <div><dt>Visto la prima volta</dt><dd>{formatDateTime(e.first_seen_at)}</dd></div>
+        {place(e) && <div><dt>{t('Dove')}</dt><dd>{place(e)}</dd></div>}
+        {vlanText(e) && <div><dt>{t('VLAN')}</dt><dd>{vlanText(e)}</dd></div>}
+        <div><dt>{t("Visto l'ultima volta")}</dt><dd>{formatDateTime(e.last_seen_at)}</dd></div>
+        <div><dt>{t('Visto la prima volta')}</dt><dd>{formatDateTime(e.first_seen_at)}</dd></div>
       </dl>
       {e.macs_on_port > 1 && (
         <p className="notice notice--warn">
@@ -82,10 +83,9 @@ export default function EndpointsPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Dov'è collegato?</h1>
+          <h1>{t("Dov'è collegato?")}</h1>
           <p className="page-intro">
-            Cerca un PC, una stampante o un telefono per MAC address, IP o nome DNS: trovi lo switch e la porta a cui è attaccato.
-            I dati arrivano dalle tabelle MAC e ARP lette dalle scansioni SNMP.
+            {t('Cerca un PC, una stampante o un telefono per MAC address, IP o nome DNS: trovi lo switch e la porta a cui è attaccato. I dati arrivano dalle tabelle MAC e ARP lette dalle scansioni SNMP.')}
           </p>
         </div>
       </header>
@@ -94,14 +94,14 @@ export default function EndpointsPage() {
         <input
           type="search"
           className="input toolbar__search toolbar__search--wide"
-          placeholder="MAC, IP o nome DNS (es. 00:50:56, aabb.ccdd.eeff, 10.1.2.)"
+          placeholder={t('MAC, IP o nome DNS (es. 00:50:56, aabb.ccdd.eeff, 10.1.2.)')}
           value={search}
           autoFocus
-          aria-label="Cerca per MAC, IP o nome DNS"
+          aria-label={t('Cerca per MAC, IP o nome DNS')}
           onChange={(e) => setSearch(e.target.value)}
         />
         {scoped && (
-          <IconButton icon="close" label="Mostra tutte le porte (togli il filtro)" small className="btn--ghost" onClick={() => setParams(q ? { q } : {})} />
+          <IconButton icon="close" label={t('Mostra tutte le porte (togli il filtro)')} small className="btn--ghost" onClick={() => setParams(q ? { q } : {})} />
         )}
         {data && <span className="toolbar__count">{data.total === 1 ? '1 endpoint' : `${data.total} endpoint`}</span>}
       </div>
@@ -112,11 +112,11 @@ export default function EndpointsPage() {
       {data && data.total === 0 && (
         <div className="empty">
           {q || scoped ? (
-            <p>Nessun endpoint trovato. Prova con gli ultimi caratteri del MAC o l'inizio dell'IP.</p>
+            <p>{t("Nessun endpoint trovato. Prova con gli ultimi caratteri del MAC o l'inizio dell'IP.")}</p>
           ) : (
             <p>
-              Ancora nessun endpoint. Compaiono dopo una scansione SNMP degli switch (tabelle MAC) e dei router o switch L3
-              (tabelle ARP): avviala da <Link to="/discovery-jobs">Scansioni</Link>.
+              {t('Ancora nessun endpoint. Compaiono dopo una scansione SNMP degli switch (tabelle MAC) e dei router o switch L3 (tabelle ARP): avviala da')}{' '}
+              <Link to="/discovery-jobs">{t('Scansioni')}</Link>.
             </p>
           )}
         </div>
@@ -129,12 +129,12 @@ export default function EndpointsPage() {
           <table className="table table--dense">
             <thead>
               <tr>
-                <th>MAC</th>
-                <th>IP</th>
-                <th>Switch e porta</th>
-                <th>VLAN</th>
-                <th>Dove</th>
-                <th>Ultima volta</th>
+                <th>{t('MAC')}</th>
+                <th>{t('IP')}</th>
+                <th>{t('Switch e porta')}</th>
+                <th>{t('VLAN')}</th>
+                <th>{t('Dove')}</th>
+                <th>{t('Ultima volta')}</th>
               </tr>
             </thead>
             <tbody>
@@ -149,10 +149,10 @@ export default function EndpointsPage() {
                     {e.device_id ? (
                       <>
                         <Link to={`/devices/${e.device_id}`}>{e.device_name}</Link> <Mono>{e.interface_name}</Mono>
-                        {e.macs_on_port > 1 && <span className="tag" title="MAC visti su questa porta">{e.macs_on_port} MAC</span>}
+                        {e.macs_on_port > 1 && <span className="tag" title={t('MAC visti su questa porta')}>{e.macs_on_port} MAC</span>}
                       </>
                     ) : (
-                      <span className="muted">porta eliminata</span>
+                      <span className="muted">{t('porta eliminata')}</span>
                     )}
                     {e.previous_device_name && (
                       <div className="hint">prima: {e.previous_device_name} {e.previous_interface_name}</div>
@@ -170,9 +170,9 @@ export default function EndpointsPage() {
 
       {data && data.total > LIMIT && (
         <div className="pager">
-          <IconButton icon="prev" label="Pagina precedente" small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
+          <IconButton icon="prev" label={t('Pagina precedente')} small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
           <span>{offset + 1}–{Math.min(offset + LIMIT, data.total)} di {data.total}</span>
-          <IconButton icon="next" label="Pagina successiva" small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
+          <IconButton icon="next" label={t('Pagina successiva')} small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
         </div>
       )}
     </div>

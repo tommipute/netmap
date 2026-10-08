@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { LANG, LANGUAGES, setLang, t } from '../i18n'
 
 /** Accesso; al primo avvio (nessun utente) crea l'amministratore. */
 export default function LoginPage() {
@@ -13,7 +14,7 @@ export default function LoginPage() {
   const submit = async (e) => {
     e.preventDefault()
     if (setupRequired && values.password !== values.confirm) {
-      setError('Le due password non coincidono.')
+      setError(t('Le due password non coincidono.'))
       return
     }
     setBusy(true)
@@ -41,38 +42,46 @@ export default function LoginPage() {
         </p>
         {setupRequired ? (
           <>
-            <h1>Crea l'amministratore</h1>
-            <p className="page-intro">È il primo accesso: scegli nome utente e password dell'amministratore. Gli altri utenti li crei dopo, da "Utenti".</p>
+            <h1>{t("Crea l'amministratore")}</h1>
+            <p className="page-intro">{t('È il primo accesso: scegli nome utente e password dell\'amministratore. Gli altri utenti li crei dopo, da "Utenti".')}</p>
           </>
         ) : (
-          <h1>Accedi</h1>
+          <h1>{t('Accedi')}</h1>
         )}
         <label className="field">
-          <span className="field__label">Nome utente</span>
+          <span className="field__label">{t('Nome utente')}</span>
           <input className="input" autoComplete="username" value={values.username} onChange={set('username')} required autoFocus />
         </label>
         {setupRequired && (
           <label className="field">
-            <span className="field__label">Nome e cognome</span>
+            <span className="field__label">{t('Nome e cognome')}</span>
             <input className="input" autoComplete="name" value={values.full_name} onChange={set('full_name')} />
           </label>
         )}
         <label className="field">
-          <span className="field__label">Password</span>
+          <span className="field__label">{t('Password')}</span>
           <input className="input" type="password" autoComplete={setupRequired ? 'new-password' : 'current-password'}
             value={values.password} onChange={set('password')} required minLength={setupRequired ? 8 : undefined} />
-          {setupRequired && <span className="hint">Almeno 8 caratteri.</span>}
+          {setupRequired && <span className="hint">{t('Almeno 8 caratteri.')}</span>}
         </label>
         {setupRequired && (
           <label className="field">
-            <span className="field__label">Ripeti la password</span>
+            <span className="field__label">{t('Ripeti la password')}</span>
             <input className="input" type="password" autoComplete="new-password" value={values.confirm} onChange={set('confirm')} required />
           </label>
         )}
         {error && <p className="form__error" role="alert">{error}</p>}
         <button type="submit" className="btn btn--primary" disabled={busy}>
-          {busy ? 'Attendi…' : setupRequired ? 'Crea e accedi' : 'Accedi'}
+          {busy ? t('Attendi…') : setupRequired ? t('Crea e accedi') : t('Accedi')}
         </button>
+        <div className="login__lang" role="group" aria-label={t('Lingua')}>
+          {LANGUAGES.map((option) => (
+            <button key={option.value} type="button" className={`link-button${LANG === option.value ? ' is-current' : ''}`}
+              aria-pressed={LANG === option.value} onClick={() => LANG !== option.value && setLang(option.value)}>
+              {option.label}
+            </button>
+          ))}
+        </div>
       </form>
     </div>
   )

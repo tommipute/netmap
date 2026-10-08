@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
+import { t, tc } from './i18n'
 
 /** Utente collegato e permessi. Con il login disattivato nel backend tutto è permesso. */
 const AuthContext = createContext(null)
@@ -7,9 +8,9 @@ const AuthContext = createContext(null)
 const WRITE_ROLES = ['admin', 'editor']
 
 export const ROLES = [
-  { value: 'viewer', label: 'Solo lettura' },
-  { value: 'editor', label: 'Modifica' },
-  { value: 'admin', label: 'Amministratore' },
+  { value: 'viewer', label: t('Solo lettura') },
+  { value: 'editor', label: tc('ruolo', 'Modifica') },
+  { value: 'admin', label: t('Amministratore') },
 ]
 
 export function AuthProvider({ children }) {

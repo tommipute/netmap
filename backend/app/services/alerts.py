@@ -102,6 +102,40 @@ def _send_telegram(channel: AlertChannel, subject: str, text: str) -> None:
 
 
 SENDERS = {"email": _send_email, "webhook": _send_webhook, "telegram": _send_telegram}
+
+# Testi dei messaggi nella lingua del canale (AlertChannel.language)
+TEXTS = {
+    "it": {
+        "test_subject": "NetMap: messaggio di prova",
+        "test_text": "Se leggi questo messaggio, gli avvisi di NetMap arrivano qui.",
+        "down_many": "NetMap: {n} device non rispondono",
+        "down_one": "NetMap: {name} non risponde",
+        "down_line": "non risponde da {time}",
+        "up_many": "NetMap: {n} device rispondono di nuovo",
+        "up_one": "NetMap: {name} risponde di nuovo",
+        "up_line": "risponde di nuovo",
+        "lasted": " (giù per {time})",
+        "minutes": "{n} min",
+        "hours": "{n} ore",
+    },
+    "en": {
+        "test_subject": "NetMap: test message",
+        "test_text": "If you can read this message, NetMap alerts arrive here.",
+        "down_many": "NetMap: {n} devices not responding",
+        "down_one": "NetMap: {name} not responding",
+        "down_line": "not responding for {time}",
+        "up_many": "NetMap: {n} devices responding again",
+        "up_one": "NetMap: {name} responding again",
+        "up_line": "responding again",
+        "lasted": " (down for {time})",
+        "minutes": "{n} min",
+        "hours": "{n} hours",
+    },
+}
+
+
+def _texts(channel: AlertChannel) -> dict:
+    return TEXTS.get(channel.language or "it", TEXTS["it"])
 Sender = Callable[[AlertChannel, str, str], None]
 
 
@@ -115,7 +149,8 @@ def send(channel: AlertChannel, subject: str, text: str) -> None:
 def send_test(db: Session, channel: AlertChannel, sender: Sender = send) -> str | None:
     """Messaggio di prova. Ritorna l'errore, o None se è partito."""
     try:
-        sender(channel, "NetMap: messaggio di prova", "Se leggi questo messaggio, gli avvisi di NetMap arrivano qui.")
+        texts = _texts(channel)
+        sender(channel, texts["test_subject"], texts["test_text"])
         channel.last_sent_at, channel.last_error = datetime.now(timezone.utc), None
     except AlertError as exc:
         channel.last_error = str(exc)
@@ -124,9 +159,9 @@ def send_test(db: Session, channel: AlertChannel, sender: Sender = send) -> str 
 
 
 # ---------------------------------------------------------------- valutazione
-def _minutes(delta) -> str:
+def _minutes(delta, texts: dict) -> str:
     minutes = max(1, round(delta.total_seconds() / 60))
-    return f"{minutes} min" if minutes < 90 else f"{round(minutes / 60)} ore"
+    return texts["minutes"].format(n=minutes) if minutes < 90 else texts["hours"].format(n=round(minutes / 60))
 
 
 def _where(db: Session, device: Device) -> str:
@@ -161,6 +196,7 @@ def process_alerts(db: Session, now: datetime | None = None, sender: Sender = se
     down_devices = list(db.scalars(select(Device).where(Device.reachable.is_(False)).order_by(Device.name)))
     totals = {"down": 0, "up": 0}
     for channel in channels:
+        texts = _texts(channel)
         states = {s.device_id: s for s in db.scalars(select(AlertState).where(AlertState.channel_id == channel.id))}
         delay_s = channel.delay_minutes * 60
 
@@ -171,8 +207,11 @@ def process_alerts(db: Session, now: datetime | None = None, sender: Sender = se
         new_down = [d for d in down_devices if d.id not in states and (now - since(d)).total_seconds() >= delay_s]
         back = [s for s in states.values() if db.get(Device, s.device_id).reachable is not False]
         if new_down:
-            subject = f"NetMap: {len(new_down)} device non rispondono" if len(new_down) > 1 else f"NetMap: {new_down[0].name} non risponde"
-            text = "\n".join(f"🔴 {_line(db, d, f'non risponde da {_minutes(now - since(d))}')}" for d in new_down)
+            subject = (texts["down_many"].format(n=len(new_down)) if len(new_down) > 1
+                       else texts["down_one"].format(name=new_down[0].name))
+            text = "\n".join(
+                f"🔴 {_line(db, d, texts['down_line'].format(time=_minutes(now - since(d), texts)))}" for d in new_down
+            )
             if _deliver(channel, subject, text, now, sender):
                 for d in new_down:
                     db.add(AlertState(channel_id=channel.id, device_id=d.id, sent_at=now, down_since=since(d)))
@@ -186,10 +225,11 @@ def process_alerts(db: Session, now: datetime | None = None, sender: Sender = se
                     down_since = state.down_since
                     if down_since and not down_since.tzinfo:
                         down_since = down_since.replace(tzinfo=timezone.utc)
-                    lasted = f" (giù per {_minutes(now - down_since)})" if down_since else ""
-                    lines.append(f"🟢 {_line(db, device, 'risponde di nuovo' + lasted)}")
+                    lasted = texts["lasted"].format(time=_minutes(now - down_since, texts)) if down_since else ""
+                    lines.append(f"🟢 {_line(db, device, texts['up_line'] + lasted)}")
                 first = db.get(Device, back[0].device_id)
-                subject = f"NetMap: {len(back)} device rispondono di nuovo" if len(back) > 1 else f"NetMap: {first.name} risponde di nuovo"
+                subject = (texts["up_many"].format(n=len(back)) if len(back) > 1
+                           else texts["up_one"].format(name=first.name))
                 delivered = _deliver(channel, subject, "\n".join(lines), now, sender)
             if delivered:  # se l'invio non riesce lo stato resta e il giro dopo si riprova
                 for state in back:

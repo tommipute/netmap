@@ -7,14 +7,15 @@ import { IconButton } from '../components/Icon'
 import { RefSelect } from '../components/RefSelect'
 import { invalidate, useApi } from '../hooks'
 import { CHANGE_ACTIONS, CHANGE_STATUS, formatDateTime } from '../options'
+import { t, tData, tn, tServer } from '../i18n'
 
-const OBJECT_LABELS = { device: 'Device', interface: 'Porta', ip: 'IP', cable: 'Cavo', vlan: 'VLAN', stack_member: 'Membro stack' }
+const OBJECT_LABELS = { device: t('Device'), interface: t('Porta'), ip: 'IP', cable: t('Cavo'), vlan: 'VLAN', stack_member: t('Membro stack') }
 
 function show(value) {
   if (value === null || value === undefined || value === '') return <span className="muted">—</span>
-  if (value === true) return 'Sì'
-  if (value === false) return 'No'
-  return String(value)
+  if (value === true) return t('Sì')
+  if (value === false) return t('No')
+  return tData(String(value))
 }
 
 function Diff({ diff }) {
@@ -26,7 +27,7 @@ function Diff({ diff }) {
       <tbody>
         {rows.map(([field, before, after]) => (
           <tr key={field}>
-            <th scope="row">{field}</th>
+            <th scope="row">{tServer(field)}</th>
             {!isNew && <td className="diff__old">{show(before)}</td>}
             {!isNew && <td className="diff__arrow" aria-hidden="true">→</td>}
             <td className="diff__new">{show(after)}</td>
@@ -47,21 +48,21 @@ function ChangeRow({ change, busy, onDecide }) {
         <p className="change__title">
           <span className={`badge badge--${action.tone}`}>{action.label}</span>
           <span className="change__kind">{OBJECT_LABELS[change.object_type] || change.object_type}</span>
-          {change.summary}
+          {tServer(change.summary)}
         </p>
         <Diff diff={change.diff} />
-        {change.error && <p className="change__error">{change.error}</p>}
+        {change.error && <p className="change__error">{tServer(change.error)}</p>}
         {!pending && (
           <p className="hint">
-            {change.auto ? 'Applicata in automatico' : CHANGE_STATUS.find((s) => s.value === change.status)?.label}
+            {change.auto ? t('Applicata in automatico') : CHANGE_STATUS.find((s) => s.value === change.status)?.label}
             {change.decided_at && `, ${formatDateTime(change.decided_at)}`}
           </p>
         )}
       </div>
       {pending && canEdit && (
         <div className="change__actions">
-          <IconButton icon="check" label="Approva" small className="btn--primary" disabled={busy} onClick={() => onDecide('approve', [change.id])} />
-          <IconButton icon="close" label="Rifiuta" small className="btn--ghost" disabled={busy} onClick={() => onDecide('reject', [change.id])} />
+          <IconButton icon="check" label={t('Approva')} small className="btn--primary" disabled={busy} onClick={() => onDecide('approve', [change.id])} />
+          <IconButton icon="close" label={t('Rifiuta')} small className="btn--ghost" disabled={busy} onClick={() => onDecide('reject', [change.id])} />
         </div>
       )}
     </li>
@@ -100,7 +101,7 @@ export default function ChangesPage() {
   }, [data])
 
   const decide = async (kind, ids) => {
-    if (kind === 'reject' && ids.length > 1 && !window.confirm(`Rifiutare ${ids.length} modifiche? Con gli stessi dati non verranno riproposte.`)) return
+    if (kind === 'reject' && ids.length > 1 && !window.confirm(t('Rifiutare {n} modifiche? Con gli stessi dati non verranno riproposte.', { n: ids.length }))) return
     setBusy(true)
     setResult(null)
     try {
@@ -122,15 +123,14 @@ export default function ChangesPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Da approvare</h1>
+          <h1>{t('Da approvare')}</h1>
           <p className="page-intro">
-            Quello che le scansioni SNMP hanno trovato di nuovo o di diverso. Niente cambia finché non lo approvi;
-            una modifica rifiutata non viene riproposta finché i dati restano uguali.
+            {t('Quello che le scansioni SNMP hanno trovato di nuovo o di diverso. Niente cambia finché non lo approvi; una modifica rifiutata non viene riproposta finché i dati restano uguali.')}
           </p>
         </div>
         {canEdit && pendingView && allIds.length > 0 && (
           <div className="page-head__actions">
-            <IconButton icon="checkAll" label={`Approva tutte (${allIds.length})`} className="btn--primary" disabled={busy}
+            <IconButton icon="checkAll" label={t('Approva tutte ({n})', { n: allIds.length })} className="btn--primary" disabled={busy}
               onClick={() => decide('approve', allIds)}>
               <span className="btn__tag">{allIds.length}</span>
             </IconButton>
@@ -139,7 +139,7 @@ export default function ChangesPage() {
       </header>
 
       <div className="toolbar">
-        <div className="segmented" role="tablist" aria-label="Stato">
+        <div className="segmented" role="tablist" aria-label={t('Stato')}>
           {CHANGE_STATUS.map((s) => (
             <button key={s.value} type="button" role="tab" aria-selected={status === s.value}
               className={`segmented__item${status === s.value ? ' segmented__item--on' : ''}`}
@@ -148,24 +148,24 @@ export default function ChangesPage() {
             </button>
           ))}
         </div>
-        <RefSelect resource="discovery-jobs" value={jobId} onChange={(v) => setFilter('job_id', v)} emptyLabel="Tutte le scansioni" ariaLabel="Scansione" />
+        <RefSelect resource="discovery-jobs" value={jobId} onChange={(v) => setFilter('job_id', v)} emptyLabel={t('Tutte le scansioni')} ariaLabel={t("Scansione")} />
         {deviceId && (
-          <IconButton icon="close" label="Mostra tutti i device (togli il filtro)" small className="btn--ghost" onClick={() => setFilter('device_id', '')} />
+          <IconButton icon="close" label={t('Mostra tutti i device (togli il filtro)')} small className="btn--ghost" onClick={() => setFilter('device_id', '')} />
         )}
-        {data && <span className="toolbar__count">{data.total === 1 ? '1 modifica' : `${data.total} modifiche`}</span>}
+        {data && <span className="toolbar__count">{tn(data.total, '1 modifica', '{n} modifiche')}</span>}
       </div>
 
       {result && !result.error && (
         <div className={`notice${result.failed?.length ? ' notice--warn' : ''}`} role="status">
           {result.rejected !== undefined
-            ? `${result.rejected === 1 ? '1 modifica rifiutata' : `${result.rejected} modifiche rifiutate`}.`
-            : `${result.applied === 1 ? '1 modifica applicata' : `${result.applied} modifiche applicate`}.`}
+            ? `${tn(result.rejected, '1 modifica rifiutata', '{n} modifiche rifiutate')}.`
+            : `${tn(result.applied, '1 modifica applicata', '{n} modifiche applicate')}.`}
           {result.failed?.length > 0 && (
             <>
               {' '}Non applicate perché nel frattempo i dati sono cambiati:
               <ul>
                 {result.failed.map((f) => (
-                  <li key={f.id}>{f.summary}: {f.error}</li>
+                  <li key={f.id}>{tServer(f.summary)}: {tServer(f.error)}</li>
                 ))}
               </ul>
             </>
@@ -179,10 +179,10 @@ export default function ChangesPage() {
         <div className="empty">
           {pendingView ? (
             <p>
-              Niente da approvare. Le modifiche compaiono qui dopo una <Link to="/discovery-jobs">scansione</Link>.
+              {t('Niente da approvare. Le modifiche compaiono qui dopo una')} <Link to="/discovery-jobs">{t('scansione')}</Link>.
             </p>
           ) : (
-            <p>Nessuna modifica in questo elenco.</p>
+            <p>{t('Nessuna modifica in questo elenco.')}</p>
           )}
         </div>
       )}
@@ -193,14 +193,14 @@ export default function ChangesPage() {
             <h2>
               {group.deviceId ? <Link to={`/devices/${group.deviceId}`}>{group.label}</Link> : group.label}
               <span className="section__count">
-                {group.items.length === 1 ? '1 modifica' : `${group.items.length} modifiche`}
+                {tn(group.items.length, '1 modifica', '{n} modifiche')}
               </span>
             </h2>
             {canEdit && pendingView && group.items.length > 1 && (
               <div className="page-head__actions">
-                <IconButton icon="checkAll" label={`Approva tutte le modifiche di ${group.label}`} small disabled={busy}
+                <IconButton icon="checkAll" label={t('Approva tutte le modifiche di {name}', { name: group.label })} small disabled={busy}
                   onClick={() => decide('approve', group.items.map((c) => c.id))} />
-                <IconButton icon="close" label={`Rifiuta tutte le modifiche di ${group.label}`} small className="btn--ghost" disabled={busy}
+                <IconButton icon="close" label={t('Rifiuta tutte le modifiche di {name}', { name: group.label })} small className="btn--ghost" disabled={busy}
                   onClick={() => decide('reject', group.items.map((c) => c.id))} />
               </div>
             )}

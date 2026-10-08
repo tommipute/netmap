@@ -736,3 +736,6 @@ button.tile { font: inherit; text-align: left; cursor: pointer; }
 button.tile:hover { border-color: var(--accent); }
 .live-chip a.live-chip__item:hover { text-decoration: none; color: var(--ink); }
 .live-chip a.live-chip__item--down:hover { color: var(--danger); }
+
+.login__lang { display: flex; justify-content: center; gap: 14px; margin-top: 4px; }
+.login__lang .is-current { color: var(--ink); font-weight: 600; text-decoration: none; cursor: default; }

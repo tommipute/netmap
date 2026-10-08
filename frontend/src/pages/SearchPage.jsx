@@ -1,12 +1,13 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { ErrorBox, Loading, Mono } from '../components/Bits'
 import { useApi } from '../hooks'
+import { t, tData } from '../i18n'
 
 const GROUPS = [
-  { type: 'device', title: 'Device' },
-  { type: 'interface', title: 'Porte con questo MAC' },
-  { type: 'ip', title: 'Indirizzi IP' },
-  { type: 'endpoint', title: "Dov'è collegato (tabelle MAC degli switch)" },
+  { type: 'device', title: t('Device') },
+  { type: 'interface', title: t('Porte con questo MAC') },
+  { type: 'ip', title: t('Indirizzi IP') },
+  { type: 'endpoint', title: t("Dov'è collegato (tabelle MAC degli switch)") },
 ]
 
 export default function SearchPage() {
@@ -18,15 +19,15 @@ export default function SearchPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Risultati per "{q}"</h1>
-          <p className="page-intro">Cerca per nome o seriale del device, MAC address (anche aabb.ccdd.eeff) o indirizzo IP.</p>
+          <h1>{t('Risultati per "{q}"', { q })}</h1>
+          <p className="page-intro">{t('Cerca per nome o seriale del device, MAC address (anche aabb.ccdd.eeff) o indirizzo IP.')}</p>
         </div>
       </header>
       <ErrorBox error={error} />
       {loading && <Loading />}
       {data && data.length === 0 && (
         <div className="empty">
-          <p>Nessun risultato. Prova con una parte del nome, gli ultimi caratteri del MAC o l'inizio dell'IP.</p>
+          <p>{t("Nessun risultato. Prova con una parte del nome, gli ultimi caratteri del MAC o l'inizio dell'IP.")}</p>
         </div>
       )}
       {data &&
@@ -46,7 +47,7 @@ export default function SearchPage() {
                     ) : (
                       <Link to="/ip-addresses"><Mono>{r.label}</Mono></Link>
                     )}
-                    {r.detail && <span className="results__detail">{r.type === 'interface' ? <Mono>{r.detail}</Mono> : r.type === 'endpoint' ? `collegato a ${r.detail}` : r.detail}</span>}
+                    {r.detail && <span className="results__detail">{r.type === 'interface' ? <Mono>{r.detail}</Mono> : r.type === 'endpoint' ? t('collegato a {where}', { where: tData(r.detail) }) : tData(r.detail)}</span>}
                   </li>
                 ))}
               </ul>

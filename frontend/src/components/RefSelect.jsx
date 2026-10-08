@@ -4,6 +4,7 @@ import { useAuth } from '../auth'
 import { useApi, useDebounced, useOptions, useOptionsPage } from '../hooks'
 import { resources } from '../resources'
 import ResourceForm from './ResourceForm'
+import { t } from '../i18n'
 
 // Elementi che si possono creare al volo dal menu a tendina (i device, le porte ecc. no: hanno la loro pagina)
 const CREATABLE = new Set(['sites', 'locations', 'racks', 'device-roles', 'device-types', 'manufacturers', 'vlans', 'vrfs', 'snmp-profiles'])
@@ -39,7 +40,7 @@ function SearchSelect({ id, config, value, onChange, params, disabled, emptyLabe
         aria-expanded={open}
         aria-label={ariaLabel}
         disabled={disabled}
-        placeholder={current ? config.label(current) : `${emptyLabel} (scrivi per cercare)`}
+        placeholder={current ? config.label(current) : `${emptyLabel} (${t('scrivi per cercare')})`}
         value={text}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
@@ -61,7 +62,7 @@ function SearchSelect({ id, config, value, onChange, params, disabled, emptyLabe
             </li>
           ))}
           {results && results.total > results.items.length && (
-            <li className="combo__more hint">Altri {results.total - results.items.length}: scrivi di più per restringere</li>
+            <li className="combo__more hint">{t('Altri {n}: scrivi di più per restringere', { n: results.total - results.items.length })}</li>
           )}
         </ul>
       )}
@@ -90,7 +91,7 @@ export function RefSelect({ id, resource, value, onChange, params, disabled, emp
   const preset = Object.fromEntries(Object.entries(params || {}).filter(([k, v]) => fieldNames.has(k) && v !== '' && v != null))
   const scoped = 'site_id' in preset
   // Menu vuoto: lo dico, invece di un "—" che sembra un errore
-  const first = waitLabel || (loaded && items.length === 0 ? `${emptyLabel} nessuna voce${scoped ? ' in questa sede' : ''}` : emptyLabel)
+  const first = waitLabel || (loaded && items.length === 0 ? `${emptyLabel} ${scoped ? t('nessuna voce in questa sede') : t('nessuna voce')}` : emptyLabel)
   return (
     <>
       <select
@@ -128,7 +129,7 @@ export function RefMulti({ resource, value, onChange, ordered = false }) {
   const config = resources[resource]
   const items = useOptions(config.path)
   const selected = value || []
-  if (items.length === 0) return <p className="hint">Nessuna voce disponibile: creane prima qualcuna.</p>
+  if (items.length === 0) return <p className="hint">{t('Nessuna voce disponibile: creane prima qualcuna.')}</p>
   const toggle = (itemId) =>
     onChange(selected.includes(itemId) ? selected.filter((v) => v !== itemId) : [...selected, itemId])
   return (

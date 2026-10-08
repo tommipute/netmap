@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { t } from '../i18n'
 
 // Finestre aperte, l'ultima è in primo piano (es. "Nuovo rack" aperto dal menu del modulo del device)
 const open = []
@@ -27,7 +28,7 @@ export default function Modal({ title, onClose, children, wide = false }) {
       <div ref={dialogRef} className={`modal${wide ? ' modal--wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal__header">
           <h2>{title}</h2>
-          <button type="button" className="modal__close" onClick={onClose} aria-label="Chiudi">
+          <button type="button" className="modal__close" onClick={onClose} aria-label={t('Chiudi')}>
             ×
           </button>
         </header>

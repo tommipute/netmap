@@ -1,35 +1,36 @@
 import { Link } from 'react-router-dom'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, INTERFACE_MODES, INTERFACE_TYPES, IPAM_STATUS, IP_STATUS, formatDateTime } from '../options'
 import { ROLES } from '../auth'
+import { t, tData, tServer } from '../i18n'
 
 export const OBJECT_TYPES = [
-  { value: 'device', label: 'Device' },
-  { value: 'interface', label: 'Porta' },
-  { value: 'stack_member', label: 'Membro stack' },
-  { value: 'cable', label: 'Cavo' },
-  { value: 'ip', label: 'IP' },
-  { value: 'vlan', label: 'VLAN' },
-  { value: 'prefix', label: 'Subnet' },
-  { value: 'vrf', label: 'VRF' },
-  { value: 'site', label: 'Sede' },
-  { value: 'location', label: 'Posizione' },
-  { value: 'rack', label: 'Rack' },
-  { value: 'device_type', label: 'Modello' },
-  { value: 'device_role', label: 'Ruolo' },
-  { value: 'manufacturer', label: 'Produttore' },
-  { value: 'map', label: 'Mappa' },
-  { value: 'snmp_profile', label: 'Profilo SNMP' },
-  { value: 'discovery_job', label: 'Scansione' },
-  { value: 'user', label: 'Utente' },
+  { value: 'device', label: t('Device') },
+  { value: 'interface', label: t('Porta') },
+  { value: 'stack_member', label: t('Membro stack') },
+  { value: 'cable', label: t('Cavo') },
+  { value: 'ip', label: t('IP') },
+  { value: 'vlan', label: t('VLAN') },
+  { value: 'prefix', label: t('Subnet') },
+  { value: 'vrf', label: t('VRF') },
+  { value: 'site', label: t('Sede') },
+  { value: 'location', label: t('Posizione') },
+  { value: 'rack', label: t('Rack') },
+  { value: 'device_type', label: t('Modello') },
+  { value: 'device_role', label: t('Ruolo') },
+  { value: 'manufacturer', label: t('Produttore') },
+  { value: 'map', label: t('Mappa') },
+  { value: 'snmp_profile', label: t('Profilo SNMP') },
+  { value: 'discovery_job', label: t('Scansione') },
+  { value: 'user', label: t('Utente') },
 ]
 export const SOURCES = [
-  { value: 'utente', label: 'A mano' },
-  { value: 'scansione', label: 'Scansione SNMP' },
-  { value: 'import', label: 'Import CSV' },
-  { value: 'sistema', label: 'Sistema' },
+  { value: 'utente', label: t('A mano') },
+  { value: 'scansione', label: t('Scansione SNMP') },
+  { value: 'import', label: t('Import CSV') },
+  { value: 'sistema', label: t('Sistema') },
 ]
-const ACTIONS = { create: ['Creato', 'ok'], update: ['Modificato', 'info'], delete: ['Eliminato', 'danger'] }
-const typeLabel = (value) => OBJECT_TYPES.find((t) => t.value === value)?.label || value
+const ACTIONS = { create: [t('Creato'), 'ok'], update: [t('Modificato'), 'info'], delete: [t('Eliminato'), 'danger'] }
+const typeLabel = (value) => OBJECT_TYPES.find((o) => o.value === value)?.label || value
 
 // Valori fissi (stato, tipo, modo...) con le stesse parole dei menu
 const VALUE_LABELS = Object.fromEntries(
@@ -39,11 +40,11 @@ const VALUE_LABELS = Object.fromEntries(
 )
 
 function show(value) {
-  if (value === null || value === undefined || value === '') return <span className="muted">vuoto</span>
-  if (value === true) return 'sì'
-  if (value === false) return 'no'
+  if (value === null || value === undefined || value === '') return <span className="muted">{t('vuoto')}</span>
+  if (value === true) return t('sì')
+  if (value === false) return t('no')
   if (typeof value === 'object') return JSON.stringify(value)
-  return VALUE_LABELS[value] ?? String(value)
+  return VALUE_LABELS[value] ?? tData(String(value))
 }
 
 /** Chi l'ha fatto: l'utente, e se è passata dalla scansione o dall'import anche quello. */
@@ -65,10 +66,10 @@ export default function HistoryList({ entries, showObject = true }) {
       <table className="table table--dense history">
         <thead>
           <tr>
-            <th>Quando</th>
-            <th>Chi</th>
-            {showObject && <th>Cosa</th>}
-            <th>Modifiche</th>
+            <th>{t('Quando')}</th>
+            <th>{t('Chi')}</th>
+            {showObject && <th>{t('Cosa')}</th>}
+            <th>{t('Modifiche')}</th>
           </tr>
         </thead>
         <tbody>
@@ -83,14 +84,14 @@ export default function HistoryList({ entries, showObject = true }) {
                   <td>
                     <span className={`badge badge--${tone}`}>{action}</span>{' '}
                     <span className="muted">{typeLabel(e.object_type)}</span>{' '}
-                    {deviceLink ? <Link to={deviceLink}>{e.label}</Link> : <strong>{e.label}</strong>}
+                    {deviceLink ? <Link to={deviceLink}>{tData(e.label)}</Link> : <strong>{tData(e.label)}</strong>}
                   </td>
                 )}
                 <td>
                   {!showObject && (
                     <div>
                       <span className={`badge badge--${tone}`}>{action}</span>{' '}
-                      <span className="muted">{typeLabel(e.object_type)}</span> <strong>{e.label}</strong>
+                      <span className="muted">{typeLabel(e.object_type)}</span> <strong>{tData(e.label)}</strong>
                     </div>
                   )}
                   {e.changes.length === 0 ? (
@@ -99,7 +100,7 @@ export default function HistoryList({ entries, showObject = true }) {
                     <ul className="history__changes">
                       {e.changes.map(([field, before, after]) => (
                         <li key={field}>
-                          <span className="muted">{field}:</span> {show(before)} <span aria-label="diventa">→</span> <strong>{show(after)}</strong>
+                          <span className="muted">{tServer(field)}:</span> {show(before)} <span aria-label={t('diventa')}>→</span> <strong>{show(after)}</strong>
                         </li>
                       ))}
                     </ul>

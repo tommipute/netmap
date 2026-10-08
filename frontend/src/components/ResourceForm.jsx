@@ -6,6 +6,7 @@ import InterfacePicker from './InterfacePicker'
 import KeyValueEditor from './KeyValueEditor'
 import Modal from './Modal'
 import { RefMulti, RefSelect } from './RefSelect'
+import { t } from '../i18n'
 
 const WIDE_TYPES = new Set(['textarea', 'lines', 'kv', 'refmulti', 'interface', 'bool'])
 
@@ -93,8 +94,8 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
       const params = field.dependsOn ? { [field.dependsOn]: parentValue, ...field.params } : field.params
       return (
         <RefSelect id={id} resource={field.ref} value={value} onChange={onChange} disabled={disabled} params={params}
-          waitLabel={waiting ? field.waitLabel || 'Compila prima il campo collegato' : undefined}
-          emptyLabel={field.required ? 'Scegli…' : field.emptyLabel ?? '—'} />
+          waitLabel={waiting ? field.waitLabel || t('Compila prima il campo collegato') : undefined}
+          emptyLabel={field.required ? t('Scegli…') : field.emptyLabel ?? '—'} />
       )
     }
     case 'refmulti':
@@ -106,8 +107,8 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
     case 'color':
       return (
         <div className="color-field">
-          <input type="color" value={value || '#888780'} onChange={(e) => onChange(e.target.value)} aria-label={`${field.label}: scegli`} disabled={disabled} />
-          <input id={id} className="input mono" value={value} placeholder="#RRGGBB" onChange={(e) => onChange(e.target.value)} disabled={disabled} />
+          <input type="color" value={value || '#888780'} onChange={(e) => onChange(e.target.value)} aria-label={`${field.label}: ${t('scegli')}`} disabled={disabled} />
+          <input id={id} className="input mono" value={value} placeholder={t('#RRGGBB')} onChange={(e) => onChange(e.target.value)} disabled={disabled} />
         </div>
       )
     default:
@@ -163,7 +164,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
       const visible = !f.showIf || f.showIf(values)
       const missing = f.type === 'refmulti' ? !(values[f.name] || []).length : isEmpty(values[f.name])
       if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {
-        setError(`Compila il campo "${f.label}".`)
+        setError(t('Compila il campo "{field}".', { field: f.label }))
         return
       }
       const v = visible ? convert(f, values[f.name], isEdit) : f.hiddenValue
@@ -205,7 +206,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
                 </Label>
                 <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields}
                   onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />
-                {disabled && <span className="hint">Non modificabile dopo la creazione.</span>}
+                {disabled && <span className="hint">{t('Non modificabile dopo la creazione.')}</span>}
                 {!disabled && f.help && <span className="hint">{f.help}</span>}
               </div>
             )
@@ -218,10 +219,10 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
         )}
         <div className="modal__footer">
           <button type="button" className="btn btn--ghost" onClick={onClose}>
-            Annulla
+            {t('Annulla')}
           </button>
           <button type="submit" className="btn btn--primary" disabled={saving}>
-            {saving ? 'Salvataggio…' : isEdit ? 'Salva modifiche' : 'Crea'}
+            {saving ? t('Salvataggio…') : isEdit ? t('Salva modifiche') : t('Crea')}
           </button>
         </div>
       </form>

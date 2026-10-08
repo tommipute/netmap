@@ -5,11 +5,12 @@ import { ErrorBox, Loading, Mono } from '../components/Bits'
 import HistoryList, { SOURCES } from '../components/HistoryList'
 import { useApi } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
+import { t } from '../i18n'
 
 const PERIODS = [
-  { hours: 24, label: 'Ultime 24 ore' },
-  { hours: 24 * 7, label: 'Ultimi 7 giorni' },
-  { hours: 24 * 30, label: 'Ultimi 30 giorni' },
+  { hours: 24, label: t('Ultime 24 ore') },
+  { hours: 24 * 7, label: t('Ultimi 7 giorni') },
+  { hours: 24 * 30, label: t('Ultimi 30 giorni') },
 ]
 
 const SHOWN = 5 // nelle liste dei device: gli ultimi 5, gli altri con "Mostra tutti"
@@ -50,7 +51,7 @@ function DeviceList({ items, empty, render }) {
       </ul>
       {items.length > SHOWN && (
         <button type="button" className="link-button" onClick={() => setAll((v) => !v)}>
-          {all ? 'Mostra solo gli ultimi 5' : `Mostra tutti (${items.length})`}
+          {all ? t('Mostra solo gli ultimi 5') : t('Mostra tutti ({n})', { n: items.length })}
         </button>
       )}
     </>
@@ -63,12 +64,12 @@ function EndpointTable({ items, moved }) {
       <table className="table table--dense">
         <thead>
           <tr>
-            <th>MAC</th>
-            <th>IP</th>
-            <th>{moved ? 'Adesso su' : 'Switch e porta'}</th>
-            {moved && <th>Prima su</th>}
-            <th>VLAN</th>
-            <th>{moved ? 'Spostato' : 'Visto la prima volta'}</th>
+            <th>{t('MAC')}</th>
+            <th>{t('IP')}</th>
+            <th>{moved ? t('Adesso su') : t('Switch e porta')}</th>
+            {moved && <th>{t('Prima su')}</th>}
+            <th>{t('VLAN')}</th>
+            <th>{moved ? t('Spostato') : t('Visto la prima volta')}</th>
           </tr>
         </thead>
         <tbody>
@@ -80,7 +81,7 @@ function EndpointTable({ items, moved }) {
               </td>
               <td><Mono>{e.ip}</Mono></td>
               <td>
-                {e.device_id ? <><Link to={`/devices/${e.device_id}`}>{e.device_name}</Link> <Mono>{e.interface_name}</Mono></> : <span className="muted">porta eliminata</span>}
+                {e.device_id ? <><Link to={`/devices/${e.device_id}`}>{e.device_name}</Link> <Mono>{e.interface_name}</Mono></> : <span className="muted">{t('porta eliminata')}</span>}
               </td>
               {moved && <td>{e.previous_device_name ? <>{e.previous_device_name} <Mono>{e.previous_interface_name}</Mono></> : '—'}</td>}
               <td>{e.vlan ? `${e.vlan}${e.vlan_name ? ` ${e.vlan_name}` : ''}` : '—'}</td>
@@ -110,16 +111,15 @@ export default function WhatsChangedPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>Cosa è cambiato</h1>
+          <h1>{t('Cosa è cambiato')}</h1>
           <p className="page-intro">
-            Il riassunto del periodo: modifiche alla documentazione, device che non rispondono, apparecchi nuovi o
-            spostati visti dalla scansione.
+            {t('Il riassunto del periodo: modifiche alla documentazione, device che non rispondono, apparecchi nuovi o spostati visti dalla scansione.')}
           </p>
         </div>
       </header>
 
       <div className="toolbar">
-        <div className="segmented" role="group" aria-label="Periodo">
+        <div className="segmented" role="group" aria-label={t('Periodo')}>
           {PERIODS.map((p) => (
             <button key={p.hours} type="button" className={`segmented__item${p.hours === hours ? ' segmented__item--on' : ''}`}
               aria-pressed={p.hours === hours} onClick={() => setParams({ hours: String(p.hours) }, { replace: true })}>
@@ -135,32 +135,32 @@ export default function WhatsChangedPage() {
       {data && (
         <>
           <div className="tiles">
-            <Tile value={data.devices_down.length} label="Non rispondono" tone="danger"
+            <Tile value={data.devices_down.length} label={t('Non rispondono')} tone="danger"
               detail={data.devices_down.some((d) => d.new) ? `${data.devices_down.filter((d) => d.new).length} nel periodo` : null}
               to="/devices?reachable=false" />
-            <Tile value={data.devices_back.length} label="Tornati a rispondere" tone="ok" section="tornati" />
-            <Tile value={data.changes.total} label="Modifiche" detail={sourceText || null} to={historyLink} />
-            <Tile value={data.endpoints_new.total} label="Apparecchi nuovi in rete" tone="info" section="nuovi" />
-            <Tile value={data.endpoints_moved.total} label="Apparecchi spostati" tone="warn" section="spostati" />
-            <Tile value={data.runs.total} label="Scansioni"
-              detail={data.runs.failed.length ? `${data.runs.failed.length} non riuscite` : null} tone={data.runs.failed.length ? 'danger' : null} to="/discovery-jobs" />
-            <Tile value={data.pending_changes} label="Da approvare" tone="warn" to="/discovery/changes" />
+            <Tile value={data.devices_back.length} label={t('Tornati a rispondere')} tone="ok" section="tornati" />
+            <Tile value={data.changes.total} label={t('Modifiche')} detail={sourceText || null} to={historyLink} />
+            <Tile value={data.endpoints_new.total} label={t('Apparecchi nuovi in rete')} tone="info" section="nuovi" />
+            <Tile value={data.endpoints_moved.total} label={t('Apparecchi spostati')} tone="warn" section="spostati" />
+            <Tile value={data.runs.total} label={t('Scansioni')}
+              detail={data.runs.failed.length ? t('{n} non riuscite', { n: data.runs.failed.length }) : null} tone={data.runs.failed.length ? 'danger' : null} to="/discovery-jobs" />
+            <Tile value={data.pending_changes} label={t('Da approvare')} tone="warn" to="/discovery/changes" />
           </div>
 
           <div className="two-cols">
             <section className="section">
-              <h2>Non rispondono</h2>
-              <DeviceList items={data.devices_down} empty="Tutti i device controllati rispondono."
+              <h2>{t('Non rispondono')}</h2>
+              <DeviceList items={data.devices_down} empty={t('Tutti i device controllati rispondono.')}
                 render={(d) => (
                   <>
                     <span className="live-dot live-dot--down" /> <Link to={`/devices/${d.id}`}>{d.name}</Link>{' '}
-                    <span className="muted">{formatSince(d.at)}</span> {d.new && <span className="tag">nuovo</span>}
+                    <span className="muted">{formatSince(d.at)}</span> {d.new && <span className="tag">{t('nuovo')}</span>}
                   </>
                 )} />
             </section>
             <section className="section" id="tornati">
-              <h2>Tornati a rispondere</h2>
-              <DeviceList items={data.devices_back} empty="Nessuno nel periodo."
+              <h2>{t('Tornati a rispondere')}</h2>
+              <DeviceList items={data.devices_back} empty={t('Nessuno nel periodo.')}
                 render={(d) => (
                   <>
                     <span className="live-dot live-dot--up" /> <Link to={`/devices/${d.id}`}>{d.name}</Link>{' '}
@@ -169,8 +169,8 @@ export default function WhatsChangedPage() {
                 )} />
             </section>
             <section className="section">
-              <h2>Device aggiunti</h2>
-              <DeviceList items={data.devices_created} empty="Nessuno nel periodo."
+              <h2>{t('Device aggiunti')}</h2>
+              <DeviceList items={data.devices_created} empty={t('Nessuno nel periodo.')}
                 render={(d) => (
                   <>
                     {d.exists ? <Link to={`/devices/${d.id}`}>{d.name}</Link> : <span className="muted">{d.name} (poi eliminato)</span>}{' '}
@@ -179,8 +179,8 @@ export default function WhatsChangedPage() {
                 )} />
             </section>
             <section className="section">
-              <h2>Device eliminati</h2>
-              <DeviceList items={data.devices_deleted} empty="Nessuno nel periodo."
+              <h2>{t('Device eliminati')}</h2>
+              <DeviceList items={data.devices_deleted} empty={t('Nessuno nel periodo.')}
                 render={(d) => (
                   <>
                     <Link to={`/history?device_id=${d.id}`}>{d.name}</Link> <span className="muted">{formatDateTime(d.at)}</span>
@@ -191,7 +191,7 @@ export default function WhatsChangedPage() {
 
           {data.runs.failed.length > 0 && (
             <section className="section">
-              <h2>Scansioni non riuscite</h2>
+              <h2>{t('Scansioni non riuscite')}</h2>
               <DeviceList items={data.runs.failed} empty=""
                 render={(r) => (
                   <>
@@ -202,30 +202,30 @@ export default function WhatsChangedPage() {
           )}
 
           <section className="section" id="nuovi">
-            <h2>Apparecchi nuovi in rete</h2>
+            <h2>{t('Apparecchi nuovi in rete')}</h2>
             {data.endpoints_new.total === 0 ? (
-              <p className="muted">Nessun MAC nuovo nelle tabelle degli switch.</p>
+              <p className="muted">{t('Nessun MAC nuovo nelle tabelle degli switch.')}</p>
             ) : (
               <>
                 <EndpointTable items={data.endpoints_new.items} />
                 {data.endpoints_new.total > data.endpoints_new.items.length && (
-                  <p className="hint">Mostrati i {data.endpoints_new.items.length} più recenti su {data.endpoints_new.total}.</p>
+                  <p className="hint">{t('Mostrati i {n} più recenti su {total}.', { n: data.endpoints_new.items.length, total: data.endpoints_new.total })}</p>
                 )}
               </>
             )}
           </section>
 
           <section className="section" id="spostati">
-            <h2>Apparecchi spostati</h2>
+            <h2>{t('Apparecchi spostati')}</h2>
             {data.endpoints_moved.total === 0 ? (
-              <p className="muted">Nessun MAC ha cambiato porta.</p>
+              <p className="muted">{t('Nessun MAC ha cambiato porta.')}</p>
             ) : (
               <EndpointTable items={data.endpoints_moved.items} moved />
             )}
           </section>
 
           <section className="section">
-            <h2>Ultime modifiche</h2>
+            <h2>{t('Ultime modifiche')}</h2>
             {recent.data?.items.length ? (
               <>
                 <HistoryList entries={recent.data.items} />
@@ -234,7 +234,7 @@ export default function WhatsChangedPage() {
                 )}
               </>
             ) : (
-              <p className="muted">Nessuna modifica nel periodo.</p>
+              <p className="muted">{t('Nessuna modifica nel periodo.')}</p>
             )}
           </section>
         </>
