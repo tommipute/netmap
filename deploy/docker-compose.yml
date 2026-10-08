@@ -2,9 +2,17 @@
 # Le impostazioni stanno in .env (accanto a questo file). Questo file viene sostituito a ogni aggiornamento
 # (lo script lo prende dall'immagine nuova): non modificarlo, usa .env o un docker-compose.override.yml.
 
+# Log dei container: al massimo 3 file da 10 MB ciascuno, poi i più vecchi si cancellano (docker compose logs)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 x-backend: &backend
   image: ${NETMAP_IMAGE:-ghcr.io/tommipute/netmap}-backend:${NETMAP_VERSION:?manca NETMAP_VERSION nel file .env}
   restart: unless-stopped
+  logging: *logging
   depends_on:
     db:
       condition: service_healthy
@@ -21,6 +29,7 @@ services:
   db:
     image: postgres:16
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-netmap}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -40,6 +49,7 @@ services:
       AUTH_ENABLED: "true"
       SESSION_HOURS: ${SESSION_HOURS:-12}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}   # false solo con un indirizzo http://
+      TRUSTED_PROXIES: "2"   # Caddy + nginx: l'indirizzo vero del client arriva in X-Forwarded-For
       UVICORN_EXTRA_ARGS: ""
     volumes:
       - ./data:/data
@@ -71,6 +81,7 @@ services:
   web:
     image: ${NETMAP_IMAGE:-ghcr.io/tommipute/netmap}-web:${NETMAP_VERSION}
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - api
 
@@ -78,6 +89,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       NETMAP_HOST: ${NETMAP_HOST:?manca NETMAP_HOST nel file .env}
       NETMAP_SCHEME: ${NETMAP_SCHEME:-https}

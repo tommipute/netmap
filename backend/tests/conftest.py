@@ -50,7 +50,8 @@ def client(session_factory):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    auth._failures.clear()  # tentativi di login sbagliati dei test precedenti
+    auth.user_throttle.clear()  # tentativi di login sbagliati dei test precedenti
+    auth.ip_throttle.clear()
     with TestClient(app) as test_client:
         # Primo amministratore: il cookie di sessione resta nel client per tutti i test
         response = test_client.post("/api/auth/setup", json=ADMIN)

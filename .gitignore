@@ -12,3 +12,6 @@ backups/
 updater/updater.conf
 data/
 CLAUDE.local.md
+e2e/.upgrade-test.env
+e2e/test-results/
+e2e/playwright-report/

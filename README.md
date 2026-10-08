@@ -275,13 +275,31 @@ sudo systemctl start netmap-updater.timer
 Con l'aggiornamento automatico acceso, lo script non riprova il commit fallito; se vuoi restare sulla versione
 vecchia anche quando ne esce una nuova, spegnilo dalla pagina Aggiornamenti.
 
-## Test del backend
+## Test
 
 ```powershell
 docker compose exec api pytest
 ```
 
 Comprendono una scansione vera contro due switch simulati (snmpsim, già installato nell'immagine).
+
+Su GitHub il workflow **Test** (`.github/workflows/test.yml`) gira a ogni push e pull request: pytest,
+`alembic check` (migration allineate ai modelli), build dell'interfaccia, sintassi degli script e file compose.
+Poi `e2e/upgrade-test.sh` fa quello che farebbe un utente: installa con `install.sh` l'ultima versione
+pubblicata, ci mette dei dati, costruisce le immagini del codice nuovo in un registro locale, chiede
+l'aggiornamento come la pagina Aggiornamenti e controlla esito, versione e dati. Infine i test nel browser
+(`e2e/tests`, Playwright) girano su quell'installazione. A mano, su una macchina di prova con Docker e sudo
+(non su un server con NetMap installato):
+
+```bash
+e2e/upgrade-test.sh                                  # installazione + aggiornamento
+cd e2e && npm ci && npx playwright install chromium
+set -a && . ./.upgrade-test.env && set +a && npx playwright test
+../e2e/upgrade-test.sh --clean                       # toglie l'installazione di prova
+```
+
+I test nel browser girano anche contro lo sviluppo: `NETMAP_URL=http://localhost:5174 NETMAP_USER=... NETMAP_PASSWORD=... npx playwright test`
+(creano i loro dati con il prefisso `e2e-` e li cancellano alla fine).
 
 ## Modifiche ai modelli
 

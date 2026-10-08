@@ -18,6 +18,7 @@ services:
     environment:
       UVICORN_EXTRA_ARGS: ""
       SECRETS_KEY_FILE: /data/secrets_key
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-1}   # nginx (con il profilo https anche Caddy: 2)
     ports: !override
       - "127.0.0.1:8001:8000"   # solo per il controllo di salute dell'updater
     volumes: !override
@@ -56,6 +57,11 @@ services:
     image: caddy:2-alpine
     profiles: ["https"]
     restart: unless-stopped
+    logging:   # come gli altri servizi (docker-compose.yml)
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
     environment:
       NETMAP_HOST: ${NETMAP_HOST:-localhost}
       NETMAP_SCHEME: ${NETMAP_SCHEME:-https}

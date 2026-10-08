@@ -1,0 +1,96 @@
+# Test a ogni push e pull request: backend (pytest + migration allineate ai modelli), build del frontend, script
+# di shell e file compose; poi una prova completa come la vive chi usa NetMap: installazione dell'ultima versione
+# pubblicata, aggiornamento al codice nuovo con l'updater e giro nel browser (e2e/).
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Immagine di sviluppo
+        run: docker build -q -t netmap-test ./backend
+      - name: pytest
+        run: docker run --rm netmap-test pytest -q
+      - name: Migration allineate ai modelli (alembic check su Postgres)
+        run: |
+          docker network create ci
+          docker run -d --name db --network ci -e POSTGRES_USER=netmap -e POSTGRES_PASSWORD=ci -e POSTGRES_DB=netmap postgres:16
+          for _ in $(seq 30); do docker exec db pg_isready -U netmap -d netmap >/dev/null 2>&1 && break; sleep 2; done
+          docker run --rm --network ci -e DATABASE_URL=postgresql+psycopg://netmap:ci@db:5432/netmap netmap-test \
+            sh -c 'alembic upgrade head && alembic check'
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sintassi degli script
+        run: |
+          for f in $(git ls-files '*.sh'); do bash -n "$f" || exit 1; done
+          shellcheck -S error $(git ls-files '*.sh')
+      - name: File compose validi
+        run: |
+          cp .env.example .env
+          docker compose config -q
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile https config -q
+          cd deploy && NETMAP_VERSION=1.0.0 POSTGRES_PASSWORD=ci NETMAP_HOST=localhost docker compose config -q
+
+  install:
+    needs: [backend, frontend, scripts]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installazione dell'ultima versione pubblicata e aggiornamento al codice nuovo
+        run: NEW_VERSION="99.0.0-ci.${GITHUB_RUN_NUMBER}" e2e/upgrade-test.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Prove nel browser
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          set -a && . ./.upgrade-test.env && set +a
+          npx playwright test
+      - name: Log in caso di errore
+        if: failure()
+        run: |
+          cd /opt/netmap-e2e 2>/dev/null || exit 0
+          sudo docker compose ps -a
+          sudo docker compose logs --tail 200
+          sudo cat updater-data/updater.log updater-data/status.json || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

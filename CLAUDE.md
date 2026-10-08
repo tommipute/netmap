@@ -18,7 +18,10 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (68 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (71 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+`Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
+versione pubblicata + aggiornamento al codice nuovo + test Playwright in `e2e/tests`): non pushare con il workflow
+rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
 Licenza **AGPL-3.0-only** (`LICENSE`, deciso il 9/10/2026): il piede della pagina e la pagina di accesso hanno il
 link "Codice sorgente" alla versione installata (`components/VersionLabel.jsx`, obbligo della sezione 13): non toglierlo.
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
@@ -249,6 +252,10 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   Primo avvio senza utenti → la pagina di login crea l'amministratore. Riga di comando:
   `docker compose exec api python -m app.users list|create|password <utente>` (chiede la password: serve `-it`).
   `AUTH_ENABLED=false` toglie il login (solo prove in locale); nei test `conftest.py` lo gestisce.
+  Freno ai tentativi (`core/throttle.py`, in memoria: un solo processo uvicorn): per nome utente 5 errori = 1 minuto,
+  poi l'attesa raddoppia fino a 15; per indirizzo 20 errori in 15 minuti = 15 minuti. L'indirizzo vero viene da
+  `client_ip` con `TRUSTED_PROXIES` (proxy fidati contati da destra in X-Forwarded-For: 2 nelle installazioni con
+  Caddy + nginx, 1 in `docker-compose.prod.yml`, 0 in sviluppo). Log dell'app (logger `netmap`) con data e ora.
 - **Stato live** (`services/monitor.py`, `monitor.py`): device attivi con IP primario; raggiungibile se risponde
   al ping o all'SNMP. Colonne `reachable` (NULL = mai controllato), `last_check_at`, `reachable_changed_at`, `rtt_ms`;
   `oper_status` delle porte da ifOperStatus (abbinate per `if_index`).

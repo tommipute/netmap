@@ -6,6 +6,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+- Test automatici su GitHub a ogni push: backend, migration, interfaccia, script e una prova completa come la fa
+  un utente (installazione dell'ultima versione pubblicata, aggiornamento al codice nuovo, giro nel browser).
+
+### Modifiche
+- Accesso più protetto: dopo 5 password sbagliate sullo stesso utente si aspetta un minuto, e ogni errore in più
+  raddoppia l'attesa fino a 15 minuti; 20 errori dallo stesso indirizzo lo bloccano per 15 minuti. I tentativi
+  falliti finiscono nel log dell'API con l'indirizzo di provenienza.
+- I log dei container non crescono più all'infinito: al massimo 30 MB per servizio.
+
 ## [1.0.0-rc.2] - 2026-10-09
 
 NetMap diventa software libero: codice e immagini pubblici su GitHub.

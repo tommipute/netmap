@@ -978,6 +978,11 @@ const strings = {
   'Vale per i backup notturni e per quelli fatti a mano. Quelli prima degli aggiornamenti si impostano nella pagina Aggiornamenti.': 'Applies to nightly and manual backups. Backups before updates are set on the Updates page.',
   'Backup del database non riuscito: guarda il log.': 'Database backup failed: check the log.',
   'Ora del backup non valida: usa il formato 02:30': 'Invalid backup time: use the 02:30 format',
+  // login
+  'Nome utente o password sbagliati': 'Wrong username or password',
+  'Utente disattivato: chiedi a un amministratore': 'User disabled: ask an administrator',
+  'Solo gli amministratori possono gestire gli utenti': 'Only administrators can manage users',
+  'Troppi tentativi sbagliati: riprova tra un minuto': 'Too many failed attempts: try again in a minute',
 }
 
 // Messaggi del server con nomi o numeri: si traducono con un modello ($1, $2... = le parti tra parentesi)
@@ -988,6 +993,8 @@ const patterns = [
   [/^Ripristino la versione precedente \((\w+)\): (.*)$/s, 'Restoring the previous version ($1): $2'],
   [/^Rollback fallito: non riesco a tornare alla versione (\w*)\.$/, 'Rollback failed: cannot go back to version $1.'],
   [/^Download dal registro non riuscito: (.*)$/s, 'Download from the registry failed: $1'],
+  // login
+  [/^Troppi tentativi sbagliati: riprova tra (\d+) minuti$/, 'Too many failed attempts: try again in $1 minutes'],
   [/^Rollback fallito: il ripristino del backup (.+) non è riuscito\.$/, 'Rollback failed: restoring backup $1 did not work.'],
   [/^Ripristinata la versione (\w+)\.$/, 'Restored version $1.'],
   [/^Installata la versione (.*)\.$/, 'Installed version $1.'],

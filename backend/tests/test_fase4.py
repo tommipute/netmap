@@ -2,7 +2,10 @@
 import copy
 
 import pytest
+from starlette.requests import Request
 
+from app.config import settings
+from app.core.throttle import Throttle, client_ip
 from app.services.monitor import Probe, check_devices
 from tests.conftest import ADMIN
 from tests.snmp_devices import PC_A_MAC, PC_B_MAC, SW1, SW2
@@ -186,7 +189,50 @@ def test_utente_disattivato_e_ultimo_amministratore(client, anonymous):
 def test_troppi_tentativi(anonymous):
     for _ in range(5):
         assert anonymous.post("/api/auth/login", json={"username": "admin", "password": "x"}).status_code == 401
-    assert anonymous.post("/api/auth/login", json={"username": "admin", "password": ADMIN["password"]}).status_code == 429
+    blocked = anonymous.post("/api/auth/login", json={"username": "admin", "password": ADMIN["password"]})
+    assert blocked.status_code == 429 and blocked.headers["Retry-After"] == "60"
+    assert blocked.json()["detail"] == "Troppi tentativi sbagliati: riprova tra un minuto"
+    # Un altro utente dallo stesso indirizzo entra ancora
+    assert anonymous.post("/api/auth/login", json={"username": "altro", "password": "x"}).status_code == 401
+
+
+def test_troppi_tentativi_dallo_stesso_indirizzo(anonymous):
+    for n in range(20):
+        assert anonymous.post("/api/auth/login", json={"username": f"utente{n}", "password": "x"}).status_code == 401
+    blocked = anonymous.post("/api/auth/login", json={"username": "admin", "password": ADMIN["password"]})
+    assert blocked.status_code == 429 and blocked.json()["detail"] == "Troppi tentativi sbagliati: riprova tra 15 minuti"
+
+
+def test_attesa_che_raddoppia():
+    now = [0.0]
+    throttle = Throttle(max_failures=3, base_lock=60, max_lock=300, window=900, clock=lambda: now[0])
+    assert [throttle.failure("a") for _ in range(3)] == [0, 0, 60]
+    assert throttle.retry_after("a") == 60
+    now[0] += 61
+    assert throttle.retry_after("a") == 0
+    assert throttle.failure("a") == 120  # errore subito dopo il blocco: attesa doppia
+    now[0] += 121
+    assert [throttle.failure("a"), throttle.failure("a")] == [240, 300]  # fino al massimo
+    now[0] += 2000  # tanto tempo senza errori: si riparte da zero
+    assert throttle.retry_after("a") == 0 and throttle.failure("a") == 0
+    throttle.success("a")
+    assert throttle.failure("a") == 0
+
+
+def test_indirizzo_del_client_dietro_i_proxy(monkeypatch):
+    def request(peer, forwarded=None):
+        headers = [(b"x-forwarded-for", forwarded.encode())] if forwarded else []
+        return Request({"type": "http", "client": (peer, 1234), "headers": headers})
+
+    monkeypatch.setattr(settings, "trusted_proxies", 0)
+    assert client_ip(request("172.18.0.5", "1.2.3.4")) == "172.18.0.5"
+    monkeypatch.setattr(settings, "trusted_proxies", 2)  # Caddy + nginx
+    assert client_ip(request("172.18.0.5", "192.168.1.20, 172.18.0.6")) == "192.168.1.20"
+    # Un client che si inventa X-Forwarded-For non cambia il risultato: Caddy aggiunge l'indirizzo vero
+    assert client_ip(request("172.18.0.5", "6.6.6.6, 192.168.1.20, 172.18.0.6")) == "192.168.1.20"
+    monkeypatch.setattr(settings, "trusted_proxies", 1)  # solo nginx
+    assert client_ip(request("172.18.0.5", "6.6.6.6, 192.168.1.20")) == "192.168.1.20"
+    assert client_ip(request("172.18.0.5")) == "172.18.0.5"
 
 
 # ---------------------------------------------------------------- rack

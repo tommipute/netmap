@@ -1,0 +1,13 @@
+{
+  "name": "netmap-e2e",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Prove nel browser di un'installazione di NetMap (vedi README.md in questa cartella)",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

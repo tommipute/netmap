@@ -5,8 +5,7 @@ script e integrazioni possono usare lo stesso token con "Authorization: Bearer".
 Ruoli: viewer = solo lettura, editor = modifica i dati, admin = anche gli utenti.
 Al primo avvio, senza utenti, la pagina di login chiede di creare l'amministratore.
 """
-import time
-from collections import defaultdict
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -15,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.auth import create_token, decode_token, hash_password, verify_password
+from app.core.throttle import Throttle, client_ip
 from app.database import get_db
 from app.models import User
 from app.models.enums import UserRole
@@ -24,9 +24,13 @@ COOKIE = "netmap_session"
 READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 WRITE_ROLES = {UserRole.ADMIN.value, UserRole.EDITOR.value}
 
-# Tentativi sbagliati per nome utente: dopo 5 errori si aspetta un minuto
-MAX_FAILURES, LOCK_SECONDS = 5, 60
-_failures: dict[str, list[float]] = defaultdict(list)
+# Tentativi sbagliati. Per nome utente: dopo 5 errori si aspetta un minuto, poi ogni errore raddoppia l'attesa
+# fino a 15 minuti. Per indirizzo (chi prova tanti nomi diversi): 20 errori in 15 minuti = 15 minuti di blocco.
+user_throttle = Throttle(max_failures=5, base_lock=60, max_lock=900, window=900)
+ip_throttle = Throttle(max_failures=20, base_lock=900, max_lock=900, window=900)
+# Hash di una password a caso: con un nome utente inesistente la verifica dura come con uno vero
+_DUMMY_HASH = hash_password("netmap-nessun-utente")
+log = logging.getLogger("netmap.auth")
 
 router = APIRouter(prefix="/auth", tags=["Login"])
 
@@ -99,22 +103,30 @@ def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_d
     return _start_session(response, user, db)
 
 
+def _too_many(seconds: int) -> HTTPException:
+    minutes = max(1, -(-seconds // 60))
+    text = "un minuto" if minutes == 1 else f"{minutes} minuti"
+    return HTTPException(429, f"Troppi tentativi sbagliati: riprova tra {text}", headers={"Retry-After": str(seconds)})
+
+
 @router.post("/login", response_model=LoginResult, summary="Accedi")
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     username = payload.username.strip().lower()
-    now = time.monotonic()
-    recent = [t for t in _failures[username] if now - t < LOCK_SECONDS]
-    _failures[username] = recent
-    if len(recent) >= MAX_FAILURES:
-        raise HTTPException(429, "Troppi tentativi sbagliati: riprova tra un minuto")
+    ip = client_ip(request)
+    wait = max(user_throttle.retry_after(username), ip_throttle.retry_after(ip))
+    if wait:
+        raise _too_many(wait)
 
     user = db.scalars(select(User).where(User.username == username)).first()
-    if user is None or not verify_password(payload.password, user.password_hash):
-        recent.append(now)
+    valid = verify_password(payload.password, user.password_hash if user else _DUMMY_HASH)
+    if user is None or not valid:
+        lock = max(user_throttle.failure(username), ip_throttle.failure(ip))
+        log.warning("Accesso non riuscito per %r da %s%s", username, ip, f": bloccato per {lock} s" if lock else "")
         raise HTTPException(401, "Nome utente o password sbagliati")
     if not user.active:
         raise HTTPException(403, "Utente disattivato: chiedi a un amministratore")
-    _failures.pop(username, None)
+    user_throttle.success(username)
+    log.info("Accesso di %r da %s", username, ip)
     return _start_session(response, user, db)
 
 

@@ -1,5 +1,12 @@
 name: netmap
 
+# Log dei container: al massimo 3 file da 10 MB ciascuno, poi i più vecchi si cancellano (docker compose logs)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 # Rete di laboratorio (backend/app/lab): apparati finti che rispondono a SNMP e ping.
 # Partono solo con: docker compose --profile lab up -d   (poi: docker compose exec api python -m app.lab prepara)
 # Per simulare un guasto basta fermarne uno: docker compose stop lab-sw-p3
@@ -8,6 +15,7 @@ x-lab-device: &lab-device
   pull_policy: never
   profiles: ["lab"]
   restart: unless-stopped
+  logging: *logging
   volumes:
     - ./backend:/app
 
@@ -15,6 +23,7 @@ services:
   db:
     image: postgres:16
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -37,6 +46,7 @@ services:
         required: false
     networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
+    logging: *logging
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       SECRETS_KEY: ${SECRETS_KEY:-}   # vuota = chiave generata in backend/.secrets_key
@@ -63,6 +73,7 @@ services:
         required: false
     networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
+    logging: *logging
     # watchfiles riavvia il worker quando cambia il codice (come --reload per l'API)
     command: watchfiles --filter python "python -m app.worker" app
     environment:
@@ -86,6 +97,7 @@ services:
         required: false
     networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
+    logging: *logging
     command: watchfiles --filter python "python -m app.monitor" app
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -107,6 +119,7 @@ services:
       - path: ./version.env
         required: false
     restart: unless-stopped
+    logging: *logging
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     environment:

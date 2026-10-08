@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     session_hours: int = 12
     # HTTPS davanti all'app (reverse proxy): il cookie di sessione viaggia solo cifrato
     cookie_secure: bool = False
+    # Reverse proxy fidati davanti all'API (nginx = 1, Caddy + nginx = 2): servono a leggere l'indirizzo vero del
+    # client da X-Forwarded-For (blocco dei tentativi di accesso, log). 0 = l'indirizzo della connessione
+    trusted_proxies: int = 0
 
     # Versione installata: la scrive l'updater in version.env (compose la passa come variabili d'ambiente)
     app_commit: str = ""
