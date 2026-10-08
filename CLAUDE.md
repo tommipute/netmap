@@ -19,6 +19,8 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
 Test: `docker compose exec api pytest` (68 test, compresi quelli con due switch SNMP simulati).
+Licenza **AGPL-3.0-only** (`LICENSE`, deciso il 9/10/2026): il piede della pagina e la pagina di accesso hanno il
+link "Codice sorgente" alla versione installata (`components/VersionLabel.jsx`, obbligo della sezione 13): non toglierlo.
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`)

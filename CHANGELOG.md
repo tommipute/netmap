@@ -6,6 +6,9 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+- Licenza AGPL-3.0 e link al codice sorgente della versione installata in fondo a ogni pagina.
+
 ## [1.0.0-rc.1] - 2026-10-08
 
 Prima versione installabile con le immagini già pronte (`deploy/install.sh`).

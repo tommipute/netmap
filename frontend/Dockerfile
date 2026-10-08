@@ -16,6 +16,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 ARG VITE_APP_VERSION=""
 ARG APP_COMMIT=""
 LABEL org.opencontainers.image.title="NetMap (interfaccia)" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://github.com/tommipute/netmap" \
       org.opencontainers.image.version=${VITE_APP_VERSION} \
       org.opencontainers.image.revision=${APP_COMMIT}

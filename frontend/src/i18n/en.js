@@ -873,6 +873,8 @@ const strings = {
   'Commit {c}': 'Commit {c}',
   'Completato': 'Completed',
   'Controlla gli aggiornamenti': 'Check for updates',
+  'Codice sorgente': 'Source code',
+  'Software libero con licenza AGPL-3.0': 'Free software under the AGPL-3.0 license',
   'Canale': 'Channel',
   'Stabile': 'Stable',
   'Beta (anche le versioni di prova)': 'Beta (including test versions)',

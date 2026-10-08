@@ -9,6 +9,15 @@ automatiche o disegnate a mano.
 - **Fase 3** ✔ scansione SNMP (v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
 - Fase 4: stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login
 
+## Licenza
+
+NetMap è software libero: [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+Puoi usarlo, studiarlo, modificarlo e ridistribuirlo; se lo modifichi e lo fai usare ad altri via rete
+(anche solo dentro un'azienda o come servizio), devi mettere a loro disposizione il codice delle tue modifiche
+con la stessa licenza. Ogni pagina ha in basso il link al codice della versione installata.
+
+Copyright © 2026 Tommaso (tommipute) e contributori.
+
 ## Installazione su un server (immagini pronte)
 
 Per usare NetMap su un proprio server Linux con Docker, senza codice sorgente né build:

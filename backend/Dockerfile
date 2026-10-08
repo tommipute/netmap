@@ -28,6 +28,7 @@ ENV APP_VERSION=${APP_VERSION} \
     APP_COMMIT_DATE=${APP_COMMIT_DATE} \
     APP_TAG=v${APP_VERSION}
 LABEL org.opencontainers.image.title="NetMap" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://github.com/tommipute/netmap" \
       org.opencontainers.image.version=${APP_VERSION} \
       org.opencontainers.image.revision=${APP_COMMIT} \
