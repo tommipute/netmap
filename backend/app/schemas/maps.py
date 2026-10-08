@@ -52,6 +52,14 @@ class CableRoute(BaseModel):
     b_end: RouteEnd | None = None
 
 
+class MapLocation(BaseModel):
+    id: int
+    name: str
+    parent_id: int | None
+    path: str
+    floor: int | None
+
+
 class MapView(BaseModel):
     map: MapRead
     nodes: list[MapViewNode]
@@ -59,6 +67,7 @@ class MapView(BaseModel):
     available: list[TopologyNode]  # device della sede non ancora in mappa (mappe manuali)
     vlans: list[MapVLAN] = []  # VLAN delle porte dei device in mappa
     routes: list[CableRoute] = []  # cavi con i punti di ancoraggio disegnati a mano
+    locations: list[MapLocation] = []  # posizioni dei device in mappa con quelle che le contengono (bolle)
 
 
 class NodePosition(BaseModel):

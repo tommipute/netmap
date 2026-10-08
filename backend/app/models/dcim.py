@@ -51,6 +51,8 @@ class Location(TimestampMixin, CustomFieldsMixin, Base):
     path: Mapped[str] = mapped_column(
         String(1000).with_variant(String(1000, collation="C"), "postgresql"), default="", server_default=""
     )
+    # Piano/quota: in mappa le posizioni sorelle stanno impilate con il numero più alto in cima (vuoto = in fondo)
+    floor: Mapped[int | None] = mapped_column(Integer)
     description: Mapped[str | None] = mapped_column(Text)
 
 

@@ -195,7 +195,21 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
         for r in db.scalars(select(MapCableRoute).where(MapCableRoute.map_id == network_map.id))
         if r.cable_id in cable_ids
     ]
-    return {"map": network_map, "nodes": nodes, "edges": edges, "available": available, "vlans": vlans, "routes": routes}
+    # Posizioni dei device in mappa e quelle che le contengono, per le bolle e la disposizione per posizione
+    all_locations = {loc.id: loc for loc in db.scalars(select(Location).where(Location.site_id == network_map.site_id))}
+    used: set[int] = set()
+    for loc_id in {node["location_id"] for node in nodes if node["location_id"]}:
+        while loc_id is not None and loc_id not in used and loc_id in all_locations:
+            used.add(loc_id)
+            loc_id = all_locations[loc_id].parent_id
+    locations = [
+        {"id": loc.id, "name": loc.name, "parent_id": loc.parent_id, "path": loc.path, "floor": loc.floor}
+        for loc in sorted((all_locations[i] for i in used), key=lambda loc: loc.path.lower())
+    ]
+    return {
+        "map": network_map, "nodes": nodes, "edges": edges, "available": available, "vlans": vlans, "routes": routes,
+        "locations": locations,
+    }
 
 
 def save_map_positions(db: Session, network_map: NetworkMap, positions: list) -> int:

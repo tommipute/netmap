@@ -184,3 +184,95 @@ export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = fal
   }
   return positions
 }
+
+// Bolle delle posizioni: spazio attorno al contenuto (in alto il nome) e tra due bolle vicine
+export const LOC_PAD = { top: 44, side: 26, bottom: 24 }
+const LOC_GAP = 70
+// Spazio attorno ai device per le bolle dei rack (come RACK_PAD in MapEditor)
+const DEVICE_PAD = { top: 10, side: 16, bottom: 30 }
+
+/** Posizioni sorelle: piano più alto in cima (quota), poi senza quota in ordine di nome. */
+const byFloor = (a, b) =>
+  (a.floor == null) - (b.floor == null) || (b.floor ?? 0) - (a.floor ?? 0) || byName(a, b)
+
+/**
+ * Disposizione per posizione: ogni posizione è un riquadro con dentro i suoi device (disposti per ruolo come in
+ * hierarchicalLayout) e le posizioni che contiene. Gli edifici (primo livello) stanno affiancati; dentro un
+ * edificio, o se le posizioni hanno una quota, i figli stanno impilati (quota più alta in cima), altrimenti
+ * affiancati (es. le stanze di un piano). I device senza posizione stanno in alto, fuori dai riquadri.
+ * locations: [{ id, name, parent_id, floor }] (vedi view.locations) -> { "id": { x, y } }
+ */
+export function locationLayout(nodes, edges, locations, heights = {}, options = {}) {
+  const widths = options.widths || {}
+  const known = new Map(locations.map((l) => [l.id, l]))
+  const keyOf = (id) => (id && known.has(id) ? id : 'root')
+  const children = new Map()
+  for (const l of locations) {
+    const parent = keyOf(l.parent_id)
+    if (!children.has(parent)) children.set(parent, [])
+    children.get(parent).push(l)
+  }
+  const direct = new Map()
+  for (const n of nodes) {
+    const key = keyOf(n.location_id)
+    if (!direct.has(key)) direct.set(key, [])
+    direct.get(key).push(n)
+  }
+
+  // Riquadro: { positions (relative all'angolo in alto a sinistra), w, h }
+  const devicesBox = (list) => {
+    if (!list.length) return null
+    const pos = hierarchicalLayout(list, edges, heights, options)
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity
+    for (const n of list) {
+      const p = pos[String(n.id)]
+      const w = widths[String(n.id)] || NODE_HALF * 2
+      const h = heights[String(n.id)] || estimatedHeight(n)
+      l = Math.min(l, p.x - DEVICE_PAD.side)
+      t = Math.min(t, p.y - DEVICE_PAD.top)
+      r = Math.max(r, p.x + w + DEVICE_PAD.side)
+      b = Math.max(b, p.y + h + DEVICE_PAD.bottom)
+    }
+    const positions = Object.fromEntries(Object.entries(pos).map(([id, p]) => [id, { x: p.x - l, y: p.y - t }]))
+    return { positions, w: r - l, h: b - t }
+  }
+  const shift = (box, dx, dy, into) => {
+    for (const [id, p] of Object.entries(box.positions)) into[id] = { x: p.x + dx, y: p.y + dy }
+  }
+  // Contenuto di una posizione (o della mappa intera): device propri sopra, poi le posizioni figlie
+  const contentBox = (key, depth) => {
+    const own = devicesBox(direct.get(key) || [])
+    const kids = (children.get(key) || []).slice().sort(byFloor)
+      .map((loc) => {
+        const inner = contentBox(loc.id, depth + 1)
+        if (!inner) return null
+        const positions = {}
+        shift(inner, LOC_PAD.side, LOC_PAD.top, positions)
+        return { positions, w: inner.w + LOC_PAD.side * 2, h: inner.h + LOC_PAD.top + LOC_PAD.bottom }
+      })
+      .filter(Boolean)
+    if (!own && kids.length === 0) return null
+    // Edifici affiancati; i piani di un edificio (o figli con quota) impilati; il resto affiancato
+    const stacked = depth === 1 || (depth > 1 && (children.get(key) || []).some((l) => l.floor != null))
+    // Righe una sotto l'altra, centrate: i device propri, poi i figli (uno per riga se impilati, tutti in una se no)
+    const rows = []
+    if (own) rows.push([own])
+    if (stacked) rows.push(...kids.map((k) => [k]))
+    else if (kids.length) rows.push(kids)
+    const rowWidth = (row) => row.reduce((sum, k) => sum + k.w, 0) + LOC_GAP * (row.length - 1)
+    const w = Math.max(...rows.map(rowWidth))
+    const positions = {}
+    let y = 0
+    for (const row of rows) {
+      let x = (w - rowWidth(row)) / 2
+      for (const k of row) {
+        shift(k, x, y, positions)
+        x += k.w + LOC_GAP
+      }
+      y += Math.max(...row.map((k) => k.h)) + LOC_GAP
+    }
+    y -= LOC_GAP
+    return { positions, w, h: y }
+  }
+  return contentBox('root', 0)?.positions || {}
+}

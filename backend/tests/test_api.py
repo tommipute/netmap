@@ -285,3 +285,17 @@ def test_posizioni_ad_albero(client):
     assert client.post("/api/locations", json={"name": "P1", "site_id": site["id"], "parent_id": a["id"]}).status_code == 201
     circolare = client.patch(f"/api/locations/{p1['id']}", json={"parent_id": stanza["id"]})
     assert circolare.status_code == 422
+
+
+def test_mappa_con_le_posizioni(client):
+    site = create(client, "/sites", {"name": "Sede bolle"})
+    pal = create(client, "/locations", {"name": "Palazzina A", "site_id": site["id"]})
+    piano = create(client, "/locations", {"name": "P1", "site_id": site["id"], "parent_id": pal["id"], "floor": 1})
+    create(client, "/locations", {"name": "Vuota", "site_id": site["id"]})
+    create(client, "/devices", {"name": "sw-p1", "site_id": site["id"], "location_id": piano["id"]})
+    mappa = create(client, "/maps", {"name": "Bolle", "site_id": site["id"], "auto_include": True})
+    view = client.get(f"/api/maps/{mappa['id']}/view").json()
+    # Solo le posizioni con device in mappa, più quelle che le contengono (per le bolle una dentro l'altra)
+    assert [(l["name"], l["parent_id"], l["floor"]) for l in view["locations"]] == [
+        ("Palazzina A", None, None), ("P1", pal["id"], 1),
+    ]

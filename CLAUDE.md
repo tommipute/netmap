@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (61 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (62 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`)
@@ -344,6 +344,14 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   **Connettore** (`Plug` in CableEdge): blocchetto del colore del cavo sul bordo del device dove entra il cavo
   (`geometry.ends`), così un cavo che passa vicino non sembra collegato; i nomi delle porte partono dopo di lui.
   Il nome del rack nella bolla va a destra se in basso a sinistra passa un cavo (`labelSide` in MapEditor).
+  **Bolle delle posizioni** (`map/LocationNode.jsx`, `locationBubbles()` in MapEditor, `view.locations` = posizioni
+  dei device in mappa più quelle che le contengono): riquadri uno dentro l'altro (edificio › piano › stanza), colore
+  per profondità (`.loc-bubble--d0..3`), `zIndex` -10 + profondità (sotto i rack); i cavi le attraversano (non sono
+  ostacoli, a differenza dei rack). Clic sul nome = seleziona i device di tutta la posizione. Interruttore
+  "Posizioni" (localStorage `netmap.map.locations`). Con le posizioni accese la disposizione automatica è
+  `locationLayout` (layout.js): edifici affiancati, i loro figli impilati (anche figli con quota), il resto
+  affiancato, tutto centrato; dentro ogni posizione i device propri con `hierarchicalLayout`; senza posizione in alto.
+  `Location.floor` = piano/quota: tra posizioni sorelle il numero più alto sta in cima (vuoto = in fondo, per nome).
   **Nomi delle porte** (`map/geometry.js`): sul bordo del device, non a metà cavo. Con i nomi attivi ogni cavo ha il
   suo punto di attacco; il tratto dritto in uscita si allunga quanto il nome, scritto lungo il tratto (verticale se
   il cavo esce da sopra/sotto, `CableEdge` lo ruota). Tra due device vicini e allineati i nomi vanno in orizzontale

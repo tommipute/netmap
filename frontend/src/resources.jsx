@@ -276,18 +276,20 @@ export const resources = {
     intro: t('Edifici, piani e stanze. Una posizione può stare dentro un\'altra.'),
     // Percorso completo ("Palazzina A › P1") nei menu e ovunque compaia la posizione
     label: (o) => o.path || o.name,
-    bulkFields: ['parent_id'],
+    bulkFields: ['parent_id', 'floor'],
     filters: [{ name: 'site_id', label: t('Sede'), ref: 'sites' }],
     columns: [
       // Nell'ordine predefinito (per percorso) ogni posizione sta sotto quella che la contiene, rientrata
       { name: 'name', label: t('Nome'), render: (o, view) => <LocationName location={o} tree={view?.tree} />, filter: { kind: 'text' }, sortField: 'name' },
       { name: 'site_id', label: t('Sede'), type: 'ref', ref: 'sites' },
       { name: 'parent_id', label: t('Dentro a'), type: 'ref', ref: 'locations' },
+      { name: 'floor', label: t('Piano (quota)'), hidden: true },
     ],
     fields: [
       { name: 'name', label: t('Nome'), required: true, placeholder: t('Primo piano') },
       { name: 'site_id', label: t('Sede'), type: 'ref', ref: 'sites', required: true, createOnly: true },
       { name: 'parent_id', label: t('Dentro a'), type: 'ref', ref: 'locations', dependsOn: 'site_id', waitLabel: WAIT_SITE, emptyLabel: t('Nessuna (livello principale)') },
+      { name: 'floor', label: t('Piano (quota)'), type: 'number', help: t('Per i piani: in mappa quello con il numero più alto sta in cima (es. -1 interrato, 0 terra, 1 primo).') },
       description,
       customFields,
     ],

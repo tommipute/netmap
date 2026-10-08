@@ -27,12 +27,13 @@ import { cableStyle } from '../map/cables'
 import { cableGeometry, nodeWidths } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
 import MapSearch from '../map/MapSearch'
+import LocationNode from '../map/LocationNode'
 import RackNode from '../map/RackNode'
-import { X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout } from '../map/layout'
+import { LOC_PAD, X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout, locationLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 import { t } from '../i18n'
 
-const nodeTypes = { device: DeviceNode, rack: RackNode }
+const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode }
 const edgeTypes = { cable: CableEdge }
 const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
 const EXPORT_PADDING = 40
@@ -44,6 +45,16 @@ function download(dataUrl, filename) {
   document.body.appendChild(a)
   a.click()
   a.remove()
+}
+
+// Bolle delle posizioni accese o spente (scelta ricordata nel browser)
+const LOCATIONS_PREF = 'netmap.map.locations'
+function readLocationsPref() {
+  try {
+    return localStorage.getItem(LOCATIONS_PREF) !== '0'
+  } catch {
+    return true
+  }
 }
 
 /** Nodi per React Flow: posizione attuale > posizione salvata > calcolata. */
@@ -58,7 +69,10 @@ function buildFlowNodes(view, previous) {
   if (missing.length === 0) return { nodes, changed: false }
 
   if (missing.length === nodes.length) {
-    const layout = hierarchicalLayout(view.nodes, view.edges)
+    // Con le posizioni accese i device si raggruppano per edificio/piano/stanza, altrimenti righe per ruolo
+    const layout = readLocationsPref() && view.locations.length
+      ? locationLayout(view.nodes, view.edges, view.locations)
+      : hierarchicalLayout(view.nodes, view.edges)
     return { nodes: nodes.map((n) => ({ ...n, position: layout[n.id] })), changed: true }
   }
   // Device nuovi in una mappa già disposta: li metto in fila sotto
@@ -157,6 +171,64 @@ function rackBubbles(nodes, onSelect) {
   return bubbles
 }
 
+/**
+ * Bolle delle posizioni: per ogni posizione un riquadro attorno ai suoi device e alle posizioni che contiene
+ * (quindi una dentro l'altra: edificio › piano › stanza), ricalcolato a ogni spostamento. Sotto le bolle dei rack;
+ * a differenza di quelle i cavi le attraversano.
+ */
+function locationBubbles(nodes, locations, onSelect) {
+  if (!locations.length) return []
+  const measured = nodes.filter((n) => n.measured?.width)
+  const known = new Map(locations.map((l) => [l.id, l]))
+  const children = new Map()
+  for (const l of locations) {
+    if (!known.has(l.parent_id)) continue
+    if (!children.has(l.parent_id)) children.set(l.parent_id, [])
+    children.get(l.parent_id).push(l)
+  }
+  const bubbles = []
+  const visit = (loc, depth) => {
+    const boxes = []
+    const ids = []
+    for (const n of measured) {
+      if (n.data.location_id !== loc.id) continue
+      const box = bubbleBox([n])
+      boxes.push(box)
+      ids.push(n.id)
+    }
+    for (const child of children.get(loc.id) || []) {
+      const inner = visit(child, depth + 1)
+      if (inner) {
+        boxes.push(inner.box)
+        ids.push(...inner.ids)
+      }
+    }
+    if (boxes.length === 0) return null
+    const box = {
+      l: Math.min(...boxes.map((b) => b.l)) - LOC_PAD.side,
+      t: Math.min(...boxes.map((b) => b.t)) - LOC_PAD.top,
+      r: Math.max(...boxes.map((b) => b.r)) + LOC_PAD.side,
+      b: Math.max(...boxes.map((b) => b.b)) + LOC_PAD.bottom,
+    }
+    bubbles.push({
+      id: `location-${loc.id}`,
+      type: 'location',
+      position: { x: box.l, y: box.t },
+      width: box.r - box.l,
+      height: box.b - box.t,
+      data: { name: loc.name, path: loc.path, depth, ids, onSelect: () => onSelect(ids) },
+      selectable: false,
+      draggable: false,
+      connectable: false,
+      focusable: false,
+      zIndex: -10 + depth, // la posizione contenuta sopra quella che la contiene, tutte sotto i rack (-1)
+    })
+    return { box, ids }
+  }
+  for (const l of locations) if (!known.has(l.parent_id)) visit(l, 0)
+  return bubbles
+}
+
 function toFlowEdge(edge, levelOf, showLabels, selected, route) {
   // Il cavo parte sempre dal device più in alto nella gerarchia
   const flip = (levelOf[edge.source] ?? 0) > (levelOf[edge.target] ?? 0)
@@ -190,14 +262,15 @@ function toFlowEdge(edge, levelOf, showLabels, selected, route) {
   }
 }
 
-function Legend({ edges, nodes, racks, vlan }) {
+function Legend({ edges, nodes, racks, locations, vlan }) {
   const types = [...new Set(edges.map((e) => e.type || ''))]
   const planned = edges.some((e) => e.status === 'planned')
   const live = nodes.some((n) => n.reachable !== null && n.reachable !== undefined)
-  if (types.length === 0 && !live && !racks && !vlan) return null
+  if (types.length === 0 && !live && !racks && !locations && !vlan) return null
   return (
     <div className="map-legend">
       {vlan && <span className="map-legend__item"><span className="map-legend__line map-legend__line--vlan" />VLAN {vlan.vid} {vlan.name}</span>}
+      {locations && <span className="map-legend__item"><span className="map-legend__loc" />{t('Posizione')}</span>}
       {racks && <span className="map-legend__item"><span className="map-legend__rack" />{t('Rack')}</span>}
       {live && (
         <>
@@ -235,6 +308,7 @@ function Editor() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
+  const [showLocations, setShowLocations] = useState(readLocationsPref)
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
   // Cavi sistemati a mano: { cableId: { points: spigoli dal lato A al lato B, a_end, b_end: { side, f } | null } }
@@ -346,6 +420,11 @@ function Editor() {
     [setNodes],
   )
   const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
+  const locationsOn = showLocations && (view?.locations.length || 0) > 0
+  const places = useMemo(
+    () => (locationsOn ? locationBubbles(nodes, view.locations, selectRack) : []),
+    [locationsOn, nodes, view, selectRack],
+  )
   // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni, si ricalcolano mentre si sposta un device
   const geometry = useMemo(() => cableGeometry(nodes, bubbles, baseEdges), [nodes, bubbles, baseEdges])
   // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga quanto serve
@@ -407,6 +486,7 @@ function Editor() {
   const displayNodes = useMemo(() => {
     const faded = (node, inFocus) => (focus && !inFocus ? { ...node, className: 'is-faded' } : node)
     return [
+      ...places.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
       ...bubbles.map((b) => {
         const side = labelSide(b, geometry)
         const placed = side === 'left' ? b : { ...b, data: { ...b.data, labelSide: side } }
@@ -418,7 +498,7 @@ function Editor() {
         return faded(sized, focus?.devices.has(n.id))
       }),
     ]
-  }, [bubbles, nodes, focus, widths, geometry])
+  }, [places, bubbles, nodes, focus, widths, geometry])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -443,7 +523,10 @@ function Editor() {
 
   const arrange = () => {
     const heights = Object.fromEntries(nodesRef.current.map((n) => [n.id, n.measured?.height]))
-    const layout = hierarchicalLayout(view.nodes, view.edges, heights, { withPorts: showLabels, widths })
+    const options = { withPorts: showLabels, widths }
+    const layout = locationsOn
+      ? locationLayout(view.nodes, view.edges, view.locations, heights, options)
+      : hierarchicalLayout(view.nodes, view.edges, heights, options)
     setNodes((current) => current.map((n) => ({ ...n, position: layout[n.id] ?? n.position })))
     setDirty(true)
     setTimeout(() => fitRef.current({ padding: 0.25, duration: 300 }), 50)
@@ -599,6 +682,19 @@ function Editor() {
             <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
             {t('Nomi delle porte')}
           </label>
+          {view.locations.length > 0 && (
+            <label className="check check--inline" title={t('Edifici, piani e stanze come riquadri colorati; "Disponi" raggruppa i device per posizione')}>
+              <input type="checkbox" checked={showLocations} onChange={(e) => {
+                  setShowLocations(e.target.checked)
+                  try {
+                    localStorage.setItem(LOCATIONS_PREF, e.target.checked ? '1' : '0')
+                  } catch {
+                    // senza localStorage la scelta vale solo per questa pagina
+                  }
+                }} />
+              {t('Posizioni')}
+            </label>
+          )}
           <select className="input input--sm" value="" onChange={(e) => exportAs(e.target.value)} aria-label={t('Esporta o stampa la mappa')}
             disabled={view.nodes.length === 0}>
             <option value="">{t('Esporta…')}</option>
@@ -641,9 +737,9 @@ function Editor() {
         >
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
+          <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' || n.type === 'location' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
-            <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)}
+            <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)} locations={locationsOn}
               vlan={view.vlans.find((v) => v.id === vlanId)} />
           </Panel>
           {canEdit && view.nodes.length > 0 && (

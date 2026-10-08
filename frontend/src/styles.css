@@ -529,6 +529,26 @@ textarea.input { resize: vertical; min-height: 72px; }
 .rack-bubble__label--right { left: auto; right: 10px; }
 .rack-bubble__label::before { content: 'Rack '; font-weight: 400; }
 .rack-bubble__label:hover { color: var(--ink); background: var(--surface); }
+/* ---------- Bolle delle posizioni (edificio, piano, stanza): un colore per livello ---------- */
+.react-flow__node-location { pointer-events: none !important; }
+.loc-bubble {
+  --loc: #5b6cd6; width: 100%; height: 100%; position: relative; border-radius: 18px;
+  border: 1.5px solid color-mix(in srgb, var(--loc) 45%, transparent); background: color-mix(in srgb, var(--loc) 7%, transparent);
+}
+.loc-bubble--d1 { --loc: #3f9a5a; }
+.loc-bubble--d2 { --loc: #c48a1c; }
+.loc-bubble--d3 { --loc: #c0567a; }
+.loc-bubble__label {
+  pointer-events: all; position: absolute; left: 12px; top: 8px; max-width: calc(100% - 24px);
+  font-family: inherit; font-size: 13px; font-weight: 700; color: color-mix(in srgb, var(--loc) 75%, var(--ink));
+  background: none; border: 0; padding: 2px 6px; border-radius: 5px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.loc-bubble__label:hover { background: var(--surface); }
+.map-legend__loc {
+  display: inline-block; width: 18px; height: 11px; margin-right: 6px; vertical-align: middle; border-radius: 4px;
+  border: 1.5px solid color-mix(in srgb, #5b6cd6 45%, transparent); background: color-mix(in srgb, #5b6cd6 7%, transparent);
+}
 .map-legend__rack {
   display: inline-block; width: 18px; height: 11px; margin-right: 6px; vertical-align: middle; border-radius: 4px;
   border: 1.5px dashed var(--line-strong); background: color-mix(in srgb, var(--accent) 6%, transparent);

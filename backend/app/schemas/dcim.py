@@ -41,6 +41,7 @@ class SiteRead(SiteCreate, ReadSchema):
 class LocationBase(InputSchema):
     name: Name
     parent_id: int | None = None
+    floor: int | None = Field(None, ge=-1000, le=1000)
     description: str | None = None
     custom_fields: dict[str, Any] = Field(default_factory=dict)
 
