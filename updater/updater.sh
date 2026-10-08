@@ -30,7 +30,7 @@ load_config() {
   REMOTE=${REMOTE:-origin}
   HEALTH_URL=${HEALTH_URL:-http://127.0.0.1:8001/api/health}
   WEB_URL=${WEB_URL-http://127.0.0.1:5174/}
-  HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-600}
+  HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-300}
   HEALTH_INTERVAL=${HEALTH_INTERVAL:-5}
   # Modalità vm: comandi del server senza Docker (vedi updater.conf.example)
   VM_DEPLOY_CMD=${VM_DEPLOY_CMD:-}

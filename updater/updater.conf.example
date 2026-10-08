@@ -18,7 +18,7 @@ REMOTE=origin
 HEALTH_URL=http://127.0.0.1:8001/api/health
 # Anche l'interfaccia deve rispondere (vuoto = non controllarla)
 WEB_URL=http://127.0.0.1:5174/
-HEALTH_TIMEOUT=600
+HEALTH_TIMEOUT=300
 HEALTH_INTERVAL=5
 
 # ---- Solo MODE=vm: comandi del server senza Docker (eseguiti nella cartella del repo)
