@@ -1,7 +1,7 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app.config import settings
 from app.models import Base  # importa tutti i modelli
@@ -34,6 +34,12 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        if connection.dialect.name == "postgresql":
+            # Un solo processo alla volta applica le migration (l'altro aspetta e poi trova tutto già fatto);
+            # il lock si libera quando la connessione si chiude
+            connection.execute(text("SELECT pg_advisory_lock(7262701)"))
+            connection.commit()
+        # Su Postgres tutte le migration in sospeso stanno in un'unica transazione: o passano tutte o nessuna
         context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
         with context.begin_transaction():
             context.run_migrations()

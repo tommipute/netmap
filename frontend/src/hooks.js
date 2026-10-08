@@ -136,3 +136,14 @@ export function useStatusSummary() {
   }, [])
   return summary
 }
+
+/** Versione installata dal server (commit, data, tag scritti dall'updater): chiesta una volta sola. */
+let versionInfo = null
+export function useVersion() {
+  const [info, setInfo] = useState(versionInfo)
+  useEffect(() => {
+    if (versionInfo) return
+    api.get('/version').then((data) => setInfo((versionInfo = data))).catch(() => {})
+  }, [])
+  return info
+}

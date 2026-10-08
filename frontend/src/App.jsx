@@ -13,6 +13,7 @@ import PrefixPage from './pages/PrefixPage'
 import RackPage from './pages/RackPage'
 import ResourcePage from './pages/ResourcePage'
 import SearchPage from './pages/SearchPage'
+import UpdatesPage from './pages/UpdatesPage'
 import { resources } from './resources'
 import { t } from './i18n'
 
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="whats-changed" element={<WhatsChangedPage />} />
         <Route path="discovery-jobs/:id" element={<DiscoveryJobPage />} />
         <Route path="discovery/changes" element={<ChangesPage />} />
+        <Route path="updates" element={<UpdatesPage />} />
         {Object.entries(resources).map(([key, config]) => (
           // key={key}: ogni elenco riparte da zero quando si cambia sezione
           <Route key={key} path={config.path} element={<ResourcePage key={key} resourceKey={key} />} />

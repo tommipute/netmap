@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (63 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (68 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira (due copie, stesso repository git, branch `main`)
@@ -32,6 +32,7 @@ aggiornarla a ogni commit che va su GitHub.
 |---|---|---|
 | PC Windows | `E:\Claude\NetMap` | Docker Desktop, `FILE_POLLING=true`; remote git `server` (chiave `~/.ssh/proxmox_ed25519` in `core.sshCommand`) |
 | Server | LXC 103 "dev" sul Proxmox: `~/progetti/netmap` (utente `tommaso`) | 192.168.1.74 in LAN, NetBird `dev.netbird.cloud` / 100.111.74.88; `FILE_POLLING=false`; sessione Claude remota "dev" parte da `~/progetti` |
+| Produzione | VM 104 "netmap" sul Proxmox: `/opt/netmap` (utente `netmap`, Debian 13) | 192.168.1.75; si aggiorna da sola da GitHub `main` con `updater/` (timer systemd, deploy key in sola lettura `~/.ssh/netmap_deploy`); da dev: `ssh -i ~/.ssh/netmap_vm netmap@192.168.1.75`. Niente profilo `lab` |
 
 Interfaccia da remoto: http://dev.netbird.cloud:5174 (oppure http://100.111.74.88:5174). Ogni copia ha il suo database:
 quello del server è nato dal dump del PC il 5/10/2026. Per allineare il codice: `git push server` / `git pull` dal PC;
@@ -61,11 +62,23 @@ docker compose build api worker                     # dopo aver cambiato require
 | db (Postgres 16) | localhost:5433 | |
 
 Porte scelte apposta per non scontrarsi con l'app inventory: **non cambiarle**.
-`backend/start.sh` al primo avvio genera da solo la migration iniziale se `alembic/versions/` è vuota.
+`backend/start.sh` applica le migration (`alembic upgrade head`, con advisory lock in `alembic/env.py`) e non ne genera mai: senza migration l'API non parte.
 `.gitattributes` forza LF su tutti i file (su Windows un CRLF rompe gli `.sh` nei container).
 Le immagini installano `requirements-dev.txt` (pytest, snmpsim, pysmi).
 La migration `1a6c6b905200_descrizione_modifica` è vuota (nata copiando alla lettera il comando del README): innocua.
 Container con `TZ=Europe/Rome`, così gli orari nei log delle scansioni sono locali.
+
+### Aggiornamenti automatici (`updater/`, `api/system.py`, `services/updater.py`, `pages/UpdatesPage.jsx`)
+
+`updater/updater.sh` gira sull'host (timer ogni minuto, `install.sh`): l'app non tocca Docker né GitHub, scambia
+file in `updater-data/` (montata solo nell'`api` come `/updater-data`): `settings.json` e `request.json` li scrive
+l'app, `status.json` e `updater.log` lo script. Lo script scrive `version.env` (APP_COMMIT, APP_COMMIT_DATE, APP_TAG,
+APP_VERSION) che compose passa ad api/worker/monitor/web con `env_file` (required: false): cambia a ogni
+aggiornamento, quindi compose ricrea i container. `/api/health` (pubblico) controlla db e migration e restituisce
+il commit: l'updater aspetta il commit **nuovo** prima di dichiarare riuscito l'aggiornamento. `/api/version` è
+pubblico (piede della pagina: `components/VersionLabel.jsx`). I messaggi dello script sono frasi italiane che
+finiscono con un punto: il frontend le traduce frase per frase (`tMessage`), quindi nuovi messaggi = nuove voci
+in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf` non vanno in git.
 
 ## Backend (`backend/app`)
 

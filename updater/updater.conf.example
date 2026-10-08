@@ -1,0 +1,32 @@
+# Configurazione dell'updater (install.sh la copia in updater/updater.conf, che non va su git).
+# Le impostazioni che cambiano spesso (aggiornamento automatico, branch, intervallo, backup da tenere)
+# si gestiscono dall'app, pagina Aggiornamenti: finiscono in updater-data/settings.json.
+
+# docker = l'app gira con docker compose (consigliato) | vm = l'app gira direttamente sul server
+MODE=docker
+
+# Cartella del repo (vuota = la cartella sopra updater/), cartella condivisa con l'app, backup del database
+#APP_DIR=/opt/netmap
+#DATA_DIR=/opt/netmap/updater-data
+#BACKUP_DIR=/opt/netmap/backups
+
+# Remote git e chiave SSH di sola lettura (deploy key). Vuota = quella di ~/.ssh/config per github.com
+REMOTE=origin
+#GIT_SSH_KEY=/home/netmap/.ssh/netmap_deploy
+
+# Controllo di salute dopo l'aggiornamento: l'API deve rispondere ok con il commit nuovo entro HEALTH_TIMEOUT secondi
+HEALTH_URL=http://127.0.0.1:8001/api/health
+# Anche l'interfaccia deve rispondere (vuoto = non controllarla)
+WEB_URL=http://127.0.0.1:5174/
+HEALTH_TIMEOUT=600
+HEALTH_INTERVAL=5
+
+# ---- Solo MODE=vm: comandi del server senza Docker (eseguiti nella cartella del repo)
+# Installa le dipendenze e riavvia i servizi; l'API applica le migration all'avvio (backend/start.sh).
+# I servizi devono leggere version.env (systemd: EnvironmentFile=/opt/netmap/version.env).
+#VM_DEPLOY_CMD='cd backend && .venv/bin/pip install -q -r requirements.txt && cd ../frontend && npm ci && npm run build && sudo systemctl restart netmap-api netmap-worker netmap-monitor'
+#VM_STOP_CMD='sudo systemctl stop netmap-api netmap-worker netmap-monitor'
+# Database per backup e ripristino (pg_dump, psql e pg_restore installati sul server)
+#VM_DATABASE_URL=postgresql://netmap:password@localhost:5432/netmap
+#HEALTH_URL=http://127.0.0.1:8000/api/health
+#WEB_URL=

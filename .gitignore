@@ -6,3 +6,7 @@ __pycache__/
 node_modules/
 dist/
 backend/.secrets_key
+version.env
+updater-data/
+backups/
+updater/updater.conf

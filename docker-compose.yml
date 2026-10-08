@@ -32,6 +32,9 @@ services:
 
   api:
     build: ./backend
+    env_file:   # versione installata (commit, data, tag), scritta da updater/updater.sh
+      - path: ./version.env
+        required: false
     networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
     environment:
@@ -50,10 +53,14 @@ services:
       - "8001:8000"   # 8001 per non andare in conflitto con l'app inventory
     volumes:
       - ./backend:/app
+      - ./updater-data:/updater-data   # cartella condivisa con l'updater sull'host (vedi updater/)
 
   # Esegue le scansioni SNMP in coda (stessa immagine dell'API, comando diverso)
   worker:
     build: ./backend
+    env_file:   # versione installata (commit, data, tag), scritta da updater/updater.sh
+      - path: ./version.env
+        required: false
     networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
     # watchfiles riavvia il worker quando cambia il codice (come --reload per l'API)
@@ -74,6 +81,9 @@ services:
   # Stato live: ping e SNMP periodici sui device con IP di management (stessa immagine dell'API)
   monitor:
     build: ./backend
+    env_file:   # versione installata (commit, data, tag), scritta da updater/updater.sh
+      - path: ./version.env
+        required: false
     networks: [default, lab]   # lab: per scansionare/pingare gli apparati finti
     restart: unless-stopped
     command: watchfiles --filter python "python -m app.monitor" app
@@ -93,6 +103,9 @@ services:
 
   web:
     image: node:20-alpine
+    env_file:   # cambia a ogni aggiornamento: il container riparte e rifà npm install
+      - path: ./version.env
+        required: false
     restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"

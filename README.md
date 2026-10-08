@@ -26,8 +26,8 @@ docker compose exec api python -m app.seed    # facoltativo: rete di esempio con
 Le porte sono diverse dai default così l'app può girare insieme all'app inventory.
 
 Il primo avvio richiede qualche minuto: il container `web` scarica le dipendenze del frontend
-e il container `api` genera da solo la migration iniziale dai modelli
-(la trovi poi in `backend/alembic/versions/`). Per seguire l'avvio: `docker compose logs -f`.
+e il container `api` crea le tabelle applicando le migration di `backend/alembic/versions/`.
+Per seguire l'avvio: `docker compose logs -f`.
 
 ## Come si usa
 
@@ -93,6 +93,97 @@ Poi in NetMap: **Scansioni → Laboratorio di rete → Avvia scansione**, approv
 approva i 4 cavi. Un guasto si simula fermando un apparato (`docker compose stop lab-sw-p3`, oppure Stop in
 Docker Desktop): entro un minuto risulta "Non risponde". `docker compose start lab-sw-p3` lo riaccende.
 Senza `--profile lab` gli apparati non partono; per spegnerli tutti: `docker compose --profile lab stop`.
+
+## Aggiornamenti automatici
+
+Sul server di produzione NetMap si aggiorna da GitHub con lo script `updater/updater.sh`, che gira **sull'host**
+(fuori dai container) ogni minuto grazie a un timer systemd. L'app non si aggiorna da sola: niente socket Docker nel
+container e niente credenziali GitHub nell'app. App e script si parlano solo con la cartella `updater-data/`,
+montata nel container `api` come `/updater-data`:
+
+| File | Chi scrive | Chi legge | Cosa contiene |
+|---|---|---|---|
+| `settings.json` | app | script | aggiornamento automatico sì/no, branch, ogni quanto controllare, backup da tenere |
+| `request.json` | app | script (poi lo svuota) | "Controlla ora" o "Aggiorna ora" |
+| `status.json` | script | app | versione installata e disponibile, ultimo controllo, attività in corso, storico (ultimi 20) |
+| `updater.log` | script | app | log dell'ultimo aggiornamento e dei controlli successivi |
+
+A ogni aggiornamento lo script fa il backup del database (`backups/`, tiene gli ultimi N), si segna il commit attuale,
+scarica quello nuovo, riavvia l'app e aspetta che `/api/health` risponda "ok" **con il commit nuovo**. Se qualcosa va
+storto torna al commit precedente, ripristina il backup se le migration avevano già cambiato il database e riavvia.
+Un commit fallito non viene riprovato in automatico (si può forzare con "Aggiorna ora").
+Tutto si vede e si comanda come amministratore in **Amministrazione → Aggiornamenti**.
+
+### 1. Deploy key (accesso in sola lettura al repo privato)
+
+Sul server, con l'utente che farà girare lo script:
+
+```bash
+ssh-keygen -t ed25519 -N "" -C "netmap-updater" -f ~/.ssh/netmap_deploy
+cat ~/.ssh/netmap_deploy.pub
+```
+
+Su GitHub: repo → **Settings → Deploy keys → Add deploy key**, incolla la chiave pubblica e lascia **spenta**
+"Allow write access". Poi di' a ssh di usarla per GitHub, aggiungendo a `~/.ssh/config`:
+
+```
+Host github.com
+  IdentityFile ~/.ssh/netmap_deploy
+  IdentitiesOnly yes
+```
+
+La chiave sta solo sul server, mai nell'app né nel repo.
+
+### 2. Installazione
+
+```bash
+git clone git@github.com:tommipute/netmap.git /opt/netmap   # indirizzo SSH, non https
+cd /opt/netmap
+cp .env.example .env        # cambia POSTGRES_PASSWORD; FILE_POLLING=false su Linux
+sudo updater/install.sh     # modalità docker
+docker compose up -d --build
+```
+
+`install.sh` controlla i programmi necessari (git, jq, curl, flock, docker compose), crea `updater/updater.conf`,
+le cartelle `updater-data/` e `backups/`, il file `version.env` (commit installato, letto dall'app) e il timer
+systemd `netmap-updater.timer` (cron se systemd non c'è). Se la deploy key non funziona ancora, spiega cosa fare.
+L'utente che lancia `sudo` deve essere nel gruppo `docker`. Per toglierlo: `sudo updater/install.sh --uninstall`.
+
+Controlli utili: `systemctl list-timers netmap-updater.timer`, `journalctl -u netmap-updater`,
+`cat updater-data/updater.log`.
+
+### Modalità docker e vm
+
+- **docker** (consigliata): `docker compose up -d --build`; siccome `version.env` cambia, compose ricrea i container
+  dell'app e l'`api` applica le migration all'avvio.
+- **vm** (`sudo updater/install.sh --mode vm`): per un server senza Docker. In `updater/updater.conf` imposta
+  `VM_DEPLOY_CMD` (installa le dipendenze e riavvia i servizi), `VM_STOP_CMD` e `VM_DATABASE_URL` (per `pg_dump`,
+  `psql` e `pg_restore`); i servizi devono leggere `version.env` (systemd: `EnvironmentFile=`). Esempi in
+  `updater/updater.conf.example`.
+
+### Migration
+
+L'`api` all'avvio esegue `alembic upgrade head`: applica solo le migration mancanti, tutte in un'unica transazione
+(o passano tutte o nessuna), con un lock che impedisce due esecuzioni insieme. Se una migration fallisce l'API non
+parte, l'health check fallisce e lo script torna indietro ripristinando il backup.
+
+### Rollback manuale
+
+Se anche il rollback automatico non riesce (lo stato nella pagina è "Errore" e il messaggio lo dice):
+
+```bash
+cd /opt/netmap
+sudo systemctl stop netmap-updater.timer          # ferma i giri dello script
+cat updater-data/previous_commit                  # commit di prima dell'ultimo aggiornamento
+git checkout -B main $(cat updater-data/previous_commit)
+updater/updater.sh version-env                    # l'app saprà quale commit è installato
+ls -t backups/                                    # il backup più recente è quello fatto prima dell'aggiornamento
+updater/updater.sh restore backups/netmap-AAAAMMGG-HHMMSS-xxxxxxx.dump   # ferma l'app, ripristina, riavvia
+sudo systemctl start netmap-updater.timer
+```
+
+Con l'aggiornamento automatico acceso, lo script non riprova il commit fallito; se vuoi restare sulla versione
+vecchia anche quando ne esce una nuova, spegnilo dalla pagina Aggiornamenti.
 
 ## Test del backend
 

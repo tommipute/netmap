@@ -1,11 +1,12 @@
 #!/bin/sh
 set -e
 
-# Primo avvio: se non c'è ancora nessuna migration, la genera dai modelli
+# Le migration stanno in alembic/versions (le genera chi sviluppa, vedi README): mai crearle qui all'avvio
 if ! ls alembic/versions/*.py >/dev/null 2>&1; then
-  echo "Nessuna migration trovata: genero quella iniziale dai modelli..."
-  alembic revision --autogenerate -m "iniziale"
+  echo "Nessuna migration in alembic/versions: il codice è incompleto, l'API non parte." >&2
+  exit 1
 fi
 
+# Applica solo quelle mancanti (già fatte = niente da fare); se una fallisce l'API non parte e l'updater torna indietro
 alembic upgrade head
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000 ${UVICORN_EXTRA_ARGS}

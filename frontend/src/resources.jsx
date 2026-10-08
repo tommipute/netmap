@@ -759,5 +759,5 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels'] },
+  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', { to: 'updates', title: t('Aggiornamenti') }] },
 ]

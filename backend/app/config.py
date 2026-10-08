@@ -27,5 +27,13 @@ class Settings(BaseSettings):
     # HTTPS davanti all'app (reverse proxy): il cookie di sessione viaggia solo cifrato
     cookie_secure: bool = False
 
+    # Versione installata: la scrive l'updater in version.env (compose la passa come variabili d'ambiente)
+    app_commit: str = ""
+    app_commit_date: str = ""
+    app_tag: str = ""
+    app_version: str = ""
+    # Cartella condivisa con l'updater sull'host (status/request/settings.json, updater.log)
+    updater_dir: str = "/updater-data"
+
 
 settings = Settings()
