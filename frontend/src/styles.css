@@ -791,3 +791,6 @@ button.tile:hover { border-color: var(--accent); }
 .update-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .update-history__backup { display: block; margin-top: 2px; }
 .update-log { max-height: 480px; }
+.backup-help { margin-top: 16px; }
+.backup-help p { margin: 0 0 8px; }
+.backup-help .log { margin-bottom: 8px; }

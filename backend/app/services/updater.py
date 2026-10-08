@@ -12,7 +12,18 @@ from pathlib import Path
 
 from app.config import settings
 
-DEFAULT_SETTINGS = {"auto_update": False, "branch": "main", "check_interval_minutes": 60, "keep_backups": 10}
+DEFAULT_SETTINGS = {
+    "auto_update": False,
+    "branch": "main",
+    "check_interval_minutes": 60,
+    "keep_backups": 10,
+    # Backup notturno del database fatto dallo script (oltre a quello prima di ogni aggiornamento)
+    "backup_daily": True,
+    "backup_time": "02:30",
+    "backup_keep_days": 14,
+}
+# Una richiesta più importante non viene sostituita da una meno importante ancora in attesa
+PRIORITY = {"check": 0, "backup": 1, "update": 2}
 # Il timer gira ogni minuto: oltre questo silenzio lo script è considerato fermo
 SILENT_AFTER_MINUTES = 5
 # Un aggiornamento (build compresa) che dura più di così è bloccato
@@ -63,8 +74,8 @@ def pending_request() -> dict | None:
 
 def request(action: str, username: str | None) -> dict:
     current = pending_request()
-    if current and current["action"] == "update" and action == "check":
-        return current  # "aggiorna" comprende già il controllo
+    if current and PRIORITY.get(current["action"], 0) > PRIORITY[action]:
+        return current  # es. "aggiorna" comprende già il controllo
     data = {"action": action, "requested_at": datetime.now(timezone.utc).isoformat(), "requested_by": username or ""}
     write_json("request.json", data)
     return data

@@ -3,9 +3,10 @@
 # systemd o da cron (vedi install.sh). L'app non si aggiorna da sola: scrive le richieste e le impostazioni nella
 # cartella condivisa e legge lo stato che scrive questo script.
 #
-#   updater-data/settings.json  impostazioni (scritte dall'app): auto_update, branch, intervallo, backup da tenere
-#   updater-data/request.json   richiesta dall'app ("check" o "update"): letta e svuotata qui
-#   updater-data/status.json    stato per l'app: versioni, ultimo controllo, attività in corso, storico
+#   updater-data/settings.json  impostazioni (scritte dall'app): auto_update, branch, intervallo, backup da tenere,
+#                               backup notturno (sì/no, ora, giorni da tenere)
+#   updater-data/request.json   richiesta dall'app ("check", "update" o "backup"): letta e svuotata qui
+#   updater-data/status.json    stato per l'app: versioni, ultimo controllo, attività in corso, storico, backup
 #   updater-data/updater.log    log dell'ultimo aggiornamento (più le righe dei controlli successivi)
 #
 # Uso:  updater.sh               un giro normale (quello del timer)
@@ -77,7 +78,7 @@ status() {
 
 setting() { # chiave, valore predefinito
   local value
-  value=$(jq -r --arg k "$1" '.[$k] // empty' "$SETTINGS" 2>/dev/null)
+  value=$(jq -r --arg k "$1" 'if .[$k] == null then empty else .[$k] end' "$SETTINGS" 2>/dev/null)
   echo "${value:-$2}"
 }
 
@@ -278,6 +279,49 @@ do_update() {
   finish success "Installata la versione $(jq -r '.version // empty' <<<"$TO") ($(jq -r .short <<<"$TO"))."
 }
 
+# ---------------------------------------------------------------------------------------------- backup
+# Backup notturno (daily-*.dump, tenuti BACKUP_KEEP_DAYS giorni) e a richiesta dall'app (manual-*.dump, stessa
+# durata); quelli fatti prima di ogni aggiornamento (netmap-*.dump) seguono keep_backups.
+backup_now() { # tipo: daily | manual
+  local kind=$1 file
+  file=$BACKUP_DIR/$kind-$(date +%Y%m%d-%H%M%S).dump
+  mkdir -p "$BACKUP_DIR"
+  status '.activity = "backup" | .activity_message = "Backup del database" | .activity_since = $t' --arg t "$(now)"
+  if db_backup "$file" 2>>"$LOG" && [ -s "$file" ]; then
+    log "Backup ${kind}: ${file##*/} ($(du -h "$file" | cut -f1))"
+    status '.backup.last = {at: $t, kind: $k, ok: true, file: $f, message: ""}' --arg t "$(now)" --arg k "$kind" --arg f "${file##*/}"
+  else
+    rm -f "$file"
+    log "Backup $kind non riuscito"
+    status '.backup.last = {at: $t, kind: $k, ok: false, file: "", message: "Backup del database non riuscito: guarda il log."}' \
+      --arg t "$(now)" --arg k "$kind"
+  fi
+  status '.activity = "idle" | .activity_message = "" | .activity_since = null'
+}
+
+run_backups() {
+  # Notturno: una volta al giorno, dopo l'ora scelta (se il server era spento a quell'ora, appena si riaccende).
+  # Il giorno si segna anche se il backup fallisce, così non si riprova ogni minuto: l'errore resta visibile nell'app.
+  local today hhmm
+  today=$(date +%F)
+  hhmm=$(date +%H:%M)
+  if [ "$BACKUP_DAILY" = true ] && [[ ! $hhmm < $BACKUP_TIME ]] && [ "$(jq -r '.backup.last_daily_date // empty' "$STATUS")" != "$today" ]; then
+    status '.backup.last_daily_date = $d' --arg d "$today"
+    backup_now daily
+  fi
+  [ "$ACTION" = backup ] && backup_now manual
+  # Pulizia dei vecchi notturni e manuali
+  find "$BACKUP_DIR" -maxdepth 1 \( -name 'daily-*.dump' -o -name 'manual-*.dump' \) -mmin +$((BACKUP_KEEP_DAYS * 1440)) -print 2>/dev/null |
+    while read -r old; do rm -f -- "$old" && log "Backup vecchio eliminato: ${old##*/}"; done
+  # Elenco per l'app (i 100 più recenti)
+  local list
+  list=$(find "$BACKUP_DIR" -maxdepth 1 -name '*.dump' -printf '%T@\t%s\t%f\n' 2>/dev/null | sort -rn | head -n 100 |
+    jq -R -s '[split("\n")[] | select(length > 0) | split("\t") | {
+      date: (.[0] | tonumber | floor | todate), size: (.[1] | tonumber), file: .[2],
+      kind: (if (.[2] | startswith("daily-")) then "daily" elif (.[2] | startswith("manual-")) then "manual" else "update" end)}]')
+  status '.backup.files = $l | .backup.dir = $d' --argjson l "${list:-[]}" --arg d "$BACKUP_DIR"
+}
+
 # ------------------------------------------------------------------------------------------------- giro
 run() {
   mkdir -p "$DATA_DIR" || exit 1
@@ -294,20 +338,27 @@ run() {
   KEEP=$(setting keep_backups 10)
   [[ $INTERVAL =~ ^[0-9]+$ ]] && [ "$INTERVAL" -ge 1 ] || INTERVAL=60
   [[ $KEEP =~ ^[0-9]+$ ]] && [ "$KEEP" -ge 1 ] || KEEP=10
+  BACKUP_DAILY=$(setting backup_daily true)
+  BACKUP_TIME=$(setting backup_time 02:30)
+  BACKUP_KEEP_DAYS=$(setting backup_keep_days 14)
+  [[ $BACKUP_TIME =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || BACKUP_TIME=02:30
+  [[ $BACKUP_KEEP_DAYS =~ ^[0-9]+$ ]] && [ "$BACKUP_KEEP_DAYS" -ge 1 ] || BACKUP_KEEP_DAYS=14
 
   # La richiesta dell'app si legge e si svuota subito, anche se poi qualcosa va storto
   ACTION=$(jq -r '.action // empty' "$REQUEST" 2>/dev/null)
   REQUESTED_BY=$(jq -r '.requested_by // empty' "$REQUEST" 2>/dev/null)
   [ -n "$ACTION" ] && write_json "$REQUEST" '{}'
-  case $ACTION in check | update | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
+  case $ACTION in check | update | backup | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
 
   status '.updater = {mode: $mode, app_dir: $dir} | .last_run = $t | .activity = (.activity // "idle")
-    | .settings = {auto_update: ($auto == "true"), branch: $branch, check_interval_minutes: ($int | tonumber), keep_backups: ($keep | tonumber)}' \
+    | .settings = {auto_update: ($auto == "true"), branch: $branch, check_interval_minutes: ($int | tonumber), keep_backups: ($keep | tonumber),
+                   backup_daily: ($daily == "true"), backup_time: $time, backup_keep_days: ($days | tonumber)}' \
     --arg mode "$MODE" --arg dir "$APP_DIR" --arg t "$(now)" --arg auto "$AUTO" --arg branch "$BRANCH" \
-    --arg int "$INTERVAL" --arg keep "$KEEP" || exit 1
+    --arg int "$INTERVAL" --arg keep "$KEEP" --arg daily "$BACKUP_DAILY" --arg time "$BACKUP_TIME" --arg days "$BACKUP_KEEP_DAYS" || exit 1
   # Un giro precedente interrotto a metà (es. riavvio dell'host) non deve lasciare "in corso" per sempre
   status '.activity = "idle"'
   INSTALLED=$(commit_info HEAD) && status '.installed = $i' --argjson i "$INSTALLED"
+  run_backups
 
   if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1 || [[ $BRANCH == -* ]]; then
     status '.check_error = $e | .last_check = $t' --arg e "Branch non valido: $BRANCH" --arg t "$(now)"
@@ -317,7 +368,7 @@ run() {
   # Controllo solo se l'app lo chiede o se è passato l'intervallo
   local last due=false
   last=$(jq -r '.last_check // empty' "$STATUS")
-  if [ -n "$ACTION" ] || [ -z "$last" ]; then
+  if [ "$ACTION" = check ] || [ "$ACTION" = update ] || [ -z "$last" ]; then
     due=true
   elif [ $(($(date +%s) - $(date -d "$last" +%s 2>/dev/null || echo 0))) -ge $((INTERVAL * 60)) ]; then
     due=true

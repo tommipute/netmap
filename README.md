@@ -103,8 +103,8 @@ montata nel container `api` come `/updater-data`:
 
 | File | Chi scrive | Chi legge | Cosa contiene |
 |---|---|---|---|
-| `settings.json` | app | script | aggiornamento automatico sì/no, branch, ogni quanto controllare, backup da tenere |
-| `request.json` | app | script (poi lo svuota) | "Controlla ora" o "Aggiorna ora" |
+| `settings.json` | app | script | aggiornamento automatico sì/no, branch, ogni quanto controllare, backup (notturno, ora, quanti tenere) |
+| `request.json` | app | script (poi lo svuota) | "Controlla ora", "Aggiorna ora" o "Backup ora" |
 | `status.json` | script | app | versione installata e disponibile, ultimo controllo, attività in corso, storico (ultimi 20) |
 | `updater.log` | script | app | log dell'ultimo aggiornamento e dei controlli successivi |
 
@@ -139,7 +139,7 @@ La chiave sta solo sul server, mai nell'app né nel repo.
 ```bash
 git clone git@github.com:tommipute/netmap.git /opt/netmap   # indirizzo SSH, non https
 cd /opt/netmap
-cp .env.example .env        # cambia POSTGRES_PASSWORD; FILE_POLLING=false su Linux
+cp .env.example .env        # cambia POSTGRES_PASSWORD; FILE_POLLING=false; togli il # da COMPOSE_FILE
 sudo updater/install.sh     # modalità docker
 docker compose up -d --build
 ```
@@ -160,6 +160,23 @@ Controlli utili: `systemctl list-timers netmap-updater.timer`, `journalctl -u ne
   `VM_DEPLOY_CMD` (installa le dipendenze e riavvia i servizi), `VM_STOP_CMD` e `VM_DATABASE_URL` (per `pg_dump`,
   `psql` e `pg_restore`); i servizi devono leggere `version.env` (systemd: `EnvironmentFile=`). Esempi in
   `updater/updater.conf.example`.
+
+### Produzione (`docker-compose.prod.yml`)
+
+Con `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` nel `.env` del server, `docker compose` usa la
+configurazione di produzione: il codice sta dentro le immagini (`netmap-backend`, `netmap-web`), l'interfaccia è
+compilata e servita da nginx sulla porta 5174 (che passa `/api` e `/docs` all'API), le immagini non contengono
+pytest né il simulatore SNMP e la porta 8001 dell'API risponde solo sul server stesso (serve all'updater).
+La chiave dei segreti, se `SECRETS_KEY` è vuota, sta in `data/secrets_key`: tienila insieme ai backup, senza di
+lei i profili SNMP di un database ripristinato vanno reinseriti.
+
+### Backup del database
+
+Oltre a quello prima di ogni aggiornamento, lo script fa un backup ogni notte (02:30, se il server era spento parte
+appena si riaccende) e quando lo chiedi da **Amministrazione → Backup → Backup ora**. I file stanno in `backups/`:
+`daily-…` e `manual-…` restano per i giorni impostati (14), `netmap-…` (prima degli aggiornamenti) sono gli ultimi
+N. Ripristino: `updater/updater.sh restore backups/NOME.dump` (ferma l'app, ripristina, riavvia).
+Questi file stanno sullo stesso disco di NetMap: pianifica anche un backup della VM in Proxmox su un altro disco.
 
 ### Migration
 

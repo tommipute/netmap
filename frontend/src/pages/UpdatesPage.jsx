@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import Modal from '../components/Modal'
+import { BUSY, ScriptWarning, tMessage, useUpdater } from '../components/UpdaterBits'
 import { useApi } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
-import { t, tServer } from '../i18n'
+import { t } from '../i18n'
 
 const INTERVALS = [
   { value: 15, label: t('Ogni 15 minuti') },
@@ -20,10 +21,6 @@ const OUTCOMES = {
   error: { label: t('Errore'), tone: 'danger' },
   rolled_back: { label: t('Rollback eseguito'), tone: 'warn' },
 }
-const BUSY = { checking: t('Controllo in corso'), updating: t('Aggiornamento in corso'), rolling_back: t('Rollback in corso') }
-
-// I messaggi dello script sono frasi italiane: le traduco una per una
-const tMessage = (text) => (text || '').split(/(?<=\.)\s+/).map((part) => tServer(part)).join(' ')
 
 function Version({ info }) {
   if (!info?.commit) return <span className="muted">—</span>
@@ -70,44 +67,6 @@ function LiveState({ status, request }) {
       <span className="hint">{formatDateTime(last.at)}</span>
     </div>
   )
-}
-
-/** Avvisi quando lo script non c'è, non è mai partito o tace da troppo. */
-function ScriptWarning({ data }) {
-  const steps = (
-    <p className="hint">{t('Sul server, nella cartella di NetMap: sudo updater/install.sh, poi docker compose up -d. Istruzioni complete nel README, sezione «Aggiornamenti automatici».')}</p>
-  )
-  if (data.script === 'not_mounted') {
-    return (
-      <div className="notice notice--warn">
-        <strong>{t("La cartella condivisa con l'updater non è montata.")}</strong>{' '}
-        {t("L'app non può vedere né chiedere aggiornamenti: il container api deve montare updater-data in /updater-data (docker-compose.yml aggiornato).")}
-        {steps}
-      </div>
-    )
-  }
-  if (data.script === 'never_ran') {
-    return (
-      <div className="notice notice--warn">
-        <strong>{t("Lo script di aggiornamento non è mai partito.")}</strong>{' '}
-        {t('La cartella è montata ma lo script non ha ancora scritto lo stato: probabilmente non è installato sul server.')}
-        {steps}
-      </div>
-    )
-  }
-  if (data.script === 'silent' || data.script === 'stuck') {
-    return (
-      <div className="notice notice--warn">
-        <strong>
-          {data.script === 'stuck'
-            ? t("Lo script sembra bloccato a metà di un'operazione.")
-            : t('Lo script tace da {n} minuti (dovrebbe girare ogni minuto).', { n: data.silent_minutes ?? '?' })}
-        </strong>{' '}
-        {t('Sul server controlla il timer: systemctl status netmap-updater.timer e journalctl -u netmap-updater.')}
-      </div>
-    )
-  }
-  return null
 }
 
 function SettingsForm({ settings, disabled, onSaved }) {
@@ -220,46 +179,24 @@ function History({ items }) {
 
 /** Aggiornamenti (solo admin): lo script sull'host fa il lavoro, qui si vede lo stato e si chiede di agire. */
 export default function UpdatesPage() {
-  const { data: fresh, error, reload } = useApi('/updates')
-  // Durante l'aggiornamento l'API si riavvia: tengo l'ultimo stato ricevuto e continuo a chiedere
-  const [lastData, setLastData] = useState(null)
-  useEffect(() => { if (fresh) setLastData(fresh) }, [fresh])
-  const data = fresh || lastData
-  const offline = Boolean(error && lastData)
+  const { data, error, offline, waiting, reload, send: request, sending, actionError } = useUpdater()
   const [showLog, setShowLog] = useState(false)
   const log = useApi(showLog ? '/updates/log' : null)
   const [confirm, setConfirm] = useState(false)
-  const [sending, setSending] = useState(null)
-  const [actionError, setActionError] = useState(null)
-
   const status = data?.status
-  const busy = Boolean(status && status.activity && status.activity !== 'idle')
-  const waiting = offline || busy || Boolean(data?.request)
 
-  // Aggiorno spesso mentre lo script lavora o ha una richiesta in sospeso, altrimenti ogni tanto
+  // Il log segue lo stesso ritmo della pagina
   useEffect(() => {
-    const timer = setInterval(() => {
-      reload()
-      if (showLog) log.reload()
-    }, waiting ? 3000 : 20000)
+    if (!showLog) return undefined
+    const timer = setInterval(log.reload, waiting ? 3000 : 20000)
     return () => clearInterval(timer)
-  }, [waiting, showLog, reload, log.reload]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showLog, waiting, log.reload])
 
   const send = async (action) => {
-    setSending(action)
-    setActionError(null)
-    try {
-      await api.post('/updates/request', { action })
-      setConfirm(false)
-      reload()
-    } catch (err) {
-      setActionError(err)
-    } finally {
-      setSending(null)
-    }
+    if (await request(action)) setConfirm(false)
   }
 
-  if (error && !lastData) return <div className="page"><ErrorBox error={error} /></div>
+  if (error && !data) return <div className="page"><ErrorBox error={error} /></div>
   if (!data) return <Loading />
 
   const usable = data.mounted

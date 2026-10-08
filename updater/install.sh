@@ -77,7 +77,7 @@ chown "$RUN_USER": "$DATA_DIR" "$BACKUP_DIR"
 chmod 775 "$DATA_DIR"
 chmod 750 "$BACKUP_DIR"
 if [ ! -f "$DATA_DIR/settings.json" ]; then
-  echo '{"auto_update": false, "branch": "main", "check_interval_minutes": 60, "keep_backups": 10}' >"$DATA_DIR/settings.json"
+  echo '{"auto_update": false, "branch": "main", "check_interval_minutes": 60, "keep_backups": 10, "backup_daily": true, "backup_time": "02:30", "backup_keep_days": 14}' >"$DATA_DIR/settings.json"
   chown "$RUN_USER": "$DATA_DIR/settings.json"
   chmod 664 "$DATA_DIR/settings.json"
 fi

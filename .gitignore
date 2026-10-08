@@ -10,3 +10,4 @@ version.env
 updater-data/
 backups/
 updater/updater.conf
+data/

@@ -1,0 +1,51 @@
+# Produzione: si aggiunge a docker-compose.yml mettendo nel file .env
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+# Differenze rispetto allo sviluppo: il codice è dentro le immagini (niente cartelle montate né ricarica
+# automatica), l'interfaccia è compilata e servita da nginx, niente pytest/simulatore SNMP, l'API diretta
+# risponde solo sul server stesso (dalla rete si passa dall'interfaccia: /api e /docs).
+# La chiave dei segreti, se non è in SECRETS_KEY, sta in ./data/secrets_key: non cancellarla.
+
+x-backend: &backend
+  image: netmap-backend
+  build:
+    context: ./backend
+    args:
+      REQUIREMENTS: requirements.txt
+
+services:
+  api:
+    <<: *backend
+    environment:
+      UVICORN_EXTRA_ARGS: ""
+      SECRETS_KEY_FILE: /data/secrets_key
+    ports: !override
+      - "127.0.0.1:8001:8000"   # solo per il controllo di salute dell'updater
+    volumes: !override
+      - ./data:/data
+      - ./updater-data:/updater-data
+
+  worker:
+    <<: *backend
+    command: python -m app.worker
+    environment:
+      SECRETS_KEY_FILE: /data/secrets_key
+    volumes: !override
+      - ./data:/data
+
+  monitor:
+    <<: *backend
+    command: python -m app.monitor
+    environment:
+      SECRETS_KEY_FILE: /data/secrets_key
+    volumes: !override
+      - ./data:/data
+
+  web:
+    image: netmap-web
+    build: ./frontend
+    working_dir: !reset null
+    command: !reset null
+    environment: !reset {}
+    ports: !override
+      - "5174:80"
+    volumes: !reset []

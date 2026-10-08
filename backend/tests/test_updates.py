@@ -33,7 +33,10 @@ def test_aggiornamenti_cartella_non_montata(client, tmp_path, monkeypatch):
 def test_aggiornamenti_richieste_e_impostazioni(client, updater_dir):
     data = client.get("/api/updates").json()
     assert data["mounted"] is True and data["script"] == "never_ran"
-    assert data["settings"] == {"auto_update": False, "branch": "main", "check_interval_minutes": 60, "keep_backups": 10}
+    assert data["settings"] == {
+        "auto_update": False, "branch": "main", "check_interval_minutes": 60, "keep_backups": 10,
+        "backup_daily": True, "backup_time": "02:30", "backup_keep_days": 14,
+    }
 
     assert client.post("/api/updates/request", json={"action": "update"}).status_code == 202
     # "controlla" non sostituisce un "aggiorna" già in attesa
@@ -41,13 +44,22 @@ def test_aggiornamenti_richieste_e_impostazioni(client, updater_dir):
     request = json.loads((updater_dir / "request.json").read_text())
     assert request["action"] == "update" and request["requested_by"] == "admin"
     assert client.post("/api/updates/request", json={"action": "reboot"}).status_code == 422
+    (updater_dir / "request.json").write_text("{}")  # lo script l'ha presa
+    client.post("/api/updates/request", json={"action": "backup"})
+    client.post("/api/updates/request", json={"action": "check"})
+    assert json.loads((updater_dir / "request.json").read_text())["action"] == "backup"
 
-    new = {"auto_update": True, "branch": "release/1.x", "check_interval_minutes": 30, "keep_backups": 5}
+    new = {
+        "auto_update": True, "branch": "release/1.x", "check_interval_minutes": 30, "keep_backups": 5,
+        "backup_daily": False, "backup_time": "23:15", "backup_keep_days": 30,
+    }
     assert client.put("/api/updates/settings", json=new).json() == new
     assert json.loads((updater_dir / "settings.json").read_text()) == new
     for branch in ("-x", "a..b", "a b", "rami/"):
         assert client.put("/api/updates/settings", json={**new, "branch": branch}).status_code == 422, branch
     assert client.put("/api/updates/settings", json={**new, "keep_backups": 0}).status_code == 422
+    for time in ("24:00", "2:30", "02:30; rm"):
+        assert client.put("/api/updates/settings", json={**new, "backup_time": time}).status_code == 422, time
 
 
 def test_aggiornamenti_stato_dello_script(client, updater_dir):

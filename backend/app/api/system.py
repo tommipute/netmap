@@ -18,6 +18,7 @@ from app.services import updater
 
 public = APIRouter(tags=["Sistema"])
 BRANCH = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}")
+TIME = re.compile(r"([01][0-9]|2[0-3]):[0-5][0-9]")
 admin = APIRouter(prefix="/updates", tags=["Aggiornamenti"], dependencies=[Depends(require_admin)])
 
 
@@ -77,10 +78,13 @@ class UpdateSettings(BaseModel):
     branch: str = "main"
     check_interval_minutes: int = Field(60, ge=5, le=10080)
     keep_backups: int = Field(10, ge=1, le=100)
+    backup_daily: bool = True
+    backup_time: str = "02:30"
+    backup_keep_days: int = Field(14, ge=1, le=365)
 
 
 class UpdateRequest(BaseModel):
-    action: Literal["check", "update"]
+    action: Literal["check", "update", "backup"]
 
 
 def _require_folder() -> None:
@@ -110,5 +114,7 @@ def updates_settings(body: UpdateSettings):
     # Il branch finisce in un comando git sull'host: solo nomi semplici
     if not BRANCH.fullmatch(body.branch) or ".." in body.branch or body.branch.endswith(("/", ".", ".lock")):
         raise HTTPException(422, "Nome del branch non valido")
+    if not TIME.fullmatch(body.backup_time):
+        raise HTTPException(422, "Ora del backup non valida: usa il formato 02:30")
     updater.write_json("settings.json", body.model_dump())
     return updater.current_settings()

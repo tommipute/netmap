@@ -7,9 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-# Immagine di sviluppo: include pytest e il simulatore SNMP per i test
+# Sviluppo: include pytest e il simulatore SNMP per i test; in produzione REQUIREMENTS=requirements.txt
+ARG REQUIREMENTS=requirements-dev.txt
 COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements-dev.txt
+RUN pip install --no-cache-dir -r ${REQUIREMENTS}
 COPY . .
 
 CMD ["sh", "start.sh"]

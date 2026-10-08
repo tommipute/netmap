@@ -32,7 +32,7 @@ aggiornarla a ogni commit che va su GitHub.
 |---|---|---|
 | PC Windows | `E:\Claude\NetMap` | Docker Desktop, `FILE_POLLING=true`; remote git `server` (chiave `~/.ssh/proxmox_ed25519` in `core.sshCommand`) |
 | Server | LXC 103 "dev" sul Proxmox: `~/progetti/netmap` (utente `tommaso`) | 192.168.1.74 in LAN, NetBird `dev.netbird.cloud` / 100.111.74.88; `FILE_POLLING=false`; sessione Claude remota "dev" parte da `~/progetti` |
-| Produzione | VM 104 "netmap" sul Proxmox: `/opt/netmap` (utente `netmap`, Debian 13) | 192.168.1.75; si aggiorna da sola da GitHub `main` con `updater/` (timer systemd, deploy key in sola lettura `~/.ssh/netmap_deploy`); da dev: `ssh -i ~/.ssh/netmap_vm netmap@192.168.1.75`. Niente profilo `lab` |
+| Produzione | VM 104 "netmap" sul Proxmox: `/opt/netmap` (utente `netmap`, Debian 13) | 192.168.1.75; si aggiorna da sola da GitHub `main` con `updater/` (timer systemd, deploy key in sola lettura `~/.ssh/netmap_deploy`); da dev: `ssh -i ~/.ssh/netmap_vm netmap@192.168.1.75`. Niente profilo `lab`; `docker-compose.prod.yml` (nginx) |
 
 Interfaccia da remoto: http://dev.netbird.cloud:5174 (oppure http://100.111.74.88:5174). Ogni copia ha il suo database:
 quello del server è nato dal dump del PC il 5/10/2026. Per allineare il codice: `git push server` / `git pull` dal PC;
@@ -64,7 +64,7 @@ docker compose build api worker                     # dopo aver cambiato require
 Porte scelte apposta per non scontrarsi con l'app inventory: **non cambiarle**.
 `backend/start.sh` applica le migration (`alembic upgrade head`, con advisory lock in `alembic/env.py`) e non ne genera mai: senza migration l'API non parte.
 `.gitattributes` forza LF su tutti i file (su Windows un CRLF rompe gli `.sh` nei container).
-Le immagini installano `requirements-dev.txt` (pytest, snmpsim, pysmi).
+Le immagini di sviluppo installano `requirements-dev.txt` (pytest, snmpsim, pysmi); quelle di produzione solo `requirements.txt`.
 La migration `1a6c6b905200_descrizione_modifica` è vuota (nata copiando alla lettera il comando del README): innocua.
 Container con `TZ=Europe/Rome`, così gli orari nei log delle scansioni sono locali.
 
@@ -78,7 +78,18 @@ aggiornamento, quindi compose ricrea i container. `/api/health` (pubblico) contr
 il commit: l'updater aspetta il commit **nuovo** prima di dichiarare riuscito l'aggiornamento. `/api/version` è
 pubblico (piede della pagina: `components/VersionLabel.jsx`). I messaggi dello script sono frasi italiane che
 finiscono con un punto: il frontend le traduce frase per frase (`tMessage`), quindi nuovi messaggi = nuove voci
-in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf` non vanno in git.
+in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf`, `data/` non vanno in git.
+- **Backup** (`pages/BackupPage.jsx`, `components/UpdaterBits.jsx` con `useUpdater()` condiviso con
+  UpdatesPage): `run_backups` nello script fa il notturno (`backup_time`, se il server era spento parte dopo; la
+  data si segna prima del tentativo, quindi un errore non si ripete ogni minuto) e quello chiesto con
+  `request.json` `backup`; tiene `daily-*`/`manual-*` per `backup_keep_days`, i `netmap-*` (prima degli
+  aggiornamenti) per numero (`keep_backups`). Elenco e ultimo esito in `status.backup`. Priorità delle richieste in
+  attesa: update > backup > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
+- **Produzione** (`docker-compose.prod.yml`, attivato con `COMPOSE_FILE` nel `.env` della VM): immagini
+  `netmap-backend` (Dockerfile con `ARG REQUIREMENTS=requirements.txt`, senza pytest/snmpsim) e `netmap-web`
+  (`frontend/Dockerfile`: build Vite + nginx, `frontend/nginx.conf` passa `/api`, `/docs`, `/openapi.json` all'api
+  risolvendola a ogni richiesta, così un api ricreato non rompe nginx). Niente codice montato né reload; API su
+  `127.0.0.1:8001`; chiave dei segreti in `./data/secrets_key` (`SECRETS_KEY_FILE`). Sviluppo invariato.
 
 ## Backend (`backend/app`)
 
