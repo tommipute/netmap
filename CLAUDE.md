@@ -24,6 +24,9 @@ Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**:
 ### Dove gira (due copie, stesso repository git, branch `main`)
 
 GitHub: repository privato https://github.com/tommipute/netmap (remote `origin` sul server, creato l'8/10/2026).
+Sull'altro PC Docker l'utente aggiorna scaricando lo ZIP da GitHub. **Versione**: `frontend/src/version.js`
+(data + progressivo del giorno, es. `2026.10.08-2`), mostrata in basso al centro e nella pagina di accesso:
+aggiornarla a ogni commit che va su GitHub.
 
 | Copia | Percorso | Note |
 |---|---|---|

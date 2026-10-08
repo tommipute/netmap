@@ -131,6 +131,11 @@ a:hover { text-decoration: underline; }
 .topbar__search .input { width: 100%; height: 34px; }
 .topbar__spacer { flex: 1; }
 .content { flex: 1; overflow: auto; position: relative; }
+/* Versione installata, in basso al centro (vedi src/version.js) */
+.appfoot {
+  flex: none; padding: 3px 0; text-align: center; font-size: 11px; color: var(--muted);
+  background: var(--surface); border-top: 1px solid var(--line); font-variant-numeric: tabular-nums;
+}
 
 .page { padding: 24px 32px 48px; max-width: 1280px; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
@@ -758,6 +763,7 @@ button.tile:hover { border-color: var(--accent); }
 .live-chip a.live-chip__item--down:hover { color: var(--danger); }
 
 .login__lang { display: flex; justify-content: center; gap: 14px; margin-top: 4px; }
+.login__version { margin: 0; text-align: center; font-size: 11px; color: var(--muted); }
 .login__lang .is-current { color: var(--ink); font-weight: 600; text-decoration: none; cursor: default; }
 
 /* Posizioni ad albero: rientro per livello e un angolo che collega alla posizione sopra */

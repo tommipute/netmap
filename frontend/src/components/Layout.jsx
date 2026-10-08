@@ -8,6 +8,7 @@ import { useTheme } from '../theme'
 import PasswordDialog from './PasswordDialog'
 import { Icon } from './Icon'
 import { LANG, LANGUAGES, setLang, t } from '../i18n'
+import { VERSION } from '../version'
 
 const THEMES = [
   { value: 'system', label: t('Automatico') },
@@ -187,6 +188,7 @@ export default function Layout() {
         <main className="content">
           <Outlet />
         </main>
+        <footer className="appfoot no-print">NetMap {VERSION}</footer>
       </div>
     </div>
   )

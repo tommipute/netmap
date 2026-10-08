@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { LANG, LANGUAGES, setLang, t } from '../i18n'
+import { VERSION } from '../version'
 
 /** Accesso; al primo avvio (nessun utente) crea l'amministratore. */
 export default function LoginPage() {
@@ -82,6 +83,7 @@ export default function LoginPage() {
             </button>
           ))}
         </div>
+        <p className="login__version">NetMap {VERSION}</p>
       </form>
     </div>
   )
