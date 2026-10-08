@@ -45,6 +45,12 @@ class Location(TimestampMixin, CustomFieldsMixin, Base):
     site_id: Mapped[int] = mapped_column(ForeignKey("sites.id", ondelete="RESTRICT"), index=True)
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("locations.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(100))
+    # Nomi dal livello più alto, es. "Palazzina A › P1": lo tiene aggiornato services/locations.py (anche per le
+    # posizioni contenute). Collation "C" su Postgres: in ordine alfabetico ogni posizione sta sotto la sua
+    # (con quella della lingua gli spazi e i "›" verrebbero ignorati e l'albero si mescolerebbe).
+    path: Mapped[str] = mapped_column(
+        String(1000).with_variant(String(1000, collation="C"), "postgresql"), default="", server_default=""
+    )
     description: Mapped[str | None] = mapped_column(Text)
 
 

@@ -18,10 +18,12 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (59 test, compresi quelli con due switch SNMP simulati).
+Test: `docker compose exec api pytest` (61 test, compresi quelli con due switch SNMP simulati).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
-### Dove gira (due copie, stesso repository git, branch `main`, niente GitHub)
+### Dove gira (due copie, stesso repository git, branch `main`)
+
+GitHub: repository privato https://github.com/tommipute/netmap (remote `origin` sul server, creato l'8/10/2026).
 
 | Copia | Percorso | Note |
 |---|---|---|
@@ -102,6 +104,13 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
   è una `column_property` (definita in `models/__init__.py`) e le interfacce espongono `device_management_ip`,
   che nel modulo degli IP blocca la casella (`lockedBy` dei campi bool in ResourceForm).
 - **Unicità con NULL** (VLAN globale, VRF globale): Postgres considera i NULL diversi, quindi i controlli sono negli hook.
+- **Posizioni ad albero**: `Location.path` = nomi dal livello più alto separati da " › " ("Palazzina A › P1"),
+  ricalcolato da `services/locations.py` (evento `before_flush`, anche per le posizioni contenute: vale per API,
+  import, script). Collation "C" su Postgres e ordine predefinito sede → `lower(path)`: ogni posizione sta subito
+  sotto la sua. Nel frontend `label` = percorso (menu, celle, filtri); nell'elenco il nome è rientrato con un angolo
+  solo nell'ordine predefinito (`render(row, view)` con `view.tree`). Export CSV col percorso; l'import accetta
+  percorso (anche con ">") o nome e crea i livelli mancanti. Nessun limite di profondità; cicli e nomi doppi allo
+  stesso livello (anche al primo, dove il vincolo unico con NULL non basta) rifiutati da `location_hook`.
 - **Eliminazioni**: sede/ruolo/modello/VRF in uso → RESTRICT (l'API risponde 409). Device → porte → cavi in CASCADE.
   IP di una porta eliminata → `interface_id` NULL. `DELETE /api/devices/{id}?with_ips=true` elimina anche gli IP
   (`device_delete_hook`; i delete_hook ricevono i parametri della richiesta). Nel frontend `deleteOptions` della

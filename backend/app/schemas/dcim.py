@@ -53,7 +53,7 @@ LocationUpdate = make_partial(LocationBase, "LocationUpdate")
 
 
 class LocationRead(LocationCreate, ReadSchema):
-    pass
+    path: str = ""  # "Palazzina A › P1"
 
 
 # ---------- Rack ----------

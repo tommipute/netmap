@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 
 from app.api import alerts, auth, discovery, extra, history
 from app.api.auth import require_admin, require_user
@@ -41,8 +42,8 @@ _routers = [
     dict(model=Site, create_schema=d.SiteCreate, update_schema=d.SiteUpdate, read_schema=d.SiteRead,
          path="/sites", tag="Sedi", search=("name", "address"), order_by=(Site.name,)),
     dict(model=Location, create_schema=d.LocationCreate, update_schema=d.LocationUpdate, read_schema=d.LocationRead,
-         path="/locations", tag="Posizioni", filters=("site_id", "parent_id"), search=("name",),
-         order_by=(Location.name,), hook=rules.location_hook),
+         path="/locations", tag="Posizioni", filters=("site_id", "parent_id"), search=("name", "path"),
+         order_by=(Location.site_id, func.lower(Location.path), Location.id), hook=rules.location_hook),  # albero per sede
     dict(model=Rack, create_schema=d.RackCreate, update_schema=d.RackUpdate, read_schema=d.RackRead,
          path="/racks", tag="Rack", filters=("site_id", "location_id"), search=("name",),
          order_by=(Rack.name,), hook=rules.rack_hook),

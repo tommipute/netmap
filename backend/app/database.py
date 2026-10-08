@@ -17,3 +17,5 @@ def get_db():
 
 # Storico delle modifiche: si registra sulle sessioni (evento after_flush) appena il modulo viene importato
 import app.services.audit  # noqa: E402,F401
+# Percorso delle posizioni ("Palazzina A › P1"), ricalcolato prima di ogni flush
+import app.services.locations  # noqa: E402,F401

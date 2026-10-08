@@ -898,6 +898,7 @@ const patterns = [
   [/^Il membro dello stack non esiste più$/, 'The stack member no longer exists'],
   [/^Esiste già una porta (.+) su questo device$/, 'A port $1 already exists on this device'],
   [/^Esiste già un device (.+) in questa sede$/, 'A device $1 already exists in this site'],
+  [/^Esiste già una posizione (.+) a questo livello della sede$/, 'A location $1 already exists at this level of the site'],
   [/^La VLAN (\d+) non esiste ancora: approva prima la sua creazione$/, 'VLAN $1 does not exist yet: approve its creation first'],
   [/^Modifica non gestita: (.*)$/, 'Unhandled change: $1'],
   [/^Applicazione automatica non riuscita: (.*)$/s, 'Automatic application failed: $1'],

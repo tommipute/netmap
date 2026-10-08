@@ -25,6 +25,13 @@ def _same(column, value):
 
 
 def location_hook(db: Session, loc: Location, data: dict[str, Any], is_create: bool) -> None:
+    # Il vincolo unico (sede, padre, nome) non vale al livello principale: Postgres considera diversi i NULL
+    twin = db.scalar(select(Location.id).where(
+        Location.site_id == loc.site_id, _same(Location.parent_id, loc.parent_id), Location.name == loc.name,
+        Location.id != (loc.id or 0),
+    ))
+    if twin is not None:
+        _fail(f"Esiste già una posizione {loc.name} a questo livello della sede")
     if loc.parent_id is None:
         return
     parent = db.get(Location, loc.parent_id)

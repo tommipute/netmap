@@ -134,7 +134,7 @@ def endpoint_rows(db: Session, endpoints: list[Endpoint]) -> list[dict]:
     }
     devices = {d.id: d for d in db.scalars(select(Device).where(Device.id.in_(device_ids)))} if device_ids else {}
     sites = dict(db.execute(select(Site.id, Site.name)).all())
-    locations = dict(db.execute(select(Location.id, Location.name)).all())
+    locations = dict(db.execute(select(Location.id, Location.path)).all())
     racks = dict(db.execute(select(Rack.id, Rack.name)).all())
     vlan_names = {vid: name for vid, name in db.execute(select(VLAN.vid, VLAN.name)).all()}
 

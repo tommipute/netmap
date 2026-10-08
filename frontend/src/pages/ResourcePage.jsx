@@ -18,8 +18,9 @@ import { t, tn } from '../i18n'
 
 const LIMIT = 50
 
-function Cell({ column, row }) {
-  if (column.render) return column.render(row)
+// view.tree: elenco nell'ordine predefinito (es. posizioni ad albero), non ordinato per una colonna
+function Cell({ column, row, view }) {
+  if (column.render) return column.render(row, view)
   const value = row[column.name]
   switch (column.type) {
     case 'ref':
@@ -120,6 +121,7 @@ export default function ResourcePage({ resourceKey }) {
   // Cambiando pagina, ricerca o filtri la selezione riparte da zero
   useEffect(() => setSelected(new Map()), [q, filters, offset, columnQueryKey, sort])
   const items = data?.items || []
+  const view = { tree: !sort }
   const allSelected = items.length > 0 && items.every((item) => selected.has(item.id))
   const toggleItem = (item, on) =>
     setSelected((prev) => {
@@ -364,7 +366,7 @@ export default function ResourcePage({ resourceKey }) {
                   )}
                   {columns.map((c) => (
                     <td key={c.name}>
-                      <Cell column={c} row={item} />
+                      <Cell column={c} row={item} view={view} />
                     </td>
                   ))}
                   <td className="table__actions" onClick={(e) => e.stopPropagation()}>

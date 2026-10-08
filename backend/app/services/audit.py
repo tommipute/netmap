@@ -49,7 +49,7 @@ TRACKED: dict[type, str] = {
 IGNORED = {
     "id", "created_at", "updated_at", "last_seen_at", "oper_status", "if_index", "sys_name", "sys_descr",
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
-    "last_login_at", "host", "sort_key", "source", "last_sent_at", "last_error",
+    "last_login_at", "host", "sort_key", "path", "source", "last_sent_at", "last_error",
 }
 SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc"}
 

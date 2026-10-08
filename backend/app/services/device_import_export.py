@@ -21,6 +21,7 @@ from app.models import (
     Site,
 )
 from app.models.enums import DeviceStatus
+from app.services.locations import SEPARATOR
 from app.services.rules import device_hook, set_management_ip
 
 # Mappatura sinonimi/alias per le intestazioni CSV (italiano e inglese)
@@ -94,7 +95,7 @@ def get_devices_data(
 
     # Carica cache delle entità collegate per performance istantanee
     sites = {s.id: s.name for s in db.scalars(select(Site))}
-    locations = {l.id: l.name for l in db.scalars(select(Location))}
+    locations = {l.id: l.path or l.name for l in db.scalars(select(Location))}
     racks = {r.id: r.name for r in db.scalars(select(Rack))}
     device_types = {dt.id: dt for dt in db.scalars(select(DeviceType))}
     manufacturers = {m.id: m.name for m in db.scalars(select(Manufacturer))}
@@ -357,11 +358,27 @@ def _resolve_site(db: Session, value: str) -> Site:
 def _resolve_location(db: Session, site: Site, value: str) -> Location | None:
     if not value:
         return None
-    location = _by_id_or_name(db, Location, value, Location.name, Location.site_id == site.id)
+    # Percorso completo ("Palazzina A › P1", come nell'export; va bene anche ">") oppure solo il nome
+    value = SEPARATOR.join(part.strip() for part in value.replace(">", "›").split("›"))
+    location = db.scalars(select(Location).where(
+        Location.site_id == site.id, func.lower(Location.path) == value.lower(),
+    )).first()
+    if location is None and SEPARATOR not in value:
+        location = _by_id_or_name(db, Location, value, Location.name, Location.site_id == site.id)
     if location is None:
-        location = Location(site_id=site.id, name=value)
-        db.add(location)
-        db.flush()
+        # Mancano: creo i livelli che non ci sono, dal più alto
+        parent = None
+        for name in [part for part in value.split(SEPARATOR) if part]:
+            found = db.scalar(select(Location).where(
+                Location.site_id == site.id, func.lower(Location.name) == name.lower(),
+                Location.parent_id == parent.id if parent else Location.parent_id.is_(None),
+            ))
+            if found is None:
+                found = Location(site_id=site.id, parent_id=parent.id if parent else None, name=name)
+                db.add(found)
+                db.flush()
+            parent = found
+        location = parent
     return location
 
 

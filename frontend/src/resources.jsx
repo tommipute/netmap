@@ -13,6 +13,16 @@ const description = { name: 'description', label: t('Note'), type: 'textarea' }
 const customFields = { name: 'custom_fields', label: t('Campi personalizzati'), type: 'kv' }
 const WAIT_SITE = t('Prima scegli la sede')
 
+function LocationName({ location, tree }) {
+  const depth = tree ? (location.path || '').split(' › ').length - 1 : 0
+  return (
+    <span className="tree-name" style={{ '--depth': depth }}>
+      {depth > 0 && <span className="tree-name__branch" aria-hidden="true" />}
+      <strong>{location.name}</strong>
+    </span>
+  )
+}
+
 export const resources = {
   maps: {
     path: 'maps',
@@ -264,11 +274,13 @@ export const resources = {
     newLabel: t('Nuova posizione'),
     editLabel: t('Modifica posizione'),
     intro: t('Edifici, piani e stanze. Una posizione può stare dentro un\'altra.'),
-    label: (o) => o.name,
+    // Percorso completo ("Palazzina A › P1") nei menu e ovunque compaia la posizione
+    label: (o) => o.path || o.name,
     bulkFields: ['parent_id'],
     filters: [{ name: 'site_id', label: t('Sede'), ref: 'sites' }],
     columns: [
-      { name: 'name', label: t('Nome'), render: (o) => <strong>{o.name}</strong> },
+      // Nell'ordine predefinito (per percorso) ogni posizione sta sotto quella che la contiene, rientrata
+      { name: 'name', label: t('Nome'), render: (o, view) => <LocationName location={o} tree={view?.tree} />, filter: { kind: 'text' }, sortField: 'name' },
       { name: 'site_id', label: t('Sede'), type: 'ref', ref: 'sites' },
       { name: 'parent_id', label: t('Dentro a'), type: 'ref', ref: 'locations' },
     ],

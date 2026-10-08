@@ -93,3 +93,15 @@ def test_export_reimportato_aggiorna_senza_errori(client):
     assert result["errors"] == [] and result["created_count"] == 0 and result["updated_count"] == 2
     assert client.get("/api/sites").json()["total"] == 1
     assert client.get("/api/ip-addresses").json()["total"] == 2
+
+
+def test_import_con_il_percorso_della_posizione(client):
+    run_import(client, ["sw-pa;active;Grugliasco;Palazzina A > P1;;;;;;;;;"])
+    run_import(client, ["sw-pb;active;Grugliasco;palazzina a › p1;;;;;;;;;"])
+    locations = client.get("/api/locations").json()["items"]
+    assert sorted(l["path"] for l in locations) == ["Palazzina A", "Palazzina A › P1"]
+    p1 = next(l for l in locations if l["name"] == "P1")
+    assert device_by_name(client, "sw-pa")["location_id"] == p1["id"]
+    assert device_by_name(client, "sw-pb")["location_id"] == p1["id"]
+    exported = client.get("/api/devices/export", params={"format": "csv"}).text
+    assert "Palazzina A › P1" in exported

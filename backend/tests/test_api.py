@@ -256,3 +256,32 @@ def test_export_con_i_filtri_per_colonna(client):
     create(client, "/devices", {"name": "fw-b", "site_id": site["id"]})
     rows = client.get("/api/devices/export", params={"format": "json", "name__contains": "SW"}).json()
     assert [r["name"] for r in rows] == ["sw-a"]
+
+
+def test_posizioni_ad_albero(client):
+    site = create(client, "/sites", {"name": "Grugliasco"})
+    a = create(client, "/locations", {"name": "Palazzina A", "site_id": site["id"]})
+    create(client, "/locations", {"name": "Palazzina AB", "site_id": site["id"]})
+    p1 = create(client, "/locations", {"name": "P1", "site_id": site["id"], "parent_id": a["id"]})
+    stanza = create(client, "/locations", {"name": "Stanza 3", "site_id": site["id"], "parent_id": p1["id"]})
+    assert stanza["path"] == "Palazzina A › P1 › Stanza 3"
+
+    # Ordine predefinito = albero: le posizioni contenute subito sotto la loro, prima di "Palazzina AB"
+    items = client.get("/api/locations", params={"site_id": site["id"]}).json()["items"]
+    assert [i["path"] for i in items] == [
+        "Palazzina A", "Palazzina A › P1", "Palazzina A › P1 › Stanza 3", "Palazzina AB",
+    ]
+    assert client.get("/api/locations", params={"q": "palazzina a › p1"}).json()["total"] == 2
+
+    # Rinominare o spostare una posizione aggiorna anche quelle che contiene
+    client.patch(f"/api/locations/{a['id']}", json={"name": "Edificio A"})
+    assert client.get(f"/api/locations/{stanza['id']}").json()["path"] == "Edificio A › P1 › Stanza 3"
+    client.patch(f"/api/locations/{p1['id']}", json={"parent_id": None})
+    assert client.get(f"/api/locations/{stanza['id']}").json()["path"] == "P1 › Stanza 3"
+
+    # Stesso nome allo stesso livello: rifiutato anche al livello principale (lì il vincolo unico non basta)
+    doppia = client.post("/api/locations", json={"name": "P1", "site_id": site["id"]})
+    assert doppia.status_code == 422
+    assert client.post("/api/locations", json={"name": "P1", "site_id": site["id"], "parent_id": a["id"]}).status_code == 201
+    circolare = client.patch(f"/api/locations/{p1['id']}", json={"parent_id": stanza["id"]})
+    assert circolare.status_code == 422

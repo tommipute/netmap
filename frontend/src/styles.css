@@ -739,3 +739,11 @@ button.tile:hover { border-color: var(--accent); }
 
 .login__lang { display: flex; justify-content: center; gap: 14px; margin-top: 4px; }
 .login__lang .is-current { color: var(--ink); font-weight: 600; text-decoration: none; cursor: default; }
+
+/* Posizioni ad albero: rientro per livello e un angolo che collega alla posizione sopra */
+.tree-name { display: inline-flex; align-items: center; gap: 6px; padding-left: calc((var(--depth) - 1) * 22px); }
+.tree-name__branch {
+  width: 12px; height: 14px; margin-top: -10px; flex: none;
+  border-left: 1.5px solid var(--line-strong, var(--muted)); border-bottom: 1.5px solid var(--line-strong, var(--muted));
+  border-bottom-left-radius: 3px; opacity: .7;
+}
