@@ -10,7 +10,7 @@ MODE=docker
 # Cartella del repo (vuota = la cartella sopra updater/), cartella condivisa con l'app, backup del database
 #APP_DIR=/opt/netmap
 #DATA_DIR=/opt/netmap/updater-data
-#BACKUP_DIR=/opt/netmap/backups
+#BACKUP_DIR=/opt/netmap/backups   # se la cambi, monta la stessa cartella in /backups nei container api e worker
 
 # Remote git e chiave SSH di sola lettura (deploy key). Vuota = quella di ~/.ssh/config per github.com
 REMOTE=origin

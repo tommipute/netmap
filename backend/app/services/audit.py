@@ -20,6 +20,7 @@ from app.models import (
     VRF,
     AlertChannel,
     AuditEntry,
+    BackupTarget,
     Cable,
     Device,
     DeviceRole,
@@ -42,7 +43,7 @@ TRACKED: dict[type, str] = {
     Site: "site", Location: "location", Rack: "rack", Manufacturer: "manufacturer", DeviceType: "device_type",
     DeviceRole: "device_role", Device: "device", Interface: "interface", Cable: "cable", VLAN: "vlan", VRF: "vrf",
     Prefix: "prefix", IPAddress: "ip", NetworkMap: "map", SnmpProfile: "snmp_profile", DiscoveryJob: "discovery_job",
-    User: "user", AlertChannel: "alert_channel", StackMember: "stack_member",
+    User: "user", AlertChannel: "alert_channel", StackMember: "stack_member", BackupTarget: "backup_target",
 }
 
 # Campi che cambiano da soli o derivati: non sono modifiche di qualcuno
@@ -50,8 +51,11 @@ IGNORED = {
     "id", "created_at", "updated_at", "last_seen_at", "oper_status", "if_index", "sys_name", "sys_descr",
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
     "last_login_at", "host", "sort_key", "path", "source", "last_sent_at", "last_error",
+    "last_copy_at", "last_error_at", "host_key",
 }
-SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc"}
+# Eccezioni a IGNORED per un modello: l'indirizzo di una destinazione dei backup conta (host degli IP no)
+NOT_IGNORED: dict[type, set[str]] = {BackupTarget: {"host"}}
+SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc", "private_key_enc"}
 
 LABELS = {
     "name": "Nome", "status": "Stato", "site_id": "Sede", "location_id": "Posizione", "rack_id": "Rack",
@@ -68,6 +72,8 @@ LABELS = {
     "targets": "Indirizzi", "profile_ids": "Profili", "interval_hours": "Ogni quante ore", "community_enc": "Community",
     "auth_key_enc": "Chiave di autenticazione", "secret_enc": "Segreto", "last_sent_at": "Ultimo invio", "priv_key_enc": "Chiave di cifratura", "username": "Utente",
     "parent_id": "Dentro a", "number": "Numero del membro", "language": "Lingua", "floor": "Piano (quota)", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
+    "host": "Server", "share": "Condivisione", "folder": "Cartella", "port": "Porta", "keep_days": "Giorni da tenere",
+    "include_key": "Copia anche la chiave", "private_key_enc": "Chiave privata",
 }
 
 # Colonne che puntano ad altri oggetti: nello storico il nome, non l'id
@@ -141,7 +147,7 @@ def _changes(session: Session, obj: Any) -> list[list]:
     out = []
     for attr in state.mapper.column_attrs:
         key = attr.key
-        if key in IGNORED or key not in state.attrs:
+        if (key in IGNORED and key not in NOT_IGNORED.get(type(obj), ())) or key not in state.attrs:
             continue
         history = state.attrs[key].history
         if not history.has_changes():

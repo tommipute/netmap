@@ -291,6 +291,43 @@ def alert_channel_hook(db: Session, channel, data: dict[str, Any], is_create: bo
         _fail("Per Telegram servono il token del bot e la chat")
 
 
+# ---------- Copie dei backup ----------
+def backup_target_hook(db: Session, target, data: dict[str, Any], is_create: bool) -> None:
+    """Password e chiave privata si salvano solo cifrate; cambiando server si dimentica la sua chiave (SFTP)."""
+    try:
+        if "password" in data:
+            target.secret_enc = encrypt(data["password"]) if data["password"] else None
+        if "private_key" in data:
+            target.private_key_enc = encrypt(data["private_key"].strip()) if data["private_key"] else None
+    except SecretError as exc:
+        raise HTTPException(500, str(exc)) from exc
+    target.host = target.host.strip()
+    target.folder = (target.folder or "").strip()
+    changed = inspect(target).attrs
+    if data.get("forget_host_key") or changed.host.history.has_changes() or changed.port.history.has_changes():
+        target.host_key = None
+    if any(c in target.host for c in "\\/ ") or not target.host:
+        _fail("Server non valido: scrivi solo il nome o l'indirizzo (es. nas.azienda.local)")
+    if ".." in target.folder.replace("\\", "/").split("/"):
+        _fail("La cartella non può contenere ..")
+    if target.type == "smb":
+        target.share = (target.share or "").strip().strip("/\\")
+        if not target.share:
+            _fail("Per una cartella di rete serve il nome della condivisione")
+        if not target.secret_enc:
+            _fail("Serve la password dell'utente")
+    elif target.type == "sftp":
+        if not target.secret_enc and not target.private_key_enc:
+            _fail("Serve la password o la chiave privata")
+        if "private_key" in data and data["private_key"]:
+            from app.services.offsite import OffsiteError, load_private_key
+
+            try:
+                load_private_key(data["private_key"])
+            except OffsiteError as exc:
+                _fail(str(exc))
+
+
 # ---------- Scansione SNMP ----------
 _SECRETS = {"community": "community_enc", "auth_key": "auth_key_enc", "priv_key": "priv_key_enc"}
 

@@ -18,9 +18,9 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (71 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (76 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
-versione pubblicata + aggiornamento al codice nuovo + test Playwright in `e2e/tests`): non pushare con il workflow
+versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
 Licenza **AGPL-3.0-only** (`LICENSE`, deciso il 9/10/2026): il piede della pagina e la pagina di accesso hanno il
 link "Codice sorgente" alla versione installata (`components/VersionLabel.jsx`, obbligo della sezione 13): non toglierlo.
@@ -79,9 +79,27 @@ in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf`, 
 - **Backup** (`pages/BackupPage.jsx`, `components/UpdaterBits.jsx` con `useUpdater()` condiviso con
   UpdatesPage): `run_backups` nello script fa il notturno (`backup_time`, se il server era spento parte dopo; la
   data si segna prima del tentativo, quindi un errore non si ripete ogni minuto) e quello chiesto con
-  `request.json` `backup`; tiene `daily-*`/`manual-*` per `backup_keep_days`, i `netmap-*` (prima degli
-  aggiornamenti) per numero (`keep_backups`). Elenco e ultimo esito in `status.backup`. Priorità delle richieste in
-  attesa: update > backup > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
+  `request.json` `backup`; tiene `daily-*`/`manual-*`/`before-restore-*`/`imported-*` per `backup_keep_days`, i
+  `netmap-*` (prima degli aggiornamenti) per numero (`keep_backups`). I dump si scrivono in `.part` e poi `mv`.
+  Elenco (`backup_list`) e ultimo esito in `status.backup`. Priorità delle richieste in attesa:
+  restore > update > backup > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
+- **Ripristino** (`do_restore` nello script, `request.json` `{"action": "restore", "file"}` da
+  `POST /api/backups/restore`): legge la migration dal dump (`pg_restore -a -t alembic_version`), la rifiuta se il
+  codice installato non la conosce (`alembic show` in un `compose run`), backup di sicurezza `before-restore-*`,
+  ferma l'app, `db_restore`, riavvia, health check; se fallisce rimette il backup di sicurezza. Esito in
+  `status.backup.restore` (`success`/`rolled_back`/`error`).
+- **Copie fuori dal server e chiave dei segreti** (`api/backups.py`, `services/offsite.py`, `services/keys.py`,
+  modelli `BackupTarget`/`BackupCopy`/`BackupTask`, deciso con l'utente il 9/10/2026: SMB e SFTP): `backups/` è
+  montata in api e worker come `/backups` (`settings.backup_dir`). L'API scarica (`GET /backups/files/{nome}`),
+  carica (`PUT /backups/upload?name=`, corpo = file, nginx senza limite su quel percorso; diventa `imported-*`
+  dopo il controllo `PGDMP`), prova le destinazioni e ne elenca i file. Il worker (thread `offsite_loop`) esegue le
+  richieste in `backup_tasks` (sync, fetch) e ogni minuto copia i file nuovi (`COPIED`, fermi da 30 s) su ogni
+  destinazione attiva; errore → `last_error`, riprova dopo 15 minuti. Upload in `.nome.part` + rename; copie
+  remote più vecchie di `keep_days` (data nel nome) cancellate. SFTP con TOFU della chiave del server
+  (`host_key`, `forget_host_key` nel PATCH). `keys.status` conta i valori cifrati illeggibili (database da un
+  altro server), `keys.rekey` li ricifra con la chiave vecchia (incollata o `netmap-secrets-<impronta>.key`
+  copiato sulla destinazione con `include_key`). Nuovi segreti cifrati → aggiungerli a `keys.ENCRYPTED`.
+  Nei test (`test_backups.py`) una cartella locale fa da destinazione (`FolderRemote`).
 - **Distribuzione** (`deploy/`, `.github/workflows/release.yml`, decisa con l'utente l'8/10/2026): al tag
   `vX.Y.Z` il workflow fa i test e `deploy/build-images.sh` costruisce `ghcr.io/tommipute/netmap-{backend,web}`.
   Backend: stadio `release` del Dockerfile (contesto `deploy` = `deploy/` + `updater/`, finisce in `/app/deploy`;
@@ -337,10 +355,11 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
 
 - `resources.jsx`: **cuore dell'interfaccia**. Per ogni entità: `path`, titoli, `label(o)`, `detail(o)` opzionale,
   `filters`, `columns` (`type`: ref, badge, select, mono, bool, color, oppure `render`), `fields`
-  (`type`: text, textarea, lines, number, select, ref, refmulti, bool, color, interface, kv, secret).
+  (`type`: text, textarea, lines, number, select, ref, refmulti, bool, color, interface, kv, secret, secretText
+  = segreto su più righe, es. chiave privata).
   Opzioni dei campi: `required`, `default`, `createOnly` (mostrato disabilitato in modifica e non inviato),
   `dependsOn` + `waitLabel` (es. posizione filtrata per sede, svuotata se cambia la sede), `params`,
-  `showIf(values)` + `hiddenValue` (valore inviato quando il campo è nascosto), `freeOnly` (solo porte libere),
+  `showIf(values, item)` + `hiddenValue` (valore inviato quando il campo è nascosto), `freeOnly` (solo porte libere),
   `ordered` (refmulti con numero d'ordine), `savedHint(item)` (segnaposto dei campi `secret` già salvati).
   `NAV` accetta chiavi di risorse oppure pagine speciali `{ to, title, badge }`.
 - **Tabelle degli elenchi** (`components/TableTools.jsx`): colonne da mostrare/nascondere e riordinare (pulsante

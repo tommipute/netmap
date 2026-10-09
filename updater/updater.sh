@@ -5,7 +5,7 @@
 #
 #   updater-data/settings.json  impostazioni (scritte dall'app): auto_update, branch (o canale), intervallo, backup
 #                               da tenere, backup notturno (sì/no, ora, giorni da tenere)
-#   updater-data/request.json   richiesta dall'app ("check", "update" o "backup"): letta e svuotata qui
+#   updater-data/request.json   richiesta dall'app ("check", "update", "backup" o "restore" con "file"): letta e svuotata qui
 #   updater-data/status.json    stato per l'app: versioni, ultimo controllo, attività in corso, storico, backup
 #   updater-data/updater.log    log dell'ultimo aggiornamento (più le righe dei controlli successivi)
 #
@@ -158,12 +158,13 @@ db_revision() {
   fi
 }
 
+# Prima in FILE.part, poi il nome vero: chi legge la cartella (l'app copia i backup altrove) non vede file a metà
 db_backup() { # file
   if [ "$MODE" != vm ]; then
-    compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' >"$1"
+    compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' >"$1.part"
   else
-    pg_dump "$VM_DATABASE_URL" -Fc >"$1"
-  fi
+    pg_dump "$VM_DATABASE_URL" -Fc >"$1.part"
+  fi && [ -s "$1.part" ] && chmod 644 "$1.part" && mv -f "$1.part" "$1" || { rm -f "$1.part"; return 1; }
 }
 
 # Svuota lo schema e ricarica il backup: le tabelle create dalle migration nuove spariscono del tutto
@@ -215,14 +216,14 @@ web_ok() {
   fi
 }
 
-health_check() { # commit atteso
+health_check() { # commit atteso (vuoto = qualsiasi)
   local expected=$1 deadline body status commit
   deadline=$(($(date +%s) + HEALTH_TIMEOUT))
   while [ "$(date +%s)" -lt "$deadline" ]; do
     body=$(fetch_health) || body=
     status=$(jq -r '.status // empty' <<<"$body" 2>/dev/null)
     commit=$(jq -r '.commit // empty' <<<"$body" 2>/dev/null)
-    if [ "$status" = ok ] && [ "$commit" = "$expected" ]; then
+    if [ "$status" = ok ] && { [ -z "$expected" ] || [ "$commit" = "$expected" ]; }; then
       if web_ok; then
         log "Health check superato (commit ${expected:0:7})"
         return 0
@@ -369,7 +370,8 @@ do_update() {
 
 # ---------------------------------------------------------------------------------------------- backup
 # Backup notturno (daily-*.dump, tenuti BACKUP_KEEP_DAYS giorni) e a richiesta dall'app (manual-*.dump, stessa
-# durata); quelli fatti prima di ogni aggiornamento (netmap-*.dump) seguono keep_backups.
+# durata); quelli fatti prima di ogni aggiornamento (netmap-*.dump) seguono keep_backups. Stessa durata anche per
+# quelli di sicurezza prima di un ripristino (before-restore-*) e per quelli caricati dall'app (imported-*).
 backup_now() { # tipo: daily | manual
   local kind=$1 file
   file=$BACKUP_DIR/$kind-$(date +%Y%m%d-%H%M%S).dump
@@ -398,16 +400,107 @@ run_backups() {
     backup_now daily
   fi
   [ "$ACTION" = backup ] && backup_now manual
-  # Pulizia dei vecchi notturni e manuali
-  find "$BACKUP_DIR" -maxdepth 1 \( -name 'daily-*.dump' -o -name 'manual-*.dump' \) -mmin +$((BACKUP_KEEP_DAYS * 1440)) -print 2>/dev/null |
+  # Pulizia dei vecchi notturni, manuali, di sicurezza e caricati (e dei pezzi rimasti da un backup interrotto)
+  find "$BACKUP_DIR" -maxdepth 1 \( -name 'daily-*.dump' -o -name 'manual-*.dump' -o -name 'before-restore-*.dump' -o -name 'imported-*.dump' \) \
+    -mmin +$((BACKUP_KEEP_DAYS * 1440)) -print 2>/dev/null |
     while read -r old; do rm -f -- "$old" && log "Backup vecchio eliminato: ${old##*/}"; done
-  # Elenco per l'app (i 100 più recenti)
+  find "$BACKUP_DIR" -maxdepth 1 -name '*.part' -mmin +1440 -delete 2>/dev/null
+  backup_list
+}
+
+# Elenco dei backup per l'app (i 100 più recenti)
+backup_list() {
   local list
   list=$(find "$BACKUP_DIR" -maxdepth 1 -name '*.dump' -printf '%T@\t%s\t%f\n' 2>/dev/null | sort -rn | head -n 100 |
     jq -R -s '[split("\n")[] | select(length > 0) | split("\t") | {
       date: (.[0] | tonumber | floor | todate), size: (.[1] | tonumber), file: .[2],
-      kind: (if (.[2] | startswith("daily-")) then "daily" elif (.[2] | startswith("manual-")) then "manual" else "update" end)}]')
+      kind: (.[2] as $f | if ($f | startswith("daily-")) then "daily" elif ($f | startswith("manual-")) then "manual"
+             elif ($f | startswith("before-restore-")) then "restore" elif ($f | startswith("imported-")) then "imported"
+             else "update" end)}]')
   status '.backup.files = $l | .backup.dir = $d' --argjson l "${list:-[]}" --arg d "$BACKUP_DIR"
+}
+
+# ---------------------------------------------------------------------------------------------- ripristino
+# Migration di alembic dentro un backup (vuota se il file non si legge): dice da che versione di NetMap viene
+dump_revision() { # file
+  if [ "$MODE" != vm ]; then
+    compose exec -T db pg_restore -a -t alembic_version -f - <"$1" 2>/dev/null
+  else
+    pg_restore -a -t alembic_version -f - "$1" 2>/dev/null
+  fi | awk '/^COPY .*alembic_version/ {on = 1; next} /^\\\.$/ {on = 0} on && NF {print $1; exit}'
+}
+
+# Il codice installato conosce quella migration? Un backup di una versione più nuova non si può ripristinare.
+# Risponde known, unknown o "" (non si sa: si prova, il controllo di salute e il ritorno indietro proteggono)
+revision_check() { # migration
+  local out
+  [ "$MODE" = vm ] && return 0
+  if out=$(compose run --rm --no-deps -T api alembic show "$1" 2>&1); then
+    echo known
+  elif grep -q "Can't locate revision" <<<"$out"; then
+    echo unknown
+  fi
+}
+
+restore_done() { # esito, messaggio
+  log "Ripristino: $1. $2"
+  status '.activity = "idle" | .activity_message = "" | .activity_since = null
+    | .backup.restore = {at: $t, started_at: $s, file: $f, outcome: $o, message: $m, requested_by: $by, safety_backup: $sb}' \
+    --arg t "$(now)" --arg s "$STARTED" --arg f "$RESTORE_FILE" --arg o "$1" --arg m "$2" --arg by "$REQUESTED_BY" \
+    --arg sb "${SAFETY_FILE##*/}"
+  backup_list
+}
+
+# Ripristino chiesto dall'app: backup di sicurezza, app ferma, database dal backup, riavvio (l'API applica le
+# migration se il backup è di una versione più vecchia). Se NetMap non riparte si torna allo stato di prima.
+do_restore() {
+  local path rev expected reason
+  STARTED=$(now)
+  SAFETY_FILE=
+  path=$BACKUP_DIR/$RESTORE_FILE
+  if ! [[ $RESTORE_FILE =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.dump$ ]] || [ ! -f "$path" ]; then
+    restore_done error "Backup non trovato: $RESTORE_FILE"
+    return 1
+  fi
+  step restoring "Ripristino del backup $RESTORE_FILE${REQUESTED_BY:+ (richiesto da $REQUESTED_BY)}"
+  rev=$(dump_revision "$path")
+  if [ -z "$rev" ]; then
+    restore_done error "Il file $RESTORE_FILE non è un backup di NetMap leggibile: ripristino annullato, nulla è cambiato."
+    return 1
+  fi
+  if [ "$(revision_check "$rev")" = unknown ]; then
+    restore_done error "Il backup viene da una versione di NetMap più nuova di quella installata (migration $rev): aggiorna NetMap e riprova. Nulla è cambiato."
+    return 1
+  fi
+  step restoring "Backup di sicurezza dello stato attuale"
+  SAFETY_FILE=$BACKUP_DIR/before-restore-$(date +%Y%m%d-%H%M%S).dump
+  if ! db_backup "$SAFETY_FILE" 2>>"$LOG"; then
+    SAFETY_FILE=
+    restore_done error "Backup di sicurezza non riuscito: ripristino annullato, nulla è cambiato."
+    return 1
+  fi
+  log "Backup di sicurezza: ${SAFETY_FILE##*/} ($(du -h "$SAFETY_FILE" | cut -f1)); migration del backup da ripristinare: $rev"
+  expected=$(jq -r '.commit // empty' <<<"$INSTALLED" 2>/dev/null)
+  step restoring "Fermo NetMap e ripristino il database"
+  app_stop >>"$LOG" 2>&1 || log "Attenzione: non riesco a fermare l'app"
+  if db_restore "$path" >>"$LOG" 2>&1; then
+    step restoring "Riavvio NetMap"
+    app_deploy >>"$LOG" 2>&1 || log "Attenzione: il riavvio ha dato errori"
+    if health_check "$expected"; then
+      restore_done success "Ripristinato il backup $RESTORE_FILE. Lo stato di prima è nel backup ${SAFETY_FILE##*/}."
+      return 0
+    fi
+    reason="NetMap non riparte con il backup $RESTORE_FILE."
+  else
+    reason="Il ripristino del backup $RESTORE_FILE non è riuscito."
+  fi
+  step restoring "$reason Torno allo stato di prima"
+  app_stop >>"$LOG" 2>&1
+  if db_restore "$SAFETY_FILE" >>"$LOG" 2>&1 && { app_deploy >>"$LOG" 2>&1; health_check "$expected"; }; then
+    restore_done rolled_back "$reason Rimesso lo stato di prima (${SAFETY_FILE##*/})."
+  else
+    restore_done error "$reason Anche il ritorno allo stato di prima non è riuscito: serve un intervento manuale (updater/updater.sh restore backups/${SAFETY_FILE##*/}, vedi README)."
+  fi
 }
 
 # ------------------------------------------------------------------------------------------------- giro
@@ -437,8 +530,9 @@ run() {
   # La richiesta dell'app si legge e si svuota subito, anche se poi qualcosa va storto
   ACTION=$(jq -r '.action // empty' "$REQUEST" 2>/dev/null)
   REQUESTED_BY=$(jq -r '.requested_by // empty' "$REQUEST" 2>/dev/null)
+  RESTORE_FILE=$(jq -r '.file // empty' "$REQUEST" 2>/dev/null)
   [ -n "$ACTION" ] && write_json "$REQUEST" '{}'
-  case $ACTION in check | update | backup | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
+  case $ACTION in check | update | backup | restore | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
 
   status '.updater = {mode: $mode, app_dir: $dir} | .last_run = $t | .activity = (.activity // "idle")
     | .settings = {auto_update: ($auto == "true"), branch: $branch, channel: $channel, check_interval_minutes: ($int | tonumber), keep_backups: ($keep | tonumber),
@@ -456,6 +550,10 @@ run() {
   fi
   [ -n "$INSTALLED" ] && status '.installed = $i' --argjson i "$INSTALLED"
   run_backups
+  if [ "$ACTION" = restore ]; then
+    do_restore
+    exit $?
+  fi
 
   if [ "$MODE" != image ] && ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1 || [[ $BRANCH == -* ]]; then
     status '.check_error = $e | .last_check = $t' --arg e "Branch non valido: $BRANCH" --arg t "$(now)"

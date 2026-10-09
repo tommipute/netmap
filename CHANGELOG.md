@@ -8,7 +8,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ### Novità
 - Test automatici su GitHub a ogni push: backend, migration, interfaccia, script e una prova completa come la fa
-  un utente (installazione dell'ultima versione pubblicata, aggiornamento al codice nuovo, giro nel browser).
+  un utente (installazione dell'ultima versione pubblicata, aggiornamento al codice nuovo, ripristino di un
+  backup, giro nel browser).
+- Ripristino di un backup dalla pagina Backup, con backup di sicurezza prima e ritorno allo stato di prima se
+  NetMap non riparte; un backup di una versione più nuova di quella installata viene rifiutato.
+- Backup scaricabili sul PC e caricabili dal PC (anche fatti su un altro server).
+- Copie dei backup fuori dal server: cartella di rete (NAS o server Windows, SMB) o server SFTP. Ogni backup nuovo
+  viene copiato entro un minuto, le copie vecchie si cancellano dopo i giorni scelti e un backup si può riportare
+  sul server dalla destinazione.
+- Chiave dei segreti scaricabile (o copiata insieme ai backup): dopo un ripristino su un altro server la pagina
+  dice quante password non si leggono e le ricifra con la chiave del vecchio server.
 
 ### Modifiche
 - Accesso più protetto: dopo 5 password sbagliate sullo stesso utente si aspetta un minuto, e ogni errore in più

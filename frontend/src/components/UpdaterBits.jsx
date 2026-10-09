@@ -10,6 +10,7 @@ export const BUSY = {
   updating: t('Aggiornamento in corso'),
   rolling_back: t('Rollback in corso'),
   backup: t('Backup in corso'),
+  restoring: t('Ripristino in corso'),
 }
 
 // I messaggi dello script sono frasi italiane: le traduco una per una

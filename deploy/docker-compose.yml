@@ -54,12 +54,16 @@ services:
     volumes:
       - ./data:/data
       - ./updater-data:/updater-data   # cartella condivisa con l'updater sull'host
+      - ./backups:/backups             # backup fatti dall'updater: scarica, carica, ripristina
 
   worker:
     <<: *backend
     command: python -m app.worker
     environment:
       <<: *backend-env
+    volumes:
+      - ./data:/data
+      - ./backups:/backups   # copie dei backup fuori dal server
     depends_on:
       db:
         condition: service_healthy

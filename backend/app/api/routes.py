@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
-from app.api import alerts, auth, discovery, extra, history, system
+from app.api import alerts, auth, backups, discovery, extra, history, system
 from app.api.auth import require_admin, require_user
 from app.api.crud import build_crud_router
 from app.models import (
     AlertChannel,
+    BackupTarget,
     VLAN,
     VRF,
     Cable,
@@ -26,6 +27,7 @@ from app.models import (
     User,
 )
 from app.schemas import alerts as al
+from app.schemas import backups as bk
 from app.schemas import auth as sa
 from app.schemas import dcim as d
 from app.schemas import discovery as sd
@@ -106,12 +108,18 @@ _routers = [
          read_schema=al.AlertChannelRead, path="/alert-channels", tag="Avvisi", filters=("type", "enabled"),
          search=("name",), order_by=(AlertChannel.name,), hook=rules.alert_channel_hook,
          dependencies=[Depends(require_admin)]),
+    # ---------- Copie dei backup fuori dal server (solo amministratori) ----------
+    dict(model=BackupTarget, create_schema=bk.BackupTargetCreate, update_schema=bk.BackupTargetUpdate,
+         read_schema=bk.BackupTargetRead, path="/backup-targets", tag="Backup", filters=("type", "enabled"),
+         search=("name", "host"), order_by=(BackupTarget.name,), hook=rules.backup_target_hook,
+         dependencies=[Depends(require_admin)]),
 ]
 
 protected.include_router(extra.router)
 protected.include_router(discovery.router)
 protected.include_router(history.router)
 protected.include_router(alerts.router)
+protected.include_router(backups.router)
 protected.include_router(system.admin)
 
 for config in _routers:

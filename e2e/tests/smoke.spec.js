@@ -99,6 +99,8 @@ test('amministrazione: aggiornamenti e backup', async ({ page }) => {
   if (VERSION) await expect(page.locator('.update-facts')).toContainText(VERSION)
   await page.goto('/backup')
   await expect(page.getByRole('heading', { name: 'Backup', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Copie fuori dal server' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Chiave dei segreti' })).toBeVisible()
   if (process.env.NETMAP_TEST_BACKUP !== '1') return
   // Lo script gira ogni minuto e la pagina si aggiorna da sola; conto solo i backup fatti a mano (nel frattempo
   // può partire anche quello notturno)
@@ -107,7 +109,7 @@ test('amministrazione: aggiornamenti e backup', async ({ page }) => {
   const before = await manual.count()
   await page.getByRole('button', { name: 'Backup ora' }).click()
   await expect(manual).toHaveCount(before + 1, { timeout: 180_000 })
-  await expect(page.locator('.update-live')).toContainText('Riuscito')
+  await expect(page.locator('.update-live').first()).toContainText('Riuscito')
 })
 
 test('interfaccia in inglese', async ({ page }) => {

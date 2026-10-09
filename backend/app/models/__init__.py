@@ -5,6 +5,7 @@ from sqlalchemy.orm import column_property
 from app.models.alerts import AlertChannel, AlertState
 from app.models.audit import AuditEntry
 from app.models.auth import User
+from app.models.backups import BackupCopy, BackupTarget, BackupTask
 from app.models.base import Base
 from app.models.dcim import (
     Cable,
@@ -39,6 +40,9 @@ __all__ = [
     "AlertChannel",
     "AlertState",
     "AuditEntry",
+    "BackupCopy",
+    "BackupTarget",
+    "BackupTask",
     "Base",
     "Cable",
     "Device",

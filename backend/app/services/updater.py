@@ -1,6 +1,7 @@
 """Scambio di file con l'updater che gira sull'host (updater/updater.sh).
 
-L'app non si aggiorna da sola: legge status.json e updater.log, scrive request.json (controlla/aggiorna ora) e
+L'app non si aggiorna da sola: legge status.json e updater.log, scrive request.json (controlla, aggiorna, backup,
+ripristina un backup) e
 settings.json. Nessun accesso a Docker né a GitHub da qui.
 """
 
@@ -24,7 +25,7 @@ DEFAULT_SETTINGS = {
     "backup_keep_days": 14,
 }
 # Una richiesta più importante non viene sostituita da una meno importante ancora in attesa
-PRIORITY = {"check": 0, "backup": 1, "update": 2}
+PRIORITY = {"check": 0, "backup": 1, "update": 2, "restore": 3}
 # Il timer gira ogni minuto: oltre questo silenzio lo script è considerato fermo
 SILENT_AFTER_MINUTES = 5
 # Un aggiornamento (build compresa) che dura più di così è bloccato
@@ -73,11 +74,12 @@ def pending_request() -> dict | None:
     return request if request and request.get("action") else None
 
 
-def request(action: str, username: str | None) -> dict:
+def request(action: str, username: str | None, **extra) -> dict:
+    """extra: dati della richiesta (restore: file = nome del backup)."""
     current = pending_request()
     if current and PRIORITY.get(current["action"], 0) > PRIORITY[action]:
         return current  # es. "aggiorna" comprende già il controllo
-    data = {"action": action, "requested_at": datetime.now(timezone.utc).isoformat(), "requested_by": username or ""}
+    data = {"action": action, "requested_at": datetime.now(timezone.utc).isoformat(), "requested_by": username or "", **extra}
     write_json("request.json", data)
     return data
 

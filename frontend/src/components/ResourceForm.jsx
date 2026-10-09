@@ -8,7 +8,7 @@ import Modal from './Modal'
 import { RefMulti, RefSelect } from './RefSelect'
 import { t } from '../i18n'
 
-const WIDE_TYPES = new Set(['textarea', 'lines', 'kv', 'refmulti', 'interface', 'bool'])
+const WIDE_TYPES = new Set(['textarea', 'secretText', 'lines', 'kv', 'refmulti', 'interface', 'bool'])
 
 export function emptyValue(field) {
   if (field.type === 'bool') return false
@@ -21,7 +21,7 @@ function initialValues(fields, item, preset) {
   const values = {}
   for (const f of fields) {
     const source = item ? item[f.name] : preset[f.name] ?? f.default
-    if (f.type === 'secret') values[f.name] = '' // i segreti non tornano mai dall'API
+    if (f.type === 'secret' || f.type === 'secretText') values[f.name] = '' // i segreti non tornano mai dall'API
     else if (f.type === 'lines') values[f.name] = (source || []).join('\n')
     else values[f.name] = source ?? emptyValue(f)
   }
@@ -36,6 +36,7 @@ export function isEmpty(value) {
 export function convert(field, value, isEdit) {
   switch (field.type) {
     case 'secret':
+    case 'secretText':
       // In modifica un campo vuoto lascia il segreto salvato com'è
       return value ? value : isEdit ? undefined : null
     case 'lines':
@@ -70,6 +71,11 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
     case 'secret':
       return (
         <input id={id} type="password" className="input" value={value} autoComplete="new-password" disabled={disabled}
+          placeholder={field.savedHint?.(item) ?? field.placeholder} onChange={(e) => onChange(e.target.value)} />
+      )
+    case 'secretText': // segreto su più righe (chiave privata): come secret, ma in un'area di testo
+      return (
+        <textarea id={id} className="input mono" rows={4} value={value} autoComplete="off" spellCheck={false} disabled={disabled}
           placeholder={field.savedHint?.(item) ?? field.placeholder} onChange={(e) => onChange(e.target.value)} />
       )
     case 'number':
@@ -186,7 +192,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
     const payload = {}
     for (const f of config.fields) {
       if (isEdit && f.createOnly) continue
-      const visible = !f.showIf || f.showIf(values)
+      const visible = !f.showIf || f.showIf(values, item)
       const missing = f.type === 'refmulti' ? !(values[f.name] || []).length : isEmpty(values[f.name])
       if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {
         setError(t('Compila il campo "{field}".', { field: f.label }))
@@ -215,7 +221,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
       <form className="form" onSubmit={submit} noValidate>
         <div className="form__grid">
           {config.fields.map((f) => {
-            if (f.showIf && !f.showIf(values)) return null
+            if (f.showIf && !f.showIf(values, item)) return null
             const locked = isEdit && f.createOnly
             const disabled = locked || Boolean(filled[f.name])
             const wide = WIDE_TYPES.has(f.type)

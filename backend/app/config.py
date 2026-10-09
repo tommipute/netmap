@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     app_version: str = ""
     # Cartella condivisa con l'updater sull'host (status/request/settings.json, updater.log)
     updater_dir: str = "/updater-data"
+    # Cartella dei backup fatti dall'updater (montata in api e worker): copie fuori dal server, scarica, carica
+    backup_dir: str = "/backups"
 
 
 settings = Settings()

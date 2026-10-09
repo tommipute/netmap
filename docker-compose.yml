@@ -64,6 +64,7 @@ services:
     volumes:
       - ./backend:/app
       - ./updater-data:/updater-data   # cartella condivisa con l'updater sull'host (vedi updater/)
+      - ./backups:/backups             # backup fatti dall'updater: scarica, carica, copie fuori dal server
 
   # Esegue le scansioni SNMP in coda (stessa immagine dell'API, comando diverso)
   worker:
@@ -88,6 +89,7 @@ services:
         condition: service_started   # l'API applica le migration all'avvio
     volumes:
       - ./backend:/app
+      - ./backups:/backups   # copie dei backup fuori dal server (services/offsite.py)
 
   # Stato live: ping e SNMP periodici sui device con IP di management (stessa immagine dell'API)
   monitor:

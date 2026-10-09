@@ -24,6 +24,7 @@ services:
     volumes: !override
       - ./data:/data
       - ./updater-data:/updater-data
+      - ./backups:/backups
 
   worker:
     <<: *backend
@@ -32,6 +33,7 @@ services:
       SECRETS_KEY_FILE: /data/secrets_key
     volumes: !override
       - ./data:/data
+      - ./backups:/backups
 
   monitor:
     <<: *backend

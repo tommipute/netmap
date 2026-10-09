@@ -622,6 +622,60 @@ const ALERT_TYPES = [
 ]
 const isType = (type) => (v) => v.type === type
 
+// Destinazioni delle copie dei backup: si gestiscono dalla pagina Backup (niente voce nel menu)
+export const BACKUP_TARGET_TYPES = [
+  { value: 'smb', label: t('Cartella di rete (SMB)') },
+  { value: 'sftp', label: t('Server SFTP') },
+]
+const saved = (has) => (has ? t('Salvata: lascia vuoto per non cambiarla') : '')
+resources['backup-targets'] = {
+  path: 'backup-targets',
+  title: t('Copie fuori dal server'),
+  newLabel: t('Nuova destinazione dei backup'),
+  editLabel: t('Modifica destinazione dei backup'),
+  label: (o) => o.name,
+  columns: [],
+  fields: [
+    { name: 'name', label: t('Nome'), required: true, placeholder: t("NAS dell'ufficio") },
+    { name: 'type', label: t('Tipo'), type: 'select', options: BACKUP_TARGET_TYPES, default: 'smb', required: true, createOnly: true },
+    { name: 'host', label: t('Server'), required: true, placeholder: t('nas.azienda.local o 192.168.1.20') },
+    { name: 'port', label: t('Porta'), type: 'number', placeholder: t('Predefinita'), help: t('Vuota = 445 per le cartelle di rete, 22 per SFTP.') },
+    {
+      name: 'share', label: t('Condivisione'), required: true, showIf: isType('smb'), placeholder: 'backup',
+      help: t('Il nome dopo il server: in \\\\nas\\backup è «backup».'),
+    },
+    {
+      name: 'folder', label: t('Cartella'), placeholder: 'netmap',
+      help: t("Dentro la condivisione o sul server SFTP; se non c'è viene creata. Usane una per ogni installazione di NetMap."),
+    },
+    { name: 'username', label: t('Utente'), required: true, placeholder: t('AZIENDA\\backup') },
+    {
+      name: 'password', label: t('Password'), type: 'secret', savedHint: (item) => saved(item?.has_secret),
+      help: t('Per SFTP puoi usare invece la chiave privata qui sotto.'),
+    },
+    {
+      name: 'private_key', label: t('Chiave privata'), type: 'secretText', showIf: isType('sftp'),
+      savedHint: (item) => saved(item?.has_private_key) || '-----BEGIN OPENSSH PRIVATE KEY-----',
+      help: t('Facoltativa, al posto della password: chiave OpenSSH o PEM senza passphrase. La chiave pubblica va in ~/.ssh/authorized_keys sul server.'),
+    },
+    {
+      name: 'keep_days', label: t('Giorni da tenere'), type: 'number', default: 30,
+      help: t('Le copie più vecchie si cancellano dalla destinazione (solo quelle di NetMap). 0 = non cancellarle mai.'),
+    },
+    { name: 'enabled', label: t('Attiva'), type: 'bool', default: true },
+    {
+      name: 'include_key', label: t('Copia anche la chiave dei segreti'), type: 'bool',
+      help: t('Serve a ripristinare su un altro server con password e community SNMP leggibili. Chi può leggere quella cartella può leggere anche quelle: attivala solo se la cartella è protetta.'),
+    },
+    {
+      name: 'forget_host_key', label: t('Accetta la nuova chiave del server'), type: 'bool',
+      showIf: (v, item) => v.type === 'sftp' && Boolean(item?.host_key),
+      help: t('Solo se il server SFTP è stato reinstallato o sostituito: la sua nuova chiave viene registrata alla prossima connessione.'),
+    },
+    description,
+  ],
+}
+
 // Switch di uno stack: si gestiscono dalla scheda del device dello stack (niente voce nel menu)
 resources['stack-members'] = {
   path: 'stack-members',

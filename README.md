@@ -172,7 +172,7 @@ montata nel container `api` come `/updater-data`:
 | File | Chi scrive | Chi legge | Cosa contiene |
 |---|---|---|---|
 | `settings.json` | app | script | aggiornamento automatico sì/no, branch, ogni quanto controllare, backup (notturno, ora, quanti tenere) |
-| `request.json` | app | script (poi lo svuota) | "Controlla ora", "Aggiorna ora" o "Backup ora" |
+| `request.json` | app | script (poi lo svuota) | "Controlla ora", "Aggiorna ora", "Backup ora" o "Ripristina" |
 | `status.json` | script | app | versione installata e disponibile, ultimo controllo, attività in corso, storico (ultimi 20) |
 | `updater.log` | script | app | log dell'ultimo aggiornamento e dei controlli successivi |
 
@@ -247,9 +247,35 @@ HTTPS anche qui con lo stesso Caddy delle installazioni con le immagini: nel `.e
 
 Oltre a quello prima di ogni aggiornamento, lo script fa un backup ogni notte (02:30, se il server era spento parte
 appena si riaccende) e quando lo chiedi da **Amministrazione → Backup → Backup ora**. I file stanno in `backups/`:
-`daily-…` e `manual-…` restano per i giorni impostati (14), `netmap-…` (prima degli aggiornamenti) sono gli ultimi
-N. Ripristino: `updater/updater.sh restore backups/NOME.dump` (ferma l'app, ripristina, riavvia).
-Questi file stanno sullo stesso disco di NetMap: copiali altrove o pianifica un backup del server (o della VM) su un altro disco.
+`daily-…`, `manual-…`, `before-restore-…` (backup di sicurezza fatto prima di un ripristino) e `imported-…`
+(caricati dalla pagina o riportati da una copia esterna) restano per i giorni impostati (14); `netmap-…` (prima
+degli aggiornamenti) sono gli ultimi N.
+
+Dalla pagina **Backup** (solo amministratori):
+
+- **Scarica** un backup sul PC o **caricane** uno (un `.dump` fatto da NetMap, anche su un altro server).
+- **Ripristina**: lo script fa prima un backup di sicurezza dello stato attuale, ferma NetMap per circa un minuto,
+  ripristina e riavvia. Se NetMap non riparte rimette da solo lo stato di prima; un backup di una versione più
+  nuova di quella installata non si ripristina (prima aggiorna). Dopo il ripristino valgono gli utenti del backup.
+- **Copie fuori dal server**: una cartella di rete (NAS o server Windows, SMB 2/3) o un server SFTP. Il worker
+  copia ogni backup nuovo entro un minuto (se la destinazione non risponde riprova ogni 15 minuti e la pagina
+  mostra l'errore), cancella dalla destinazione le copie più vecchie dei giorni impostati (solo i file di NetMap)
+  e da lì un backup si può **riportare sul server**. Usa una cartella per ogni installazione. SFTP accetta
+  password o chiave privata (OpenSSH o PEM senza passphrase); la chiave del server SFTP si registra alla prima
+  connessione e, se cambia, le copie si fermano finché non la accetti nel modulo della destinazione.
+- **Chiave dei segreti**: le password dei profili SNMP, dei canali di avviso e delle destinazioni sono cifrate con
+  la chiave in `data/secrets_key` (o `SECRETS_KEY` nel `.env`), che non sta nel database. Scaricala e tienila al
+  sicuro, oppure attiva *Copia anche la chiave dei segreti* su una destinazione protetta.
+
+I container `api` e `worker` montano `backups/` come `/backups` (già nei file compose del repo e dell'installazione;
+se cambi `BACKUP_DIR` in `updater/updater.conf`, monta quella cartella).
+
+**Server nuovo dopo un guasto**: installa NetMap (stessa versione o più nuova), carica il backup dalla pagina
+Backup (o aggiungi la destinazione e riportalo da lì), ripristinalo ed entra con gli utenti di prima; poi in
+*Chiave dei segreti* incolla la chiave del vecchio server (o usa quella copiata sulla destinazione): password e
+community salvate tornano leggibili.
+
+Senza interfaccia (NetMap non parte): `updater/updater.sh restore backups/NOME.dump` (ferma l'app, ripristina, riavvia).
 
 ### Migration
 
@@ -287,7 +313,8 @@ Su GitHub il workflow **Test** (`.github/workflows/test.yml`) gira a ogni push e
 `alembic check` (migration allineate ai modelli), build dell'interfaccia, sintassi degli script e file compose.
 Poi `e2e/upgrade-test.sh` fa quello che farebbe un utente: installa con `install.sh` l'ultima versione
 pubblicata, ci mette dei dati, costruisce le immagini del codice nuovo in un registro locale, chiede
-l'aggiornamento come la pagina Aggiornamenti e controlla esito, versione e dati. Infine i test nel browser
+l'aggiornamento come la pagina Aggiornamenti e controlla esito, versione e dati; poi fa un backup, lo scarica, lo
+ricarica e lo ripristina come la pagina Backup. Infine i test nel browser
 (`e2e/tests`, Playwright) girano su quell'installazione. A mano, su una macchina di prova con Docker e sudo
 (non su un server con NetMap installato):
 

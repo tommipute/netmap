@@ -8,6 +8,7 @@
 #   3. costruisce le immagini del codice attuale come versione NEW_VERSION in un registro locale
 #   4. chiede l'aggiornamento come fa la pagina Aggiornamenti e aspetta che l'updater (timer) finisca
 #   5. controlla esito, versione installata e dati
+#   6. backup, download e caricamento dall'API, ripristino chiesto come dalla pagina Backup
 # Senza versioni pubblicate (o con FROM_IMAGE=none) prova solo l'installazione da zero del codice attuale.
 #
 #   e2e/upgrade-test.sh            prova completa (poi: cd e2e && npx playwright test)
@@ -123,16 +124,47 @@ if [ -n "$OLD" ]; then
   ls "$DIR/backups/"netmap-*.dump >/dev/null 2>&1 || fail "manca il backup fatto prima dell'aggiornamento"
 fi
 
+say "Backup, download, caricamento e ripristino (come dalla pagina Backup)"
+wait_script() { # espressione jq che cambia a lavoro finito, valore di prima, secondi
+  local deadline=$(($(date +%s) + $3))
+  while :; do
+    [ "$(status "$1 // \"\"")" != "$2" ] && [ "$(status .activity)" = idle ] && return 0
+    [ "$(date +%s)" -lt "$deadline" ] || fail "l'updater non ha finito in $3 secondi: $(status .activity_message)"
+    sleep 5
+  done
+}
+before=$(status '.backup.last.at // ""')
+printf '{"action": "backup", "requested_at": "%s", "requested_by": "upgrade-test"}\n' "$(date -Iseconds)" \
+  >"$DIR/updater-data/request.json"
+wait_script .backup.last.at "$before" 300
+[ "$(status .backup.last.ok)" = true ] || fail "backup non riuscito: $(status .backup.last.message)"
+file=$(status .backup.last.file)
+curl -sk --fail-with-body -H "Authorization: Bearer $TOKEN" -o "$WORK/$file" "$URL/api/backups/files/$file"
+[ "$(head -c 5 "$WORK/$file")" = PGDMP ] || fail "il backup scaricato non è un pg_dump"
+uploaded=$(curl -sk --fail-with-body -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/octet-stream' \
+  --data-binary @"$WORK/$file" "$URL/api/backups/upload?name=$file" | jq -r .file)
+[ "$uploaded" = "imported-$file" ] || fail "caricamento del backup non riuscito ($uploaded)"
+cmp -s "$WORK/$file" "$DIR/backups/$uploaded" || fail "il backup caricato è diverso da quello scaricato"
+# Un device creato dopo il backup deve sparire con il ripristino
+api POST /devices "{\"name\": \"upg-dopo-il-backup\", \"site_id\": $site}" >/dev/null
+before=$(status '.backup.restore.at // ""')
+api POST /backups/restore "{\"file\": \"$uploaded\"}" >/dev/null
+wait_script .backup.restore.at "$before" 600
+outcome=$(status .backup.restore.outcome)
+echo "Ripristino: $outcome. $(status .backup.restore.message)"
+[ "$outcome" = success ] || { sudo cat "$DIR/updater-data/updater.log" >&2; fail "ripristino non riuscito"; }
+ls "$DIR/backups/"before-restore-*.dump >/dev/null 2>&1 || fail "manca il backup di sicurezza fatto prima del ripristino"
+
 say "Controlli finali"
 version=$(curl -sk "$URL/api/version" | jq -r .version)
 [ "$version" = "$NEW_VERSION" ] || fail "l'API dice versione $version, attesa $NEW_VERSION"
 found=$(api GET "/devices?q=upg-" | jq .total)
-[ "$found" = 2 ] || fail "dopo l'aggiornamento ci sono $found device di prova invece di 2"
+[ "$found" = 2 ] || fail "dopo aggiornamento e ripristino ci sono $found device di prova invece di 2"
 cables=$(api GET "/devices/$core/ports" | jq '[.[] | select(.cable_id != null)] | length')
 [ "$cables" = 1 ] || fail "il cavo di prova non c'è più"
 curl -sk "$URL/" | grep -q '<div id="root">' || fail "l'interfaccia non risponde su $URL"
 curl -s -o /dev/null -w '%{http_code}' "http://localhost/" | grep -q '^30[18]$' || fail "http non reindirizza a https"
-echo "NetMap $version risponde, dati e cavo ci sono ancora"
+echo "NetMap $version risponde, dati e cavo ci sono ancora, il device creato dopo il backup no"
 
 # Per i test nel browser (e2e/tests): stessa installazione, stesso amministratore
 cat >"$ROOT/e2e/.upgrade-test.env" <<EOF
