@@ -9,6 +9,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 ### Correzioni
 - Il backup notturno non salta più quando, all'ora del backup, il database non è ancora acceso (subito dopo
   l'installazione o un riavvio del server): lo script aspetta che risponda.
+- Installazioni dal codice (modalità docker): il link «Codice sorgente» e la pagina Aggiornamenti mostravano l'ultimo
+  tag anche per i commit successivi, quindi il link portava a un codice diverso da quello installato.
 
 ## [1.0.0-rc.3] - 2026-10-09
 

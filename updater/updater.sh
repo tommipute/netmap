@@ -133,7 +133,8 @@ commit_info() {
   commit=$(git rev-parse --verify -q "$ref^{commit}") || return 1
   date=$(git show -s --format=%cI "$commit")
   subject=$(git show -s --format=%s "$commit")
-  tag=$(git describe --tags --exact-match "$commit" 2>/dev/null || git describe --tags --abbrev=0 "$commit" 2>/dev/null || true)
+  # Solo il tag di questo commit, non l'ultimo prima: il link "Codice sorgente" deve portare al codice installato
+  tag=$(git describe --tags --exact-match "$commit" 2>/dev/null || true)
   # L'ultima stringa tra virgolette della riga di VERSION (anche "VITE_APP_VERSION || '2026.10.08-5'")
   version=$(git show "$commit:frontend/src/version.js" 2>/dev/null | sed -n "/VERSION *=/s/.*['\"]\([^'\"]*\)['\"].*/\1/p" | head -n1)
   jq -n --arg commit "$commit" --arg date "$date" --arg tag "$tag" --arg version "$version" --arg subject "$subject" \
@@ -374,7 +375,7 @@ do_update() {
     return 1
   fi
   status '.installed = $i | .update_available = false | .failed_commit = null' --argjson i "$TO"
-  finish success "Installata la versione $(jq -r '.version // empty' <<<"$TO") ($(jq -r .short <<<"$TO"))."
+  finish success "Installata la versione $(jq -r 'if (.version // "") != "" then "\(.version) (\(.short))" else .short end' <<<"$TO")."
 }
 
 # ---------------------------------------------------------------------------------------------- backup
