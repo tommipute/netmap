@@ -122,6 +122,7 @@ protected.include_router(alerts.router)
 protected.include_router(backups.router)
 protected.include_router(directory.router)
 protected.include_router(system.admin)
+protected.include_router(system.support)
 
 for config in _routers:
     protected.include_router(build_crud_router(**config))

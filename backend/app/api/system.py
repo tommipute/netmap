@@ -1,4 +1,5 @@
-"""Sistema: versione installata, controllo di salute (usato dall'updater) e pagina Aggiornamenti (solo admin)."""
+"""Sistema: versione installata, controllo di salute (usato dall'updater), pagina Aggiornamenti e pacchetto
+diagnostico (solo admin)."""
 
 import re
 from functools import lru_cache
@@ -14,12 +15,13 @@ from app.api.auth import require_admin
 from app.config import settings
 from app.database import get_db
 from app.models import User
-from app.services import updater
+from app.services import diagnostics, updater
 
 public = APIRouter(tags=["Sistema"])
 BRANCH = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}")
 TIME = re.compile(r"([01][0-9]|2[0-3]):[0-5][0-9]")
 admin = APIRouter(prefix="/updates", tags=["Aggiornamenti"], dependencies=[Depends(require_admin)])
+support = APIRouter(tags=["Aggiornamenti"], dependencies=[Depends(require_admin)])
 
 
 def version_info() -> dict:
@@ -86,7 +88,8 @@ class UpdateSettings(BaseModel):
 
 
 class UpdateRequest(BaseModel):
-    action: Literal["check", "update", "backup"]
+    # diagnostics: lo script scrive stato dell'host e log dei container per il pacchetto diagnostico
+    action: Literal["check", "update", "backup", "diagnostics"]
 
 
 def _require_folder() -> None:
@@ -120,3 +123,9 @@ def updates_settings(body: UpdateSettings):
         raise HTTPException(422, "Ora del backup non valida: usa il formato 02:30")
     updater.write_json("settings.json", body.model_dump())
     return updater.current_settings()
+
+
+@support.get("/diagnostics", summary="Pacchetto diagnostico (zip): versione, configurazione senza segreti, log")
+def diagnostics_package(db: Session = Depends(get_db)):
+    name, content = diagnostics.build(db)
+    return Response(content, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{name}"'})

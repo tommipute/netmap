@@ -5,15 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import api_router
 from app.config import settings
+from app.core import logbuffer
 
 # Log dell'app (accessi, errori) con data e ora, accanto a quelli di uvicorn: docker compose logs api
 _logger = logging.getLogger("netmap")
 if not _logger.handlers:
     _handler = logging.StreamHandler()
-    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    _handler.setFormatter(logging.Formatter(logbuffer.FORMAT))
     _logger.addHandler(_handler)
     _logger.setLevel(logging.INFO)
     _logger.propagate = False
+# Le stesse righe, più errori e avvii di uvicorn, restano in memoria per il pacchetto diagnostico
+logbuffer.attach("netmap", "uvicorn.error")
 
 app = FastAPI(
     title=settings.app_name,

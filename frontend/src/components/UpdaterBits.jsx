@@ -11,6 +11,7 @@ export const BUSY = {
   rolling_back: t('Rollback in corso'),
   backup: t('Backup in corso'),
   restoring: t('Ripristino in corso'),
+  diagnostics: t('Raccolta dei log in corso'),
 }
 
 // I messaggi dello script sono frasi italiane: le traduco una per una
@@ -36,7 +37,7 @@ export function useUpdater() {
     return () => clearInterval(timer)
   }, [waiting, reload])
 
-  /** Chiede un'azione allo script ("check", "update", "backup"); true se la richiesta è partita. */
+  /** Chiede un'azione allo script ("check", "update", "backup", "diagnostics"); true se la richiesta è partita. */
   const send = async (action) => {
     setSending(action)
     setActionError(null)

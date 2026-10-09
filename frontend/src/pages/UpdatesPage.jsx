@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
+import { Icon } from '../components/Icon'
 import Modal from '../components/Modal'
 import { BUSY, ScriptWarning, tMessage, useUpdater } from '../components/UpdaterBits'
 import { useApi } from '../hooks'
@@ -16,6 +17,12 @@ const INTERVALS = [
   { value: 720, label: t('Ogni 12 ore') },
   { value: 1440, label: t('Una volta al giorno') },
 ]
+const REQUESTED = {
+  update: t('Aggiornamento richiesto'),
+  check: t('Controllo richiesto'),
+  backup: t('Backup richiesto'),
+  diagnostics: t('Raccolta dei log richiesta'),
+}
 const OUTCOMES = {
   success: { label: t('Completato'), tone: 'ok' },
   error: { label: t('Errore'), tone: 'danger' },
@@ -51,7 +58,7 @@ function LiveState({ status, request }) {
     return (
       <div className="update-live">
         <span className="badge badge--muted">{t('In attesa')}</span>
-        <span>{request.action === 'update' ? t('Aggiornamento richiesto') : t('Controllo richiesto')}: {t('lo script lo esegue entro un minuto.')}</span>
+        <span>{REQUESTED[request.action] || t('Controllo richiesto')}: {t('lo script lo esegue entro un minuto.')}</span>
       </div>
     )
   }
@@ -192,6 +199,33 @@ function History({ items }) {
   )
 }
 
+/**
+ * Pacchetto diagnostico: lo zip lo prepara l'API; i log dei container (e lo stato dell'host) li deve raccogliere lo
+ * script, perché dall'app Docker non si vede.
+ */
+function Diagnostics({ status, disabled, sending, onCollect }) {
+  const collected = status?.diagnostics
+  return (
+    <section className="section">
+      <header className="section__head"><h2>{t('Diagnostica')}</h2></header>
+      <p className="hint">
+        {t('Un file zip da allegare a una segnalazione: versione, configurazione (senza password né chiavi), stato del database e log. I log possono contenere indirizzi IP e nomi della tua rete: dagli un\'occhiata prima di mandarlo.')}
+      </p>
+      <div className="update-actions">
+        <button type="button" className="btn" disabled={disabled} onClick={onCollect}>
+          {sending ? t('Invio…') : t('Raccogli i log dei container')}
+        </button>
+        <a className="btn btn--primary" href="/api/diagnostics" download><Icon name="download" /> {t('Scarica il pacchetto diagnostico')}</a>
+        <span className="hint">
+          {collected?.at
+            ? t('Log dei container raccolti il {when}: sono nel pacchetto.', { when: formatDateTime(collected.at) })
+            : t("Senza raccoglierli il pacchetto ha solo i log dell'API e dello script.")}
+        </span>
+      </div>
+    </section>
+  )
+}
+
 /** Aggiornamenti (solo admin): lo script sull'host fa il lavoro, qui si vede lo stato e si chiede di agire. */
 export default function UpdatesPage() {
   const { data, error, offline, waiting, reload, send: request, sending, actionError } = useUpdater()
@@ -288,6 +322,9 @@ export default function UpdatesPage() {
         </header>
         <History items={status?.history} />
       </section>
+
+      <Diagnostics status={status} disabled={!usable || waiting || Boolean(sending)} sending={sending === 'diagnostics'}
+        onCollect={() => send('diagnostics')} />
 
       <section className="section">
         <header className="section__head">

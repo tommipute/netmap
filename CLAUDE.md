@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (85 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (86 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -82,12 +82,19 @@ in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf`, 
   `request.json` `backup`; tiene `daily-*`/`manual-*`/`before-restore-*`/`imported-*` per `backup_keep_days`, i
   `netmap-*` (prima degli aggiornamenti) per numero (`keep_backups`). I dump si scrivono in `.part` e poi `mv`.
   Elenco (`backup_list`) e ultimo esito in `status.backup`. Priorità delle richieste in attesa:
-  restore > update > backup > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
+  restore > update > backup > diagnostics > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
 - **Ripristino** (`do_restore` nello script, `request.json` `{"action": "restore", "file"}` da
   `POST /api/backups/restore`): legge la migration dal dump (`pg_restore -a -t alembic_version`), la rifiuta se il
   codice installato non la conosce (`alembic show` in un `compose run`), backup di sicurezza `before-restore-*`,
   ferma l'app, `db_restore`, riavvia, health check; se fallisce rimette il backup di sicurezza. Esito in
   `status.backup.restore` (`success`/`rolled_back`/`error`).
+- **Pacchetto diagnostico** (`services/diagnostics.py`, `GET /api/diagnostics`, sezione in UpdatesPage): zip
+  costruito in memoria con `netmap.json` (versione, migration, `masked_settings`, righe per tabella, conteggi senza
+  nomi né IP; ogni parte in un SAVEPOINT, un errore finisce in `errors` e il resto c'è), `api.log` (ultime 3000
+  righe dei logger `netmap` e `uvicorn.error`, `core/logbuffer.py`), i file dell'updater e `diagnostics/host.txt`.
+  Quest'ultimo lo scrive lo script (`host_report`: df, free, `compose ps`, `compose logs --tail 500`, `.env` e
+  `updater.conf` con i valori di PASS/SECRET/KEY/TOKEN nascosti) quando arriva la richiesta `diagnostics`; esito in
+  `status.diagnostics`. Un dato nuovo nel riepilogo: niente segreti né dati della rete (test in `test_updates.py`).
 - **Copie fuori dal server e chiave dei segreti** (`api/backups.py`, `services/offsite.py`, `services/keys.py`,
   modelli `BackupTarget`/`BackupCopy`/`BackupTask`, deciso con l'utente il 9/10/2026: SMB e SFTP): `backups/` è
   montata in api e worker come `/backups` (`settings.backup_dir`). L'API scarica (`GET /backups/files/{nome}`),
@@ -208,6 +215,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
 | `GET`/`PUT /api/directory` · `POST /api/directory/test` | Active Directory: impostazioni, prova con un utente (solo admin) |
+| `GET /api/diagnostics` | pacchetto diagnostico zip (solo admin) |
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
 Anche `/snmp-profiles` e `/discovery-jobs` sono CRUD generati.

@@ -5,13 +5,16 @@
 #
 #   updater-data/settings.json  impostazioni (scritte dall'app): auto_update, branch (o canale), intervallo, backup
 #                               da tenere, backup notturno (sì/no, ora, giorni da tenere)
-#   updater-data/request.json   richiesta dall'app ("check", "update", "backup" o "restore" con "file"): letta e svuotata qui
+#   updater-data/request.json   richiesta dall'app ("check", "update", "backup", "diagnostics" o "restore" con "file"):
+#                               letta e svuotata qui
 #   updater-data/status.json    stato per l'app: versioni, ultimo controllo, attività in corso, storico, backup
 #   updater-data/updater.log    log dell'ultimo aggiornamento (più le righe dei controlli successivi)
+#   updater-data/diagnostics/host.txt  stato dell'host e log dei container, per il pacchetto diagnostico dell'app
 #
 # Uso:  updater.sh               un giro normale (quello del timer)
 #       updater.sh version-env   riscrive solo version.env con il commit installato
 #       updater.sh restore FILE  ripristina un backup del database (app ferma durante il ripristino)
+#       updater.sh diagnostics   scrive a video lo stato dell'host e i log dei container (password nascoste)
 #
 # Modalità (updater.conf): docker = repo git + docker compose build (sviluppo, server con il codice sorgente),
 # vm = repo git senza Docker, image = installazione con deploy/install.sh: immagini già pronte dal registro, canale
@@ -503,6 +506,68 @@ do_restore() {
   fi
 }
 
+# ---------------------------------------------------------------------------------------------- diagnostica
+# File di configurazione con password, chiavi e token nascosti (le righe con il valore vuoto restano come sono)
+masked() { # file
+  [ -f "$1" ] || { echo "(non c'è)"; return 0; }
+  sed -E 's/^([[:space:]]*(export[[:space:]]+)?[A-Za-z0-9_]*(PASS|SECRET|KEY|TOKEN|DATABASE_URL)[A-Za-z0-9_]*[[:space:]]*=).+$/\1***/I' "$1"
+}
+
+section() { printf '\n===== %s =====\n' "$1"; }
+
+# Stato dell'host e log dei servizi: l'app lo mette nel pacchetto diagnostico (dai container non si vedono)
+host_report() {
+  echo "Diagnostica di NetMap scritta dall'updater il $(now)"
+  section "Sistema"
+  echo "Host: $(hostname)"
+  uname -srvm
+  grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release 2>/dev/null
+  uptime
+  section "Spazio su disco"
+  df -h -x tmpfs -x devtmpfs -x overlay 2>&1
+  section "Memoria"
+  free -m 2>&1
+  section "Updater"
+  echo "Modalità: $MODE"
+  echo "Cartella: $APP_DIR"
+  if [ "$MODE" != image ]; then
+    git -C "$APP_DIR" log -1 --format='Commit: %H %cI %s' 2>&1
+    echo "File modificati sul server:"
+    git -C "$APP_DIR" status --short 2>&1 | head -n 50
+  fi
+  if command -v systemctl >/dev/null; then
+    systemctl list-timers --all --no-pager 'netmap*' 2>&1
+  fi
+  section "updater.conf (password e chiavi nascoste)"
+  masked "$CONF"
+  section ".env (password e chiavi nascoste)"
+  masked "$ENV_FILE"
+  if [ "$MODE" = vm ]; then
+    section "Servizi (ultime 1000 righe)"
+    timeout 60 journalctl --no-pager -n 1000 -u 'netmap*' 2>&1
+  else
+    section "Docker"
+    timeout 30 docker version --format 'Docker {{.Server.Version}}' 2>&1
+    timeout 30 docker compose version 2>&1
+    section "Container"
+    timeout 60 docker compose --project-directory "$APP_DIR" ps -a 2>&1
+    section "Log dei container (ultime 500 righe per servizio)"
+    timeout 120 docker compose --project-directory "$APP_DIR" logs --no-color --timestamps --tail 500 2>&1
+  fi
+  return 0
+}
+
+collect_diagnostics() {
+  local file=$DATA_DIR/diagnostics/host.txt
+  mkdir -p "${file%/*}"
+  status '.activity = "diagnostics" | .activity_message = "Raccolgo i log dei container" | .activity_since = $t' --arg t "$(now)"
+  host_report >"$file.part" 2>&1
+  mv -f "$file.part" "$file"
+  log "Diagnostica raccolta: ${file#"$DATA_DIR"/} ($(du -h "$file" | cut -f1))"
+  status '.diagnostics = {at: $t, file: "diagnostics/host.txt", size: ($s | tonumber)}
+    | .activity = "idle" | .activity_message = "" | .activity_since = null' --arg t "$(now)" --arg s "$(stat -c %s "$file")"
+}
+
 # ------------------------------------------------------------------------------------------------- giro
 run() {
   mkdir -p "$DATA_DIR" || exit 1
@@ -532,7 +597,7 @@ run() {
   REQUESTED_BY=$(jq -r '.requested_by // empty' "$REQUEST" 2>/dev/null)
   RESTORE_FILE=$(jq -r '.file // empty' "$REQUEST" 2>/dev/null)
   [ -n "$ACTION" ] && write_json "$REQUEST" '{}'
-  case $ACTION in check | update | backup | restore | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
+  case $ACTION in check | update | backup | restore | diagnostics | '') ;; *) log "Richiesta sconosciuta ignorata: $ACTION"; ACTION= ;; esac
 
   status '.updater = {mode: $mode, app_dir: $dir} | .last_run = $t | .activity = (.activity // "idle")
     | .settings = {auto_update: ($auto == "true"), branch: $branch, channel: $channel, check_interval_minutes: ($int | tonumber), keep_backups: ($keep | tonumber),
@@ -549,6 +614,7 @@ run() {
     INSTALLED=$(commit_info HEAD)
   fi
   [ -n "$INSTALLED" ] && status '.installed = $i' --argjson i "$INSTALLED"
+  [ "$ACTION" = diagnostics ] && collect_diagnostics
   run_backups
   if [ "$ACTION" = restore ]; then
     do_restore
@@ -641,7 +707,8 @@ main() {
       LOG=/dev/null
       app_stop && db_restore "$2" && app_deploy && echo "Backup ripristinato: $2"
       ;;
-    *) echo "Uso: $0 [run|version-env|restore FILE]" >&2; exit 1 ;;
+    diagnostics) cd "$APP_DIR" && host_report ;;
+    *) echo "Uso: $0 [run|version-env|restore FILE|diagnostics]" >&2; exit 1 ;;
   esac
 }
 

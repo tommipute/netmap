@@ -199,9 +199,10 @@ montata nel container `api` come `/updater-data`:
 | File | Chi scrive | Chi legge | Cosa contiene |
 |---|---|---|---|
 | `settings.json` | app | script | aggiornamento automatico sì/no, branch, ogni quanto controllare, backup (notturno, ora, quanti tenere) |
-| `request.json` | app | script (poi lo svuota) | "Controlla ora", "Aggiorna ora", "Backup ora" o "Ripristina" |
+| `request.json` | app | script (poi lo svuota) | "Controlla ora", "Aggiorna ora", "Backup ora", "Ripristina" o "Raccogli i log dei container" |
 | `status.json` | script | app | versione installata e disponibile, ultimo controllo, attività in corso, storico (ultimi 20) |
 | `updater.log` | script | app | log dell'ultimo aggiornamento e dei controlli successivi |
+| `diagnostics/host.txt` | script | app | disco, memoria, container e loro log, per il pacchetto diagnostico |
 
 A ogni aggiornamento lo script fa il backup del database (`backups/`, tiene gli ultimi N), si segna il commit attuale,
 scarica quello nuovo, riavvia l'app e aspetta che `/api/health` risponda "ok" **con il commit nuovo**. Se qualcosa va
@@ -327,6 +328,21 @@ sudo systemctl start netmap-updater.timer
 
 Con l'aggiornamento automatico acceso, lo script non riprova il commit fallito; se vuoi restare sulla versione
 vecchia anche quando ne esce una nuova, spegnilo dalla pagina Aggiornamenti.
+
+### Pacchetto diagnostico
+
+Per segnalare un problema senza entrare sul server: **Aggiornamenti → Diagnostica**. "Raccogli i log dei
+container" chiede allo script (entro un minuto) di scrivere spazio su disco, memoria, stato dei container e le
+loro ultime 500 righe di log; "Scarica il pacchetto diagnostico" scarica uno zip con:
+
+- `netmap.json`: versione, migration, configurazione dell'app, versione e dimensione del database con le righe di
+  ogni tabella, utenti per ruolo (senza nomi), Active Directory, avvisi, copie dei backup, ultime scansioni;
+- `api.log`: le ultime righe di log dell'API (dall'ultimo riavvio);
+- `updater/`: stato, impostazioni e log dello script, e i log dei container se sono stati raccolti.
+
+Password, chiavi e token non ci sono (nemmeno quelli di `.env` e `updater.conf`, che finiscono nel file con il
+valore nascosto), ma **i log possono contenere indirizzi IP, nomi dei device e nomi utente**: guardalo prima di
+mandarlo a qualcuno. Dal server, senza l'app: `updater/updater.sh diagnostics > diagnostica.txt`.
 
 ## Test
 

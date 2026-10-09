@@ -1,8 +1,7 @@
 """Scambio di file con l'updater che gira sull'host (updater/updater.sh).
 
 L'app non si aggiorna da sola: legge status.json e updater.log, scrive request.json (controlla, aggiorna, backup,
-ripristina un backup) e
-settings.json. Nessun accesso a Docker né a GitHub da qui.
+ripristina un backup, raccogli i log dei container per il pacchetto diagnostico) e settings.json. Nessun accesso a Docker né a GitHub da qui.
 """
 
 import json
@@ -25,7 +24,7 @@ DEFAULT_SETTINGS = {
     "backup_keep_days": 14,
 }
 # Una richiesta più importante non viene sostituita da una meno importante ancora in attesa
-PRIORITY = {"check": 0, "backup": 1, "update": 2, "restore": 3}
+PRIORITY = {"check": 0, "diagnostics": 1, "backup": 2, "update": 3, "restore": 4}
 # Il timer gira ogni minuto: oltre questo silenzio lo script è considerato fermo
 SILENT_AFTER_MINUTES = 5
 # Un aggiornamento (build compresa) che dura più di così è bloccato

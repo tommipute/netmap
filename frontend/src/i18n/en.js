@@ -952,6 +952,16 @@ const strings = {
   'Backup del database non riuscito: aggiornamento annullato, nulla è cambiato.': 'Database backup failed: update cancelled, nothing changed.',
   "La cartella dell'updater non è montata nel container api: vedi README, Aggiornamenti automatici": 'The updater folder is not mounted in the api container: see README, Aggiornamenti automatici',
   'Nome del branch non valido': 'Invalid branch name',
+  // ---------- Diagnostica (pagina Aggiornamenti) ----------
+  'Diagnostica': 'Diagnostics',
+  "Un file zip da allegare a una segnalazione: versione, configurazione (senza password né chiavi), stato del database e log. I log possono contenere indirizzi IP e nomi della tua rete: dagli un'occhiata prima di mandarlo.": 'A zip file to attach to a bug report: version, configuration (without passwords or keys), database status and logs. The logs may contain IP addresses and names from your network: have a look before sending it.',
+  'Raccogli i log dei container': 'Collect container logs',
+  'Scarica il pacchetto diagnostico': 'Download diagnostic package',
+  'Log dei container raccolti il {when}: sono nel pacchetto.': 'Container logs collected on {when}: they are in the package.',
+  "Senza raccoglierli il pacchetto ha solo i log dell'API e dello script.": 'Without collecting them, the package only has the API and script logs.',
+  'Raccolta dei log in corso': 'Collecting logs',
+  'Raccolta dei log richiesta': 'Log collection requested',
+  'Raccolgo i log dei container': 'Collecting container logs',
   // ---------- Backup (solo admin) ----------
   '1 file': '1 file',
   '{n} file': '{n} files',

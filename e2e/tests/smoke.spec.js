@@ -112,6 +112,26 @@ test('amministrazione: aggiornamenti e backup', async ({ page }) => {
   await expect(page.locator('.update-live').first()).toContainText('Riuscito')
 })
 
+test('diagnostica: pacchetto da scaricare e log dei container', async ({ page }) => {
+  await login(page)
+  await page.goto('/updates')
+  const section = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnostica' }) })
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    section.getByRole('link', { name: 'Scarica il pacchetto diagnostico' }).click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(/^netmap-diagnostica-\d{8}-\d{6}\.zip$/)
+  if (process.env.NETMAP_TEST_BACKUP !== '1') return
+  // Con lo script attivo: raccolta dei log dei container, che poi finiscono nello zip
+  test.setTimeout(240_000)
+  await section.getByRole('button', { name: 'Raccogli i log dei container' }).click()
+  await expect(page.locator('.update-live').first()).toContainText('Raccolta dei log richiesta')
+  await expect(page.locator('.update-live').first()).not.toContainText('Raccolta dei log', { timeout: 180_000 })
+  await expect(section).toContainText('Log dei container raccolti il')
+  const zip = await (await page.request.get('/api/diagnostics')).body()
+  expect(zip.includes('updater/host.txt')).toBeTruthy()
+})
+
 test('active directory: prova con un dominio che non esiste (non salva niente)', async ({ page }) => {
   await login(page)
   await page.goto('/directory')
