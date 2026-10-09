@@ -429,6 +429,13 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - `process_alerts` gira nel monitor dopo ogni controllo: per canale, un messaggio con i device giù da almeno
   `delay_minutes` (una volta, stato in `alert_states`) e uno con quelli tornati. Invio fallito → `last_error`,
   si riprova al giro dopo. `POST /api/alert-channels/{id}/test` per la prova. Nei test: `sender` finto.
+- Ambito del canale (`_scope`): tutto vuoto = tutti i device; `site_ids`/`location_ids` (con le contenute) e
+  `role_ids` valgono insieme; `device_ids` si aggiungono sempre. Porte (`ports`): none / cabled (cavo connected, device
+  nell'ambito) / selected (`interface_ids`); giù = `oper_status` down, abilitata, device che risponde.
+  `Interface.oper_changed_at` (impostato da `@validates`) dà la durata. `AlertState` ha `interface_id` (NULL = device).
+- Modelli (`templates`, chiavi down/up/port_down/port_up, vuoto = `TEXTS[lingua]["templates"]`): segnaposto in
+  `PLACEHOLDERS` (nomi inglesi e italiani); `render` toglie parentesi e parti dopo " · "/" › " rimaste vuote.
+  `POST /api/alert-messages/preview` → testi d'esempio, `unknown`, `defaults` (frontend `components/AlertFields.jsx`).
 
 ## Frontend (`frontend/src`)
 
@@ -436,7 +443,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
 
 - `resources.jsx`: **cuore dell'interfaccia**. Per ogni entità: `path`, titoli, `label(o)`, `detail(o)` opzionale,
   `filters`, `columns` (`type`: ref, badge, select, mono, bool, color, oppure `render`), `fields`
-  (`type`: text, textarea, lines, tags = elenco a bolle con `validate`/`summary` (`ChipInput`), number, select, ref, refmulti, bool, color, interface, kv, secret, secretText
+  (`type`: text, textarea, lines, tags = elenco a bolle con `validate`/`summary` (`ChipInput`), custom = componente
+  `Component` (riceve value, values, onChange; valore vuoto `empty`, inviato com'è), number, select, ref, refmulti, bool, color, interface, kv, secret, secretText
   = segreto su più righe, es. chiave privata).
   Opzioni dei campi: `required`, `default`, `createOnly` (mostrato disabilitato in modifica e non inviato),
   `dependsOn` + `waitLabel` (es. posizione filtrata per sede, svuotata se cambia la sede), `params`,

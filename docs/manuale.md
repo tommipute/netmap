@@ -336,6 +336,24 @@ Il **ritardo** evita un avviso per un ping perso; la **lingua** dei messaggi si 
 **Prova** manda un messaggio di prova. Se l'invio fallisce, l'errore resta visibile nell'elenco e NetMap riprova
 al giro dopo.
 
+**Cosa segue un canale.** Senza scelte, tutti i device. Altrimenti:
+
+- **Solo nelle sedi / posizioni** (una posizione comprende quelle contenute) e **solo con i ruoli**: valgono
+  insieme, per esempio solo gli switch della sede di Milano;
+- **E in più questi device**: seguiti sempre, anche fuori dalle sedi e dai ruoli scelti (si cercano per nome); se è
+  l'unica scelta, il canale segue solo loro;
+- **Porte**: nessuna (solo i device), quelle con un cavo collegato dei device seguiti, oppure solo le porte scelte
+  (si sceglie il device e poi si accendono le sue porte). Una porta è giù quando è abilitata, il suo stato letto via
+  SNMP è "giù" e il device risponde: se non risponde tutto il device, arriva solo l'avviso del device.
+
+**Messaggi.** Per ogni tipo di messaggio (device giù, device tornato, porta giù, porta tornata) si può scrivere un
+testo con i segnaposto `{device}` `{ip}` `{sede}` `{posizione}` `{ruolo}` `{durata}` `{porta}` `{collegata}`
+(il device e la porta all'altro capo del cavo) `{descrizione}`; in inglese `{site}` `{location}` `{role}` `{time}`
+`{port}` `{remote}` `{description}` (valgono entrambi). Lasciato vuoto, vale il testo predefinito, che si vede in
+grigio. Le parti tra parentesi, o dopo `·` e `›`, spariscono se il dato manca (un device senza posizione non mostra
+"›"). Sotto c'è l'**anteprima** con dati di esempio; un segnaposto sconosciuto viene segnalato e resta scritto
+com'è.
+
 ## 15. Cosa è cambiato e storico
 
 - **Cosa è cambiato**: un riepilogo del periodo che scegli (ultime 24 ore, 7 giorni o 30 giorni): modifiche per origine,

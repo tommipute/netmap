@@ -9,12 +9,13 @@ import Modal from './Modal'
 import { RefMulti, RefSelect } from './RefSelect'
 import { t } from '../i18n'
 
-const WIDE_TYPES = new Set(['textarea', 'secretText', 'lines', 'tags', 'kv', 'refmulti', 'interface', 'bool'])
+const WIDE_TYPES = new Set(['textarea', 'secretText', 'lines', 'tags', 'kv', 'refmulti', 'interface', 'bool', 'custom'])
 
 export function emptyValue(field) {
   if (field.type === 'bool') return false
   if (field.type === 'refmulti' || field.type === 'tags') return []
   if (field.type === 'kv') return {}
+  if (field.type === 'custom') return field.empty ?? null
   return ''
 }
 
@@ -54,6 +55,8 @@ export function convert(field, value, isEdit) {
       return Boolean(value)
     case 'kv':
       return value || {}
+    case 'custom': // componente su misura (field.Component): il valore va com'è
+      return value
     default: {
       const text = String(value ?? '').trim()
       return text === '' ? null : text
@@ -118,6 +121,8 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
       return <InterfacePicker value={value || null} onChange={onChange} freeOnly={field.freeOnly} currentCableId={editingId} label={field.label} />
     case 'kv':
       return <KeyValueEditor value={value} onChange={onChange} />
+    case 'custom':
+      return <field.Component id={id} field={field} value={value} values={values} onChange={onChange} disabled={disabled} />
     case 'color':
       return (
         <div className="color-field">
@@ -238,7 +243,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
             if (f.type === 'bool') {
               return <BoolField key={f.name} field={f} value={values[f.name]} values={values} item={item} onChange={(v) => setValue(f.name, v)} />
             }
-            const labelIsElement = !['interface', 'refmulti', 'kv'].includes(f.type)
+            const labelIsElement = !['interface', 'refmulti', 'kv', 'custom'].includes(f.type)
             const Label = labelIsElement ? 'label' : 'span'
             return (
               <div key={f.name} className={`field${wide ? ' field--wide' : ''}`}>

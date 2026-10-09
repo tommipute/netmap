@@ -289,6 +289,10 @@ def alert_channel_hook(db: Session, channel, data: dict[str, Any], is_create: bo
             _fail("L'indirizzo del webhook deve iniziare con https://")
     elif channel.type == "telegram" and (not channel.secret_enc or not channel.telegram_chat_id):
         _fail("Per Telegram servono il token del bot e la chat")
+    if "templates" in data:  # un modello vuoto = quello predefinito
+        channel.templates = {k: v.strip() for k, v in (channel.templates or {}).items() if v and v.strip()}
+    if channel.ports == "selected" and not channel.interface_ids:
+        _fail("Scegli almeno una porta da seguire")
 
 
 # ---------- Copie dei backup ----------

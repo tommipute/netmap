@@ -37,6 +37,17 @@ class AlertChannel(TimestampMixin, Base):
     last_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_error: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
+    # Per chi avvisa: tutto vuoto = tutti i device. Sedi e posizioni (con quelle contenute) dicono dove, i ruoli
+    # cosa; se ci sono tutti e due valgono insieme. I device scelti si aggiungono sempre.
+    site_ids: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    location_ids: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    role_ids: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    device_ids: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    # Porte: none / cabled (quelle con un cavo documentato, dei device qui sopra) / selected (interface_ids)
+    ports: Mapped[str] = mapped_column(String(10), default="none", server_default="none")
+    interface_ids: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    # Modelli dei messaggi (down, up, port_down, port_up): chiave assente = testo predefinito della lingua
+    templates: Mapped[dict] = mapped_column(JSONType, default=dict, server_default="{}")
 
     @property
     def has_secret(self) -> bool:
@@ -44,13 +55,15 @@ class AlertChannel(TimestampMixin, Base):
 
 
 class AlertState(Base):
-    """Per ogni canale, i device per cui è già partito l'avviso "non risponde" (per non ripeterlo e per dire quando tornano)."""
+    """Per ogni canale, i device e le porte già segnalati giù (per non ripetere l'avviso e dire quando tornano)."""
 
     __tablename__ = "alert_states"
-    __table_args__ = (UniqueConstraint("channel_id", "device_id"),)
+    __table_args__ = (UniqueConstraint("channel_id", "device_id", "interface_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("alert_channels.id", ondelete="CASCADE"), index=True)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    # Avviso di una porta (device_id è il suo device); vuoto = avviso del device
+    interface_id: Mapped[int | None] = mapped_column(ForeignKey("interfaces.id", ondelete="CASCADE"), index=True)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     down_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # per dire quanto è stato giù

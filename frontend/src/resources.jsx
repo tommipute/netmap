@@ -3,6 +3,7 @@
  * Per aggiungere un'entità basta una voce qui (più il backend).
  */
 import { ROLES, USER_SOURCES } from './auth'
+import { AlertTemplates, DeviceMulti, PortPicker } from './components/AlertFields'
 import AlertTestButton from './components/AlertTestButton'
 import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
 import RefLabel from './components/RefLabel'
@@ -717,7 +718,7 @@ resources['alert-channels'] = {
   newLabel: t('Nuovo canale di avviso'),
   editLabel: t('Modifica canale di avviso'),
   intro:
-    t('Dove arrivano gli avvisi quando un device con IP di management smette di rispondere (e quando torna). Il ritardo evita avvisi per un singolo ping perso; più device giù insieme arrivano in un solo messaggio.'),
+    t('Dove arrivano gli avvisi quando un device con IP di management smette di rispondere, o una porta va giù (e quando tornano). Ogni canale può seguire tutti i device o solo alcune sedi, posizioni, ruoli o device scelti. Il ritardo evita avvisi per un singolo ping perso; più problemi insieme arrivano in un solo messaggio.'),
   label: (o) => o.name,
   filters: [{ name: 'type', label: t('Tipo'), options: ALERT_TYPES }],
   columns: [
@@ -744,6 +745,22 @@ resources['alert-channels'] = {
     { name: 'enabled', label: t('Attivo'), type: 'bool', default: true },
     { name: 'notify_recovery', label: t('Avvisa anche quando torna a rispondere'), type: 'bool', default: true },
     { name: 'language', label: t('Lingua dei messaggi'), type: 'select', options: LANGUAGES, default: 'it', required: true },
+    // Cosa segue: nessuna scelta = tutti i device
+    { name: 'site_ids', label: t('Solo nelle sedi'), type: 'refmulti', ref: 'sites', help: t('Nessuna scelta = tutte. Sedi e posizioni valgono insieme ai ruoli: es. solo gli switch di una sede.') },
+    { name: 'location_ids', label: t('Solo nelle posizioni'), type: 'refmulti', ref: 'locations', help: t('Comprende le posizioni contenute.') },
+    { name: 'role_ids', label: t('Solo con i ruoli'), type: 'refmulti', ref: 'device-roles' },
+    { name: 'device_ids', label: t('E in più questi device'), type: 'custom', Component: DeviceMulti, empty: [], help: t('Seguiti sempre, anche fuori da sedi e ruoli scelti. Se è l\'unica scelta, il canale segue solo questi.') },
+    {
+      name: 'ports', label: t('Porte'), type: 'select', default: 'none', required: true,
+      options: [
+        { value: 'none', label: t('Nessuna: solo i device') },
+        { value: 'cabled', label: t('Quelle con un cavo collegato, dei device seguiti') },
+        { value: 'selected', label: t('Solo le porte scelte') },
+      ],
+      help: t('Avvisa quando una porta abilitata va giù mentre il device risponde (stato letto via SNMP).'),
+    },
+    { name: 'interface_ids', label: t('Porte da seguire'), type: 'custom', Component: PortPicker, empty: [], showIf: (v) => v.ports === 'selected' },
+    { name: 'templates', label: t('Messaggi'), type: 'custom', Component: AlertTemplates, empty: {} },
     // Webhook
     {
       name: 'webhook_url', label: t('Indirizzo del webhook'), type: 'secret', showIf: isType('webhook'),

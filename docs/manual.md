@@ -333,6 +333,23 @@ if you want, when it responds again. Channels:
 The **delay** avoids an alert for a single lost ping; the **message language** is set per channel. **Test** sends a
 test message. If sending fails, the error stays visible in the list and NetMap retries on the next round.
 
+**What a channel follows.** With no choice, all devices. Otherwise:
+
+- **Only in sites / locations** (a location includes those inside it) and **only with roles**: they combine, for
+  example only the switches of the Milan site;
+- **Plus these devices**: always followed, even outside the chosen sites and roles (search them by name); if this is
+  the only choice, the channel follows only them;
+- **Ports**: none (devices only), those with a connected cable on the followed devices, or only the chosen ports
+  (choose the device, then switch on its ports). A port is down when it is enabled, its status read via SNMP is
+  "down" and the device responds: if the whole device does not respond, only the device alert arrives.
+
+**Messages.** For each kind of message (device down, device back, port down, port back) you can write a text with
+the placeholders `{device}` `{ip}` `{site}` `{location}` `{role}` `{time}` `{port}` `{remote}` (the device and port
+at the other end of the cable) `{description}`; the Italian names (`{sede}`, `{posizione}`…) work too. Left empty,
+the default text applies, shown in grey. Parts in brackets, or after `·` and `›`, disappear when the data is missing
+(a device without a location shows no "›"). Below there is a **preview** with sample data; an unknown placeholder is
+flagged and left as written.
+
 ## 15. What changed and history
 
 - **What changed**: a summary of the period you choose (last 24 hours, 7 days or 30 days): changes by origin,

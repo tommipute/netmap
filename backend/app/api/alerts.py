@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.api.auth import require_admin
 from app.database import get_db
 from app.models import AlertChannel
-from app.services.alerts import send_test
+from app.schemas.alerts import AlertPreviewRequest
+from app.services.alerts import preview, send_test
 
 router = APIRouter(tags=["Avvisi"], dependencies=[Depends(require_admin)])
 
@@ -19,3 +20,8 @@ def test_channel(channel_id: int, db: Session = Depends(get_db)):
     if error:
         raise HTTPException(502, f"Messaggio non inviato: {error}")
     return {"ok": True}
+
+
+@router.post("/alert-messages/preview", summary="Come arriverebbero i messaggi con questi modelli (dati di esempio)")
+def preview_messages(payload: AlertPreviewRequest):
+    return preview(payload.language, payload.templates, payload.ports != "none")

@@ -1,5 +1,5 @@
 """Infrastruttura: sedi, posizioni, rack, produttori, modelli, ruoli, device, interfacce e cavi."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -17,7 +17,7 @@ from sqlalchemy import (
     false,
     true,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.models.base import Base, CustomFieldsMixin, DiscoveryMixin, TimestampMixin
 from app.models.enums import CableStatus, DeviceStatus, InterfaceType
@@ -186,10 +186,17 @@ class Interface(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     lag_id: Mapped[int | None] = mapped_column(ForeignKey("interfaces.id", ondelete="SET NULL"))
     if_index: Mapped[int | None] = mapped_column(Integer)         # ifIndex SNMP
     oper_status: Mapped[str | None] = mapped_column(String(10))   # up/down dall'ultimo poll
+    oper_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # da quando: per gli avvisi
     description: Mapped[str | None] = mapped_column(Text)
 
     device: Mapped["Device"] = relationship(lazy="joined")
     tagged_vlans: Mapped[list["VLAN"]] = relationship(secondary=interface_tagged_vlans, order_by="VLAN.vid")
+
+    @validates("oper_status")
+    def _oper_changed(self, key: str, value: str | None) -> str | None:
+        if value != self.oper_status:
+            self.oper_changed_at = datetime.now(timezone.utc)
+        return value
 
     @property
     def tagged_vlan_ids(self) -> list[int]:

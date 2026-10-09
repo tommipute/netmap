@@ -19,6 +19,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   scansione o importati da un altro programma (con filtro); la stessa icona nella scheda del device e accanto alle
   porte. Gli oggetti importati da NetBox d'ora in poi hanno origine "NetBox" (per la scansione contano sempre come
   inseriti a mano).
+- Avvisi: ogni canale può seguire solo alcune sedi, posizioni, ruoli o device scelti (o tutti, come prima), e
+  anche le porte: quelle con un cavo collegato oppure porte scelte una per una, con un avviso quando vanno giù
+  mentre il device risponde. Il testo dei messaggi si può cambiare con i segnaposto ({device}, {ip}, {sede},
+  {posizione}, {durata}, {porta}…), con l'anteprima nel modulo del canale.
 
 ### Modifiche
 

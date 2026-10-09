@@ -869,3 +869,10 @@ details.directory-test > summary::-webkit-details-marker { display: none; }
 details.directory-test > summary::before { content: '▸'; color: var(--muted); width: 12px; }
 details.directory-test[open] > summary::before { content: '▾'; }
 details.directory-test:not([open]) > summary { margin-bottom: 0; }
+
+/* Modelli dei messaggi di avviso, con anteprima */
+.alert-templates { display: grid; gap: 10px; }
+.alert-templates__row { display: grid; gap: 4px; }
+.alert-templates__tag { margin-right: 4px; padding: 0 4px; border-radius: 4px; background: var(--accent-soft); }
+.alert-preview { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+.alert-preview__message pre { margin: 4px 0 0; white-space: pre-wrap; font: inherit; }
