@@ -36,7 +36,8 @@ def main() -> int:
     create = sub.add_parser("create", help="crea un utente")
     create.add_argument("username")
     create.add_argument("--role", choices=[r.value for r in UserRole], default=UserRole.ADMIN.value)
-    create.add_argument("--full-name")
+    create.add_argument("--first-name", help="nome")
+    create.add_argument("--last-name", help="cognome")
     password = sub.add_parser("password", help="reimposta la password (e riattiva l'utente; uno di dominio diventa locale)")
     password.add_argument("username")
     args = parser.parse_args()
@@ -54,7 +55,7 @@ def main() -> int:
             if user is not None:
                 print(f"L'utente {username} esiste già: usa 'password' per cambiargli la password.")
                 return 1
-            db.add(User(username=username, full_name=args.full_name, role=args.role,
+            db.add(User(username=username, first_name=args.first_name, last_name=args.last_name, role=args.role,
                         password_hash=hash_password(_ask_password()), active=True, token_version=0))
         else:
             if user is None:

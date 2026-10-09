@@ -783,7 +783,8 @@ resources.users = {
   filters: [{ name: 'role', label: t('Ruolo'), options: ROLES }, { name: 'source', label: t('Origine'), options: USER_SOURCES }],
   columns: [
     { name: 'username', label: t('Nome utente'), render: (o) => <strong>{o.username}</strong> },
-    { name: 'full_name', label: t('Nome') },
+    { name: 'first_name', label: tc('persona', 'Nome') },
+    { name: 'last_name', label: t('Cognome') },
     { name: 'role', label: t('Ruolo'), type: 'select', options: ROLES },
     { name: 'source', label: t('Origine'), type: 'select', options: USER_SOURCES },
     { name: 'active', label: t('Attivo'), type: 'bool' },
@@ -791,7 +792,8 @@ resources.users = {
   ],
   fields: [
     { name: 'username', label: t('Nome utente'), required: true, placeholder: t('mario.rossi'), lockedFor: fromDirectory },
-    { name: 'full_name', label: t('Nome e cognome') },
+    { name: 'first_name', label: tc('persona', 'Nome'), placeholder: 'Mario', lockedFor: fromDirectory },
+    { name: 'last_name', label: t('Cognome'), placeholder: 'Rossi', lockedFor: fromDirectory },
     { name: 'role', label: t('Ruolo'), type: 'select', options: ROLES, default: 'viewer', required: true, lockedFor: fromDirectory },
     {
       name: 'password',

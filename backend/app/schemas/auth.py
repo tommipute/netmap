@@ -22,7 +22,8 @@ Password = Annotated[str, Field(min_length=8, max_length=200, description="Almen
 
 class UserBase(InputSchema):
     username: Username
-    full_name: str | None = Field(None, max_length=200)
+    first_name: str | None = Field(None, max_length=100)
+    last_name: str | None = Field(None, max_length=100)
     role: UserRole = UserRole.VIEWER
     active: bool = True
     password: Password | None = Field(None, description="Solo scrittura: in modifica, vuota = invariata")
@@ -37,6 +38,8 @@ UserUpdate = make_partial(UserBase, "UserUpdate")
 
 class UserRead(ReadSchema):
     username: str
+    first_name: str | None = None
+    last_name: str | None = None
     full_name: str | None = None
     role: str
     active: bool
@@ -51,7 +54,8 @@ class LoginRequest(BaseModel):
 
 class SetupRequest(InputSchema):
     username: Username
-    full_name: str | None = Field(None, max_length=200)
+    first_name: str | None = Field(None, max_length=100)
+    last_name: str | None = Field(None, max_length=100)
     password: Password
 
 

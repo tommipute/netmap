@@ -186,6 +186,17 @@ def test_utente_disattivato_e_ultimo_amministratore(client, anonymous):
     assert client.delete(f"/api/users/{admin['id']}").status_code == 409
 
 
+def test_nome_e_cognome_degli_utenti(client):
+    user = client.post("/api/users", json={"username": "g.verdi", "password": "password-1", "first_name": " Giuseppe ",
+                                           "last_name": "Verdi"}).json()
+    assert (user["first_name"], user["last_name"], user["full_name"]) == ("Giuseppe", "Verdi", "Giuseppe Verdi")
+    user = client.patch(f"/api/users/{user['id']}", json={"first_name": ""}).json()
+    assert (user["first_name"], user["full_name"]) == (None, "Verdi")
+    assert [u["username"] for u in client.get("/api/users", params={"q": "verdi"}).json()["items"]] == ["g.verdi"]
+    history = client.get("/api/audit-log", params={"object_type": "user"}).json()["items"][0]
+    assert [c[0] for c in history["changes"]] == ["Nome"]  # il nome intero è ricavato: non conta
+
+
 def test_troppi_tentativi(anonymous):
     for _ in range(5):
         assert anonymous.post("/api/auth/login", json={"username": "admin", "password": "x"}).status_code == 401

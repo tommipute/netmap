@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, false, true
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.models.base import Base, TimestampMixin
 from app.models.enums import DirectorySecurity, UserRole, UserSource
@@ -13,6 +13,9 @@ class User(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(100), unique=True)
+    first_name: Mapped[str | None] = mapped_column(String(100))
+    last_name: Mapped[str | None] = mapped_column(String(100))
+    # "Nome Cognome", ricavato dai due campi: per menu utente, stampe, ricerca
     full_name: Mapped[str | None] = mapped_column(String(200))
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default=UserRole.VIEWER.value, server_default=UserRole.VIEWER.value)
@@ -22,6 +25,13 @@ class User(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # local = password in NetMap; ad = utente di dominio: password e ruolo vengono da Active Directory a ogni accesso
     source: Mapped[str] = mapped_column(String(20), default=UserSource.LOCAL.value, server_default=UserSource.LOCAL.value)
+
+    @validates("first_name", "last_name")
+    def _names(self, key: str, value: str | None) -> str | None:
+        value = (value or "").strip() or None
+        names = {"first_name": self.first_name, "last_name": self.last_name, key: value}
+        self.full_name = " ".join(n for n in (names["first_name"], names["last_name"]) if n) or None
+        return value
 
 
 class DirectorySettings(TimestampMixin, Base):

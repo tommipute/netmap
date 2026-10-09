@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { LANG, LANGUAGES, setLang, t } from '../i18n'
+import { LANG, LANGUAGES, setLang, t, tc } from '../i18n'
 import VersionLabel from '../components/VersionLabel'
 
 /** Accesso; al primo avvio (nessun utente) crea l'amministratore. */
 export default function LoginPage() {
   const { setupRequired, directory, signedIn } = useAuth()
-  const [values, setValues] = useState({ username: '', password: '', confirm: '', full_name: '' })
+  const [values, setValues] = useState({ username: '', password: '', confirm: '', first_name: '', last_name: '' })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const set = (name) => (e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))
@@ -22,7 +22,8 @@ export default function LoginPage() {
     setError(null)
     try {
       const result = setupRequired
-        ? await api.post('/auth/setup', { username: values.username, password: values.password, full_name: values.full_name || null })
+        ? await api.post('/auth/setup', { username: values.username, password: values.password,
+            first_name: values.first_name || null, last_name: values.last_name || null })
         : await api.post('/auth/login', { username: values.username, password: values.password })
       signedIn(result.user)
     } catch (err) {
@@ -55,10 +56,16 @@ export default function LoginPage() {
           {directory && !setupRequired && <span className="hint">{t('Anche con il tuo utente di Windows, per esempio mario.rossi.')}</span>}
         </label>
         {setupRequired && (
-          <label className="field">
-            <span className="field__label">{t('Nome e cognome')}</span>
-            <input className="input" autoComplete="name" value={values.full_name} onChange={set('full_name')} />
-          </label>
+          <div className="login__names">
+            <label className="field">
+              <span className="field__label">{tc('persona', 'Nome')}</span>
+              <input className="input" autoComplete="given-name" value={values.first_name} onChange={set('first_name')} />
+            </label>
+            <label className="field">
+              <span className="field__label">{t('Cognome')}</span>
+              <input className="input" autoComplete="family-name" value={values.last_name} onChange={set('last_name')} />
+            </label>
+          </div>
         )}
         <label className="field">
           <span className="field__label">{t('Password')}</span>

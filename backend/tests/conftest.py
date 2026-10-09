@@ -12,7 +12,7 @@ from app.database import get_db
 from app.main import app
 from app.models import Base
 
-ADMIN = {"username": "admin", "password": "password-di-prova", "full_name": "Amministratore"}
+ADMIN = {"username": "admin", "password": "password-di-prova", "first_name": "Amministratore"}
 
 # Chiave di cifratura usa e getta: i test non leggono né creano backend/.secrets_key
 settings.secrets_key = Fernet.generate_key().decode()

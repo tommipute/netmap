@@ -106,7 +106,7 @@ function DirectoryTest({ form }) {
               <span className="badge badge--warn">{t('Password giusta, ma non entra')}</span>
             )}
             <span>
-              <strong>{result.user.full_name || result.user.username}</strong> <span className="muted">{result.user.username}</span>
+              <strong>{[result.user.first_name, result.user.last_name].filter(Boolean).join(' ') || result.user.username}</strong> <span className="muted">{result.user.username}</span>
             </span>
             {result.by_default && <span className="hint">{t('Non è in nessuno dei gruppi: vale il ruolo per tutti gli altri.')}</span>}
             {!result.role && <span className="hint">{t('Non è in nessuno dei gruppi e non hai scelto un ruolo per tutti gli altri.')}</span>}

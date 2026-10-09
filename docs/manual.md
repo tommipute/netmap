@@ -36,7 +36,7 @@ The interface is available in English: pick it on the sign-in page or in the use
 ## 1. First sign-in
 
 Open the NetMap address in your browser (for example `https://netmap.company.local`). The first time, the page
-asks you to create the **administrator**: user name, full name and password (at least 8 characters). From then on
+asks you to create the **administrator**: user name, first name, last name and password (at least 8 characters). From then on
 you sign in with user name and password; a session lasts 12 hours.
 
 On the sign-in page and in the user menu (top right) you can choose:
@@ -366,8 +366,9 @@ With Active Directory users sign in with their Windows name and password (`mario
    found. Then save and enable.
 
 No service account is needed: NetMap connects with the credentials of the person signing in. The NetMap user is
-created at the first sign-in and takes role and name from the domain at every sign-in; that is why password, role
-and name of a domain user can't be changed in NetMap (it can be disabled). A user removed from all groups is
+created at the first sign-in and at every sign-in takes from the domain the role, first name and last name (the First
+name and Last name of the Active Directory user, or the display name); that is why password, role, first and last
+name of a domain user can't be changed in NetMap (it can be disabled). A user removed from all groups is
 rejected at the next attempt and their sessions are closed.
 
 **Always keep a local administrator**: local users sign in with their own password even when the domain does not

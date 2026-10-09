@@ -53,7 +53,7 @@ IGNORED = {
     "id", "created_at", "updated_at", "last_seen_at", "oper_status", "if_index", "sys_name", "sys_descr",
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
     "last_login_at", "host", "sort_key", "path", "source", "last_sent_at", "last_error",
-    "last_copy_at", "last_error_at", "host_key",
+    "last_copy_at", "last_error_at", "host_key", "full_name",
 }
 # Eccezioni a IGNORED per un modello: l'indirizzo di una destinazione dei backup conta (host degli IP no)
 NOT_IGNORED: dict[type, set[str]] = {BackupTarget: {"host"}}
@@ -69,7 +69,7 @@ LABELS = {
     "speed_mbps": "Velocità (Mbps)", "mac_address": "MAC", "mtu": "MTU", "type": "Tipo", "mgmt_only": "Solo management",
     "lag_id": "LAG", "a_interface_id": "Lato A", "b_interface_id": "Lato B", "label": "Etichetta", "color": "Colore",
     "length": "Lunghezza", "vid": "VID", "prefix": "Prefisso", "role": "Ruolo", "active": "Attivo",
-    "full_name": "Nome e cognome", "password_hash": "Password", "custom_fields": "Campi personalizzati",
+    "first_name": "Nome", "last_name": "Cognome", "password_hash": "Password", "custom_fields": "Campi personalizzati",
     "u_height": "Altezza (U)", "level": "Livello", "model": "Modello", "manufacturer_id": "Produttore",
     "part_number": "Codice prodotto", "sys_object_id": "sysObjectID", "auto_include": "Tutti i device",
     "targets": "Indirizzi", "profile_ids": "Profili", "interval_hours": "Ogni quante ore", "community_enc": "Community",

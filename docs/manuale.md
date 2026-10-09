@@ -34,7 +34,7 @@ Questo manuale è per chi usa NetMap. Installazione e aggiornamenti sul server s
 ## 1. Primo accesso
 
 Apri l'indirizzo di NetMap nel browser (per esempio `https://netmap.azienda.local`). La prima volta la pagina
-chiede di creare l'**amministratore**: nome utente, nome e cognome, password (almeno 8 caratteri). Da quel momento
+chiede di creare l'**amministratore**: nome utente, nome, cognome e password (almeno 8 caratteri). Da quel momento
 si entra con nome utente e password; la sessione dura 12 ore, poi si rientra.
 
 Nella pagina di accesso e nel menu utente (in alto a destra) scegli:
@@ -370,7 +370,8 @@ Active Directory**:
    trovato. Poi salva e attiva.
 
 Non serve un account di servizio: NetMap si collega con le credenziali di chi sta entrando. L'utente NetMap viene
-creato al primo accesso e a ogni accesso prende ruolo e nome dal dominio; per questo password, ruolo e nome di un
+creato al primo accesso e a ogni accesso prende dal dominio il ruolo, il nome e il cognome (i campi Nome e Cognome
+dell'utente in Active Directory, oppure il nome visualizzato); per questo password, ruolo, nome e cognome di un
 utente di dominio non si cambiano in NetMap (lo si può disattivare). Un utente tolto da tutti i gruppi viene
 respinto al tentativo successivo e le sue sessioni si chiudono.
 

@@ -100,7 +100,7 @@ def auth_status(db: Session = Depends(get_db)):
 def setup(payload: SetupRequest, response: Response, db: Session = Depends(get_db)):
     if _users_count(db) > 0:
         raise HTTPException(409, "Il primo amministratore esiste già: accedi con le tue credenziali")
-    user = User(username=payload.username, full_name=payload.full_name, role=UserRole.ADMIN.value,
+    user = User(username=payload.username, first_name=payload.first_name, last_name=payload.last_name, role=UserRole.ADMIN.value,
                 password_hash=hash_password(payload.password), active=True, token_version=0)
     db.add(user)
     db.flush()
@@ -146,14 +146,14 @@ def _domain_user(db: Session, cfg, login: str, password: str, username: str, ip:
         raise HTTPException(403, "Il tuo utente di dominio non è in nessun gruppo di NetMap: chiedi a un amministratore")
     if user is None:
         user = User(username=found.username, password_hash="!ad", source=UserSource.AD.value, active=True,
-                    token_version=0, role=found.role, full_name=found.full_name)
+                    token_version=0, role=found.role, first_name=found.first_name, last_name=found.last_name)
         db.add(user)
         db.flush()
         log.info("Primo accesso dell'utente di dominio %r (%s)", found.username, found.role)
     else:
         user.role = found.role
-        if found.full_name:
-            user.full_name = found.full_name
+        if found.first_name or found.last_name:
+            user.first_name, user.last_name = found.first_name, found.last_name
     return user
 
 

@@ -75,7 +75,7 @@ def test_settings(payload: DirectoryTest):
     return {
         "ok": True,
         "message": None,
-        "user": {"username": found.username, "dn": found.dn, "full_name": found.full_name, "email": found.email},
+        "user": {"username": found.username, "dn": found.dn, "first_name": found.first_name, "last_name": found.last_name, "email": found.email},
         "role": found.role,
         "by_default": found.role is not None and not any(g.member for g in found.groups),
         "groups": [{"role": g.role, "group": g.group, "found": g.dn is not None, "member": g.member} for g in found.groups],

@@ -24,7 +24,7 @@ log = logging.getLogger("netmap.auth")
 
 TIMEOUT = 10
 IN_CHAIN = "1.2.840.113556.1.4.1941"
-USER_ATTRIBUTES = ["sAMAccountName", "displayName", "mail", "userPrincipalName"]
+USER_ATTRIBUTES = ["sAMAccountName", "givenName", "sn", "displayName", "mail", "userPrincipalName"]
 ROLE_GROUPS = (
     (UserRole.ADMIN.value, "admin_group"), (UserRole.EDITOR.value, "editor_group"), (UserRole.VIEWER.value, "viewer_group"),
 )
@@ -58,7 +58,8 @@ class GroupCheck:
 class DirectoryUser:
     username: str  # sAMAccountName in minuscolo: il nome utente in NetMap
     dn: str
-    full_name: str | None
+    first_name: str | None
+    last_name: str | None
     email: str | None
     role: str | None  # None = in nessun gruppo di NetMap (e nessun ruolo predefinito)
     groups: list[GroupCheck] = field(default_factory=list)
@@ -241,8 +242,11 @@ def authenticate(cfg: DirectorySettings, login: str, password: str, *, check_all
                               "chiedi a un amministratore")
         user = DirectoryUser(
             username=(_value(entry, "sAMAccountName") or login).lower(), dn=entry.entry_dn,
-            full_name=_value(entry, "displayName"), email=_value(entry, "mail"), role=None,
+            first_name=_value(entry, "givenName"), last_name=_value(entry, "sn"), email=_value(entry, "mail"), role=None,
         )
+        if not (user.first_name or user.last_name):  # utenti senza nome e cognome: il nome visualizzato
+            user.first_name, _, rest = (_value(entry, "displayName") or "").partition(" ")
+            user.first_name, user.last_name = user.first_name or None, rest.strip() or None
         for role, column in ROLE_GROUPS:
             group = (getattr(cfg, column) or "").strip()
             if not group:

@@ -837,3 +837,4 @@ button.tile:hover { border-color: var(--accent); }
 .netbox-counts .hint { display: block; margin-top: 6px; }
 .netbox-problems h3 { font-size: 14px; margin: 0 0 8px; }
 .netbox-problems .table-wrap { max-height: 420px; overflow: auto; }
+.login__names { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

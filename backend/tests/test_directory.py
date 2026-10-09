@@ -66,6 +66,8 @@ class FakeSession:
             return None
         # In AD il nome può avere le maiuscole: in NetMap diventa minuscolo
         values = {"sAMAccountName": sam.title() if sam == "mario.rossi" else sam, "displayName": self.fake.users[sam]["name"]}
+        if sam == "mario.rossi":  # gli altri hanno solo il nome visualizzato
+            values |= {"givenName": "Mario", "sn": "Rossi"}
         return _Entry(self.fake.dn(sam), values)
 
     def group_dn(self, group):
@@ -177,7 +179,7 @@ def test_accesso_con_utente_di_dominio(client, anonymous, domain):
     me = login(anonymous, "Mario.Rossi", "Mario-2026")
     assert me.status_code == 200, me.text
     assert me.json()["user"] | {"id": 0, "created_at": None, "updated_at": None, "last_login_at": None} == {
-        "id": 0, "username": "mario.rossi", "full_name": "Mario Rossi", "role": "admin", "active": True, "source": "ad",
+        "id": 0, "username": "mario.rossi", "first_name": "Mario", "last_name": "Rossi", "full_name": "Mario Rossi", "role": "admin", "active": True, "source": "ad",
         "created_at": None, "updated_at": None, "last_login_at": None,
     }
     assert domain.binds[-1] == "Mario.Rossi@prova.lan"
@@ -186,6 +188,7 @@ def test_accesso_con_utente_di_dominio(client, anonymous, domain):
     # Gruppo annidato (Tecnici dentro NetMap-Editor), nome scritto come DOMINIO\utente
     luca = login(anonymous, "PROVA\\luca.bianchi", "Luca-2026")
     assert luca.status_code == 200 and luca.json()["user"]["role"] == "editor"
+    assert (luca.json()["user"]["first_name"], luca.json()["user"]["last_name"]) == ("Luca", "Bianchi")  # da displayName
     assert domain.binds[-1] == "PROVA\\luca.bianchi"
 
     # Sbagliate, vuote, utente disattivato in AD, utente in nessun gruppo
@@ -227,7 +230,7 @@ def test_utente_di_dominio_non_modificabile_in_netmap(client, anonymous, domain)
     assert client.patch(url, json={"role": "admin"}).json()["detail"] == "Il ruolo degli utenti di dominio viene dai gruppi di Active Directory"
     assert client.patch(url, json={"password": "nuova-pass-1"}).status_code == 422
     assert client.patch(url, json={"username": "luca"}).status_code == 422
-    assert client.patch(url, json={"role": "editor", "full_name": "Luca B.", "active": True}).status_code == 200
+    assert client.patch(url, json={"role": "editor", "last_name": "B.", "active": True}).status_code == 200
     # Cambio password dal menu: si fa in Windows
     changed = anonymous.post("/api/auth/password", json={"current_password": "Luca-2026", "new_password": "nuova-pass-1"})
     assert changed.status_code == 422 and "Windows" in changed.json()["detail"]

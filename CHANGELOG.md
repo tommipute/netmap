@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- Utenti: nome e cognome in due campi separati (anche nella creazione dell'amministratore). Gli utenti di dominio
+  li prendono da Active Directory (Nome e Cognome, oppure il nome visualizzato); quelli esistenti sono stati divisi
+  alla prima parola e si correggono dalla pagina Utenti.
+
 ## [1.0.0] - 2026-10-09
 
 Prima versione stabile: la 1.0.0-rc.3 con le correzioni qui sotto. Da qui i numeri seguono il versionamento

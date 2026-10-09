@@ -293,7 +293,8 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 
 ## Fase 4: stato live, dov'è collegato, login, rack
 
-- **Login** (`api/auth.py`, `core/auth.py`, `models/auth.py`): password scrypt, token JWT HS256 fatto in casa
+- **Login** (`api/auth.py`, `core/auth.py`, `models/auth.py`): `first_name`/`last_name` modificabili, `full_name`
+  ricavato da loro (`@validates` nel modello, fuori dallo storico) per menu, stampe e ricerca. Password scrypt, token JWT HS256 fatto in casa
   (niente librerie), in cookie httpOnly o `Authorization: Bearer`. `token_version` sull'utente: cambiare password
   o disattivarlo chiude le sessioni. Ruoli `viewer` (legge), `editor` (scrive e approva), `admin` (anche `/users`).
   Il controllo è una dipendenza sul router `protected` in `api/routes.py`: i metodi non GET richiedono editor/admin.
@@ -314,7 +315,8 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   password scaduta/da cambiare, 775 bloccato) → `LoginDenied` (403); domain controller irraggiungibile,
   certificato, configurazione → `DirectoryError` (503 al login, non conta per il freno ai tentativi).
   Login (`api/auth.py`): un utente locale con quel nome vince sempre (solo la sua password); altrimenti, con AD
-  attivo, si prova il dominio e l'utente NetMap si crea o aggiorna (ruolo, nome) con `audit_source = "directory"`;
+  attivo, si prova il dominio e l'utente NetMap si crea o aggiorna (ruolo, nome e cognome da `givenName`/`sn`,
+  altrimenti da `displayName`) con `audit_source = "directory"`;
   omonimo locale di un utente di dominio → 409; tolto da tutti i gruppi → 403 e `token_version + 1`.
   `user_hook` rifiuta password, ruolo e nome per gli utenti `ad`; `/auth/password` → 422; `python -m app.users
   password` li trasforma in locali. Nei test `open_session` si sostituisce con una directory finta
