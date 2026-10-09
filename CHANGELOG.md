@@ -6,6 +6,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Correzioni
+- Il backup notturno non salta più quando, all'ora del backup, il database non è ancora acceso (subito dopo
+  l'installazione o un riavvio del server): lo script aspetta che risponda.
+
 ## [1.0.0-rc.3] - 2026-10-09
 
 Accesso con Active Directory, copie dei backup fuori dal server, import da Excel e da NetBox, manuale d'uso.

@@ -161,6 +161,12 @@ db_revision() {
   fi
 }
 
+# Il database accetta connessioni? (container spento o ancora in avvio = no; senza Docker non si controlla)
+db_ready() {
+  [ "$MODE" = vm ] && return 0
+  compose exec -T db sh -c 'pg_isready -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1
+}
+
 # Prima in FILE.part, poi il nome vero: chi legge la cartella (l'app copia i backup altrove) non vede file a metà
 db_backup() { # file
   if [ "$MODE" != vm ]; then
@@ -395,10 +401,12 @@ backup_now() { # tipo: daily | manual
 run_backups() {
   # Notturno: una volta al giorno, dopo l'ora scelta (se il server era spento a quell'ora, appena si riaccende).
   # Il giorno si segna anche se il backup fallisce, così non si riprova ogni minuto: l'errore resta visibile nell'app.
+  # Con il database spento o ancora in avvio (subito dopo l'installazione o un riavvio) si aspetta il giro dopo.
   local today hhmm
   today=$(date +%F)
   hhmm=$(date +%H:%M)
-  if [ "$BACKUP_DAILY" = true ] && [[ ! $hhmm < $BACKUP_TIME ]] && [ "$(jq -r '.backup.last_daily_date // empty' "$STATUS")" != "$today" ]; then
+  if [ "$BACKUP_DAILY" = true ] && [[ ! $hhmm < $BACKUP_TIME ]] && [ "$(jq -r '.backup.last_daily_date // empty' "$STATUS")" != "$today" ] &&
+    db_ready; then
     status '.backup.last_daily_date = $d' --arg d "$today"
     backup_now daily
   fi
