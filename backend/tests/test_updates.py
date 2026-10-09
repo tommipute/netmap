@@ -70,6 +70,7 @@ def test_aggiornamenti_richieste_e_impostazioni(client, updater_dir):
         assert client.put("/api/updates/settings", json={**new, "branch": branch}).status_code == 422, branch
     assert client.put("/api/updates/settings", json={**new, "keep_backups": 0}).status_code == 422
     assert client.put("/api/updates/settings", json={**new, "channel": "nightly"}).status_code == 422
+    assert client.put("/api/updates/settings", json={**new, "channel": "dev"}).json()["channel"] == "dev"
     for time in ("24:00", "2:30", "02:30; rm"):
         assert client.put("/api/updates/settings", json={**new, "backup_time": time}).status_code == 422, time
 

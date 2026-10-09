@@ -33,12 +33,15 @@ Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**:
 
 GitHub: repository **pubblico** https://github.com/tommipute/netmap (creato l'8/10/2026, aperto il 9/10/2026).
 Server, percorsi e indirizzi dell'utente stanno in `CLAUDE.local.md` (non in git): non scriverli in file del
-repo, nemmeno nei commenti o negli esempi. **Versione**: `frontend/src/version.js`
-(data + progressivo del giorno, es. `2026.10.08-2`), mostrata in basso al centro e nella pagina di accesso:
-aggiornarla a ogni commit che va su GitHub (resta la stringa dopo `||`: nelle immagini pubblicate vale
-`VITE_APP_VERSION` = numero della release). **Release** semver con tag `vX.Y.Z` + sezione in `CHANGELOG.md`
-(il workflow si ferma se manca): vedi "Distribuzione" più sotto.
-La produzione dell'utente segue `main` con l'updater in modalità docker: ogni push su `main` può arrivarci.
+repo, nemmeno nei commenti o negli esempi. **Versione**: solo semver (deciso il 9/10/2026):
+1.0.1 correzioni, 1.1.0 funzioni nuove, 2.0.0 cambiamenti incompatibili, `-rc.N` per le candidate.
+`frontend/src/version.js` contiene il numero dell'**ultima release** e cambia solo quando se ne fa una (il workflow
+della release si ferma se non coincide con il tag): non va più aggiornato a ogni commit. In basso al centro e nella
+pagina di accesso si vede la versione di `/api/version`: nelle immagini quella della release, nelle installazioni con
+git quella calcolata dall'updater con `git describe` (`1.0.0+3` = tre commit dopo la 1.0.0), in sviluppo quella di
+`version.js`. **Release** con tag `vX.Y.Z` + sezione in `CHANGELOG.md` (il workflow si ferma se manca): vedi
+"Distribuzione" più sotto. Canali dell'updater: stable, beta e (solo installazioni con git) dev = ogni commit di
+`main`; la produzione dell'utente è un'installazione con git (modalità docker).
 
 ## Avvio e comandi
 

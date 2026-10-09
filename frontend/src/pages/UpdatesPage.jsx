@@ -79,6 +79,8 @@ function LiveState({ status, request }) {
 const CHANNELS = [
   { value: 'stable', label: t('Stabile') },
   { value: 'beta', label: t('Beta (anche le versioni di prova)') },
+  // Solo installazioni dal codice: per ogni singola modifica non ci sono immagini pronte
+  { value: 'dev', label: t('Sviluppo (ogni modifica, anche non provata)'), source: true },
 ]
 
 function SettingsForm({ settings, mode, disabled, onSaved }) {
@@ -127,22 +129,18 @@ function SettingsForm({ settings, mode, disabled, onSaved }) {
             {intervals.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
-        {mode === 'image' ? (
-          <label className="field">
-            <span className="field__label">{t('Canale')}</span>
-            <select className="input" value={form.channel} disabled={disabled} onChange={(e) => set('channel', e.target.value)}>
-              {CHANNELS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <span className="hint">{t('Si installano solo versioni più nuove di quella attuale: tornando a Stabile resti dove sei finché non esce una stabile più recente.')}</span>
-          </label>
-        ) : (
-          <label className="field">
-            <span className="field__label">{t('Branch')}</span>
-            <input className="input" value={form.branch} disabled={disabled} required maxLength={100}
-              onChange={(e) => set('branch', e.target.value.trim())} />
-            <span className="hint">{t('Di solito main. Cambiandolo, il prossimo aggiornamento passa a quel branch.')}</span>
-          </label>
-        )}
+        <label className="field">
+          <span className="field__label">{t('Canale')}</span>
+          <select className="input" value={form.channel} disabled={disabled} onChange={(e) => set('channel', e.target.value)}>
+            {CHANNELS.filter((o) => mode !== 'image' || !o.source || form.channel === o.value)
+              .map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <span className="hint">
+            {form.channel === 'dev'
+              ? t('Ogni modifica del branch {branch} appena è su GitHub, prima che diventi una release: solo per un server di prova.', { branch: form.branch || 'main' })
+              : t('Si installano solo versioni più nuove di quella attuale: tornando a Stabile resti dove sei finché non esce una stabile più recente.')}
+          </span>
+        </label>
         <label className="field">
           <span className="field__label">{t('Backup del database da tenere')}</span>
           <input className="input" type="number" min={1} max={100} value={form.keep_backups} disabled={disabled}

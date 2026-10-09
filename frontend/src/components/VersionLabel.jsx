@@ -9,7 +9,7 @@ export const SOURCE_URL = 'https://github.com/tommipute/netmap'
 /** Un file del repository nella versione installata (tag o commit; in sviluppo main), es. il manuale. */
 export const repoFileUrl = (info, path) => `${SOURCE_URL}/blob/${info?.tag || info?.commit || 'main'}/${path}`
 
-/** "NetMap 2026.10.08-2 · a1b2c3d · Codice sorgente": numero di version.js, commit installato e link al codice. */
+/** "NetMap 1.0.0+3 · a1b2c3d · Codice sorgente": versione installata (o di version.js), commit e link al codice. */
 export default function VersionLabel() {
   const info = useVersion()
   const ref = info?.tag || info?.commit
@@ -18,8 +18,9 @@ export default function VersionLabel() {
       {t('Codice sorgente')}
     </a>
   )
-  if (!info?.short) return <>NetMap {VERSION} · {source}</>
+  const version = info?.version || VERSION
+  if (!info?.short) return <>NetMap {version} · {source}</>
   const title = [t('Commit {c}', { c: info.commit }), info.date && formatDateTime(info.date), info.tag && t('Tag {tag}', { tag: info.tag })]
     .filter(Boolean).join(' · ')
-  return <>NetMap {VERSION} <span title={title}>· {info.short}</span> · {source}</>
+  return <>NetMap {version} <span title={title}>· {info.short}</span> · {source}</>
 }

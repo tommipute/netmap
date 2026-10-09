@@ -6,7 +6,24 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.0.0] - 2026-10-09
+
+Prima versione stabile: la 1.0.0-rc.3 con le correzioni qui sotto. Da qui i numeri seguono il versionamento
+semantico: 1.0.1 per le correzioni, 1.1.0 per le funzioni nuove, 2.0.0 per i cambiamenti incompatibili.
+
+### Novità
+- Scelta del canale anche per le installazioni dal codice (con git): Stabile, Beta o Sviluppo (ogni modifica di
+  `main` appena è su GitHub, anche non provata). Prende il posto del campo Branch da scrivere a mano.
+
+### Modifiche
+- Le installazioni dal codice mostrano la versione della release, o tra una release e l'altra l'ultima release più
+  le modifiche successive (es. 1.0.0+3), al posto del numero con la data.
+- Le installazioni dal codice seguono il canale Stabile, se non se ne sceglie un altro: per ricevere ogni modifica
+  di `main` come prima, scegli Sviluppo nella pagina Aggiornamenti.
+
 ### Correzioni
+- Menu delle colonne delle tabelle: il pulsante restava evidenziato anche con le colonne tornate come quelle
+  predefinite, e le frecce che non si possono usare sembravano selezionate.
 - Il backup notturno non salta più quando, all'ora del backup, il database non è ancora acceso (subito dopo
   l'installazione o un riavvio del server): lo script aspetta che risponda.
 - Installazioni dal codice (modalità docker): il link «Codice sorgente» e la pagina Aggiornamenti mostravano l'ultimo

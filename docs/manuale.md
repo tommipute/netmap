@@ -422,7 +422,9 @@ la versione installata e quella disponibile, l'ultimo controllo e lo storico:
 - **Controlla ora** e **Aggiorna ora**. Un aggiornamento fa il backup del database, installa la versione nuova e
   aspetta che riparta; se non riparte, torna da solo alla versione di prima (con il database di prima).
 - **Aggiornamento automatico**: installa da solo le versioni nuove appena le trova.
-- **Canale**: stabile (consigliato) o beta (anche le versioni di prova).
+- **Canale**: stabile (consigliato: solo le versioni definitive, 1.0.0, 1.0.1, 1.1.0…), beta (anche le versioni di
+  prova, es. 1.1.0-rc.1) o, solo se NetMap è installato dal codice con git, sviluppo (ogni modifica appena è su
+  GitHub, anche non provata: per un server di prova). Non si torna mai a una versione più vecchia.
 - **Log**: cosa ha fatto lo script nell'ultimo aggiornamento.
 
 ### Diagnostica

@@ -416,7 +416,9 @@ installed and available versions, the last check and the history:
 - **Check now** and **Update now**. An update backs up the database, installs the new version and waits for it to
   start; if it doesn't, it goes back to the previous version (and the previous database) by itself.
 - **Automatic updates**: installs new versions as soon as it finds them.
-- **Channel**: stable (recommended) or beta (including test versions).
+- **Channel**: stable (recommended: final versions only, 1.0.0, 1.0.1, 1.1.0…), beta (test versions too, e.g.
+  1.1.0-rc.1) or, only when NetMap is installed from source with git, development (every change as soon as it is on
+  GitHub, even untested: for a test server). It never goes back to an older version.
 - **Log**: what the script did during the last update.
 
 ### Diagnostics

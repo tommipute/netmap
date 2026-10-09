@@ -1,4 +1,4 @@
-// Versione mostrata in basso al centro di ogni pagina. Da aggiornare a ogni commit che va su GitHub:
-// data di oggi + numero progressivo del giorno (es. 2026.10.08-2), così dal PC si vede quale ZIP è installato.
-// Nelle immagini pubblicate (release vX.Y.Z) vale invece il numero della release, passato al build.
-export const VERSION = import.meta.env.VITE_APP_VERSION || '2026.10.09-16'
+// Numero dell'ultima release (semver): si cambia solo facendo una release, e il workflow controlla che coincida con
+// il tag. Nelle immagini arriva dal build (VITE_APP_VERSION); le installazioni con git mostrano quello calcolato
+// dall'updater (es. 1.0.0+3, tre modifiche dopo la 1.0.0), che arriva da /api/version.
+export const VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0'

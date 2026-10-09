@@ -113,6 +113,17 @@ image_info() { # tag dell'immagine
        tag: ("v" + (.["org.opencontainers.image.version"] // "")), subject: ""}' <<<"$labels"
 }
 
+# Installazioni dal codice: tag della release più nuova del canale (stable: solo X.Y.Z, beta: anche le pre-release)
+latest_tag() { # canale
+  local tag best=
+  while read -r tag; do
+    [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || continue
+    [ "$1" = stable ] && [[ $tag == *-* ]] && continue
+    if [ -z "$best" ] || version_gt "${tag#v}" "${best#v}"; then best=$tag; fi
+  done < <(git tag -l 'v[0-9]*')
+  [ -n "$best" ] && echo "refs/tags/$best"
+}
+
 # true se la versione $1 è più nuova di $2 (semver: 1.2.0 > 1.2.0-rc.2 > 1.2.0-rc.1 > 1.1.9)
 version_gt() {
   jq -n -e --arg a "$1" --arg b "$2" '
@@ -135,8 +146,16 @@ commit_info() {
   subject=$(git show -s --format=%s "$commit")
   # Solo il tag di questo commit, non l'ultimo prima: il link "Codice sorgente" deve portare al codice installato
   tag=$(git describe --tags --exact-match "$commit" 2>/dev/null || true)
-  # L'ultima stringa tra virgolette della riga di VERSION (anche "VITE_APP_VERSION || '2026.10.08-5'")
-  version=$(git show "$commit:frontend/src/version.js" 2>/dev/null | sed -n "/VERSION *=/s/.*['\"]\([^'\"]*\)['\"].*/\1/p" | head -n1)
+  # Versione: quella della release se il commit ha il tag, altrimenti l'ultima release più le modifiche successive
+  # (1.0.0+3 = tre commit dopo la 1.0.0); senza nessun tag, l'ultima stringa della riga di VERSION in version.js
+  local desc
+  desc=$(git describe --tags --long --match 'v[0-9]*' "$commit" 2>/dev/null || true)
+  if [[ $desc =~ ^v(.+)-([0-9]+)-g[0-9a-f]+$ ]]; then
+    version=${BASH_REMATCH[1]}
+    [ "${BASH_REMATCH[2]}" = 0 ] || version+="+${BASH_REMATCH[2]}"
+  else
+    version=$(git show "$commit:frontend/src/version.js" 2>/dev/null | sed -n "/VERSION *=/s/.*['\"]\([^'\"]*\)['\"].*/\1/p" | head -n1)
+  fi
   jq -n --arg commit "$commit" --arg date "$date" --arg tag "$tag" --arg version "$version" --arg subject "$subject" \
     '{commit: $commit, short: $commit[0:7], date: $date, tag: $tag, version: $version, subject: $subject}'
 }
@@ -355,9 +374,13 @@ do_update() {
       return 1
     fi
   else
-    step updating "Scarico il codice nuovo (branch $BRANCH)"
-    # Equivale a git pull, ma funziona anche cambiando branch o dopo un force push
-    if ! git checkout -q -B "$BRANCH" "$REMOTE/$BRANCH" >>"$LOG" 2>&1; then
+    if [ "$CHANNEL" = dev ]; then
+      step updating "Scarico il codice nuovo (branch $BRANCH)"
+    else
+      step updating "Scarico il codice nuovo (versione $(jq -r .version <<<"$TO"))"
+    fi
+    # Equivale a git pull, ma funziona anche cambiando branch o canale e dopo un force push
+    if ! git checkout -q -B "$BRANCH" "$TARGET_REF" >>"$LOG" 2>&1; then
       rollback "git non riesce a passare al codice nuovo."
       return 1
     fi
@@ -589,8 +612,14 @@ run() {
 
   AUTO=$(setting auto_update false)
   BRANCH=$(setting branch main)
+  # Canale: stable = solo le release definitive, beta = anche le pre-release, dev = ogni commit del branch (solo
+  # installazioni dal codice: per i singoli commit non ci sono immagini)
   CHANNEL=$(setting channel stable)
-  [ "$CHANNEL" = stable ] || [ "$CHANNEL" = beta ] || CHANNEL=stable
+  case $CHANNEL in
+    stable | beta) ;;
+    dev) [ "$MODE" = image ] && CHANNEL=beta ;;
+    *) CHANNEL=stable ;;
+  esac
   INTERVAL=$(setting check_interval_minutes 60)
   KEEP=$(setting keep_backups 10)
   [[ $INTERVAL =~ ^[0-9]+$ ]] && [ "$INTERVAL" -ge 1 ] || INTERVAL=60
@@ -648,20 +677,38 @@ run() {
   status '.activity = "checking" | .activity_message = "Controllo se ci sono aggiornamenti" | .activity_since = $t' --arg t "$(now)"
   [ "$MODE" = image ] && { check_image; return; }
   local fetch_out
-  if ! fetch_out=$(git fetch --quiet --prune "$REMOTE" "+refs/heads/$BRANCH:refs/remotes/$REMOTE/$BRANCH" 2>&1); then
+  if ! fetch_out=$(git fetch --quiet --prune --tags "$REMOTE" "+refs/heads/$BRANCH:refs/remotes/$REMOTE/$BRANCH" 2>&1); then
     status '.activity = "idle" | .last_check = $t | .check_error = $e' --arg t "$(now)" \
       --arg e "git fetch non riuscito: ${fetch_out:-errore sconosciuto}"
     log "Controllo non riuscito: $fetch_out"
     exit 1
   fi
-  TO=$(commit_info "$REMOTE/$BRANCH")
-  local local_commit remote_commit available=false
+  local local_commit remote_commit available=false where
   local_commit=$(git rev-parse HEAD)
+  if [ "$CHANNEL" = dev ]; then
+    TARGET_REF=$REMOTE/$BRANCH
+    where="su $BRANCH"
+  else
+    TARGET_REF=$(latest_tag "$CHANNEL")
+    where="sul canale $CHANNEL"
+    if [ -z "$TARGET_REF" ]; then
+      status '.activity = "idle" | .activity_message = "" | .activity_since = null | .last_check = $t | .check_error = $e
+        | .available = null | .update_available = false' --arg t "$(now)" \
+        --arg e "Nessuna release sul canale $CHANNEL: per seguire ogni modifica scegli il canale Sviluppo."
+      log "Controllo: nessuna release sul canale $CHANNEL"
+      exit 0
+    fi
+  fi
+  TO=$(commit_info "$TARGET_REF")
   remote_commit=$(jq -r .commit <<<"$TO")
-  [ "$local_commit" != "$remote_commit" ] && available=true
+  # Le release solo in avanti: se il codice installato contiene già quella release (es. si arriva dal canale
+  # Sviluppo) si aspetta la prossima. Sul canale Sviluppo basta che il commit sia diverso (anche dopo un force push)
+  if [ "$local_commit" != "$remote_commit" ] && { [ "$CHANNEL" = dev ] || git merge-base --is-ancestor "$local_commit" "$remote_commit"; }; then
+    available=true
+  fi
   status '.activity = "idle" | .activity_message = "" | .activity_since = null | .last_check = $t | .check_error = null
     | .available = $to | .update_available = $av' --arg t "$(now)" --argjson to "$TO" --argjson av "$available"
-  log "Controllo: installato ${local_commit:0:7}, disponibile ${remote_commit:0:7} su $BRANCH${ACTION:+ (richiesta: $ACTION)}"
+  log "Controllo: installato $(jq -r '.version // empty' <<<"$INSTALLED") (${local_commit:0:7}), disponibile $(jq -r '.version // empty' <<<"$TO") (${remote_commit:0:7}) $where${ACTION:+ (richiesta: $ACTION)}"
 
   $available || exit 0
   decide_update "$remote_commit"

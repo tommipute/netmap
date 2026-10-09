@@ -229,6 +229,8 @@ textarea.input { resize: vertical; min-height: 72px; }
 .columns-menu ul { list-style: none; margin: 0; padding: 0; }
 .columns-menu li { display: flex; align-items: center; gap: 2px; padding: 2px 0; }
 .columns-menu li .check { flex: 1; min-width: 0; }
+/* La freccia che non serve (su della prima, giù dell'ultima) non si vede ma tiene il posto */
+.columns-menu li .btn:disabled { visibility: hidden; }
 .columns-menu__footer { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
 /* Ordinamento e filtri sulle colonne */
 .th-sort { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }

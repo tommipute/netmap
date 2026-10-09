@@ -39,7 +39,10 @@ export function useTableColumns(resourceKey, columns) {
   }, [columns, saved])
 
   const save = (next) => {
-    const plain = next ? next.map((l) => ({ name: l.column.name, visible: l.visible })) : null
+    let plain = next ? next.map((l) => ({ name: l.column.name, visible: l.visible })) : null
+    // Tornata uguale alla predefinita (stesso ordine, stesse colonne visibili): non è più una scelta da ricordare
+    const defaults = columns.map((c) => ({ name: c.name, visible: !c.hidden }))
+    if (plain && JSON.stringify(plain) === JSON.stringify(defaults)) plain = null
     setSaved(plain)
     try {
       if (plain) localStorage.setItem(storageKey(resourceKey), JSON.stringify(plain))
@@ -48,7 +51,10 @@ export function useTableColumns(resourceKey, columns) {
       // senza storage la scelta vale solo per questa pagina
     }
   }
-  return { layout, visible: layout.filter((l) => l.visible).map((l) => l.column), save, customized: Boolean(saved) }
+  // Anche una scelta salvata prima di questa regola, se coincide con la predefinita, non accende il pulsante
+  const plain = JSON.stringify(layout.map((l) => ({ name: l.column.name, visible: l.visible })))
+  const customized = Boolean(saved) && plain !== JSON.stringify(columns.map((c) => ({ name: c.name, visible: !c.hidden })))
+  return { layout, visible: layout.filter((l) => l.visible).map((l) => l.column), save, customized }
 }
 
 /** Menu "Colonne": spunta per mostrarle, frecce per spostarle, ripristino delle predefinite. */

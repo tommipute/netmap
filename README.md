@@ -194,8 +194,10 @@ Una versione nuova deve funzionare partendo da qualsiasi versione vecchia: le mi
 
 L'updater ha tre modalità: **image** (installazioni fatte con `install.sh`: scarica le immagini del canale scelto,
 mai versioni più vecchie di quella installata, e prende dall'immagine nuova anche `docker-compose.yml`,
-`Caddyfile` e sé stesso), **docker** (server con il repo git, come la VM di produzione: segue un branch e
-ricostruisce le immagini) e **vm** (senza Docker). Quello che segue vale per tutte e tre; dove si parla di
+`Caddyfile` e sé stesso), **docker** (server con il repo git, come la VM di produzione: segue le release del canale
+scelto, o con il canale Sviluppo ogni commit di un branch, e ricostruisce le immagini) e **vm** (senza Docker).
+Versione mostrata dalle installazioni con git: quella della release (tag `vX.Y.Z`) o, tra una release e l'altra,
+l'ultima release più i commit successivi (`1.0.0+3`). Quello che segue vale per tutte e tre; dove si parla di
 git e deploy key riguarda solo docker e vm.
 
 Sul server di produzione NetMap si aggiorna da GitHub con lo script `updater/updater.sh`, che gira **sull'host**
@@ -205,7 +207,7 @@ montata nel container `api` come `/updater-data`:
 
 | File | Chi scrive | Chi legge | Cosa contiene |
 |---|---|---|---|
-| `settings.json` | app | script | aggiornamento automatico sì/no, branch, ogni quanto controllare, backup (notturno, ora, quanti tenere) |
+| `settings.json` | app | script | aggiornamento automatico sì/no, canale, branch (canale Sviluppo), ogni quanto controllare, backup (notturno, ora, quanti tenere) |
 | `request.json` | app | script (poi lo svuota) | "Controlla ora", "Aggiorna ora", "Backup ora", "Ripristina" o "Raccogli i log dei container" |
 | `status.json` | script | app | versione installata e disponibile, ultimo controllo, attività in corso, storico (ultimi 20) |
 | `updater.log` | script | app | log dell'ultimo aggiornamento e dei controlli successivi |

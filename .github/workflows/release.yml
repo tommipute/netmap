@@ -29,6 +29,13 @@ jobs:
             exit 1
           fi
 
+      - name: Versione di version.js uguale al tag
+        run: |
+          grep -q "'${GITHUB_REF_NAME#v}'" frontend/src/version.js || {
+            echo "::error::frontend/src/version.js non contiene '${GITHUB_REF_NAME#v}': aggiornalo prima del tag"
+            exit 1
+          }
+
       - name: Test del backend
         run: |
           docker build -q -t netmap-test ./backend
