@@ -95,10 +95,20 @@ menu con ricerca lato server oltre i 1000 elementi. Dettagli in `CLAUDE.md`, sez
 Differenze rispetto al piano: niente libreria JWT (token firmato con `hmac` della libreria standard);
 lo stato delle porte lo aggiorna il monitor, non solo la scansione.
 
+## Verso la 1.0 — release candidate (8-9/10/2026)
+
+Fatto: immagini pronte su ghcr e installer di un comando, release con tag e canali stabile/beta, HTTPS con Caddy,
+licenza AGPL, blocco dei tentativi di login e header di sicurezza, accesso con Active Directory, backup notturni con
+copie su cartella di rete (SMB) o SFTP e ripristino dalla pagina, rotazione dei log, test automatici su GitHub
+(backend, interfaccia, script, installazione e aggiornamento, giro nel browser), prove di prestazioni con migliaia di
+device, manuale d'uso in italiano e inglese, pacchetto diagnostico, import da CSV/Excel e da NetBox, avvisi via
+email, webhook e Telegram. Cosa c'è in ogni versione: `CHANGELOG.md`.
+
 ## Da fare
 
 NetMap lavora da solo: l'integrazione con l'app inventory è stata scartata (6/10/2026).
 
-
-- HTTPS (reverse proxy) prima di esporre l'app fuori dalla rete interna.
-- Avvisi quando un device smette di rispondere (mail o webhook).
+- Prova della scansione su apparati veri di più marche (Cisco, HPE/Aruba, Fortinet, Ubiquiti…): finora solo
+  apparati simulati. Caso noto: sugli switch Cisco la tabella MAC si legge per VLAN (community `public@10`), oggi no.
+- Accesso con Entra ID (SSO) oltre ad Active Directory.
+- Immagine della VM già pronta (appliance) per chi non vuole installare Docker.
