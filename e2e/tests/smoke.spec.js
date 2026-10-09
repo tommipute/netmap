@@ -140,6 +140,7 @@ test('active directory: prova con un dominio che non esiste (non salva niente)',
   await page.getByRole('textbox', { name: /^Domain controller/ }).fill('dc1.prova-e2e.invalid')
   // Su un'installazione nuova non c'è ancora nessun gruppo, e senza la prova non parte
   await page.getByRole('textbox', { name: 'Gruppo: Amministratore' }).fill('NetMap-Admin')
+  await page.getByText('Prova (facoltativa)').click() // la prova è in una sezione chiusa
   await page.getByLabel('Utente del dominio').fill('mario.rossi')
   await page.locator('.directory-test input[type=password]').fill('una-password')
   await page.getByRole('button', { name: 'Prova con questo utente' }).click()
