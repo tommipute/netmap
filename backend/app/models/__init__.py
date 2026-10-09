@@ -4,7 +4,7 @@ from sqlalchemy.orm import column_property
 
 from app.models.alerts import AlertChannel, AlertState
 from app.models.audit import AuditEntry
-from app.models.auth import User
+from app.models.auth import DirectorySettings, User
 from app.models.backups import BackupCopy, BackupTarget, BackupTask
 from app.models.base import Base
 from app.models.dcim import (
@@ -48,6 +48,7 @@ __all__ = [
     "Device",
     "DeviceRole",
     "DeviceType",
+    "DirectorySettings",
     "DiscoveryChange",
     "DiscoveryJob",
     "DiscoveryRun",

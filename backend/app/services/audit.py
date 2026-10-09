@@ -25,6 +25,7 @@ from app.models import (
     Device,
     DeviceRole,
     DeviceType,
+    DirectorySettings,
     DiscoveryJob,
     Interface,
     IPAddress,
@@ -44,6 +45,7 @@ TRACKED: dict[type, str] = {
     DeviceRole: "device_role", Device: "device", Interface: "interface", Cable: "cable", VLAN: "vlan", VRF: "vrf",
     Prefix: "prefix", IPAddress: "ip", NetworkMap: "map", SnmpProfile: "snmp_profile", DiscoveryJob: "discovery_job",
     User: "user", AlertChannel: "alert_channel", StackMember: "stack_member", BackupTarget: "backup_target",
+    DirectorySettings: "directory",
 }
 
 # Campi che cambiano da soli o derivati: non sono modifiche di qualcuno
@@ -55,7 +57,8 @@ IGNORED = {
 }
 # Eccezioni a IGNORED per un modello: l'indirizzo di una destinazione dei backup conta (host degli IP no)
 NOT_IGNORED: dict[type, set[str]] = {BackupTarget: {"host"}}
-SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc", "private_key_enc"}
+SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc", "private_key_enc",
+           "ca_cert"}  # il certificato non è segreto, ma è troppo lungo per lo storico
 
 LABELS = {
     "name": "Nome", "status": "Stato", "site_id": "Sede", "location_id": "Posizione", "rack_id": "Rack",
@@ -74,6 +77,10 @@ LABELS = {
     "parent_id": "Dentro a", "number": "Numero del membro", "language": "Lingua", "floor": "Piano (quota)", "default_role_id": "Ruolo predefinito", "enabled_job": "Attiva",
     "host": "Server", "share": "Condivisione", "folder": "Cartella", "port": "Porta", "keep_days": "Giorni da tenere",
     "include_key": "Copia anche la chiave", "private_key_enc": "Chiave privata",
+    "servers": "Domain controller", "security": "Sicurezza", "verify_cert": "Verifica del certificato",
+    "ca_cert": "Certificato della CA", "domain": "Dominio", "base_dn": "Base di ricerca",
+    "admin_group": "Gruppo amministratori", "editor_group": "Gruppo modifica", "viewer_group": "Gruppo lettura",
+    "default_role": "Ruolo predefinito",
 }
 
 # Colonne che puntano ad altri oggetti: nello storico il nome, non l'id
@@ -106,6 +113,8 @@ def label_of(session: Session, obj: Any) -> str:
         return obj.model
     if isinstance(obj, User):
         return obj.username
+    if isinstance(obj, DirectorySettings):
+        return "Active Directory"
     return str(getattr(obj, "name", None) or f"#{obj.id}")
 
 

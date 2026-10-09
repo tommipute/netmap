@@ -18,6 +18,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   sul server dalla destinazione.
 - Chiave dei segreti scaricabile (o copiata insieme ai backup): dopo un ripristino su un altro server la pagina
   dice quante password non si leggono e le ricifra con la chiave del vecchio server.
+- Accesso con Active Directory: gli utenti di Windows entrano con la password del dominio e il ruolo viene dai
+  gruppi (anche annidati) a ogni accesso. LDAPS o StartTLS con verifica del certificato, più domain controller,
+  nessun account di servizio, prova con un utente vero prima di salvare. Gli utenti locali entrano sempre.
+- Nello storico anche avvisi, destinazioni dei backup e impostazioni di Active Directory tra i tipi filtrabili.
 
 ### Modifiche
 - Accesso più protetto: dopo 5 password sbagliate sullo stesso utente si aspetta un minuto, e ogni errore in più

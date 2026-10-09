@@ -6,7 +6,7 @@ import VersionLabel from '../components/VersionLabel'
 
 /** Accesso; al primo avvio (nessun utente) crea l'amministratore. */
 export default function LoginPage() {
-  const { setupRequired, signedIn } = useAuth()
+  const { setupRequired, directory, signedIn } = useAuth()
   const [values, setValues] = useState({ username: '', password: '', confirm: '', full_name: '' })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -52,6 +52,7 @@ export default function LoginPage() {
         <label className="field">
           <span className="field__label">{t('Nome utente')}</span>
           <input className="input" autoComplete="username" value={values.username} onChange={set('username')} required autoFocus />
+          {directory && !setupRequired && <span className="hint">{t('Anche con il tuo utente di Windows, per esempio mario.rossi.')}</span>}
         </label>
         {setupRequired && (
           <label className="field">

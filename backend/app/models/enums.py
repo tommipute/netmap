@@ -115,3 +115,14 @@ class UserRole(StrEnum):
     ADMIN = "admin"     # tutto, compresi gli utenti
     EDITOR = "editor"   # modifica i dati
     VIEWER = "viewer"   # solo consultazione
+
+
+class UserSource(StrEnum):
+    LOCAL = "local"     # password in NetMap
+    AD = "ad"           # utente di dominio (Active Directory)
+
+
+class DirectorySecurity(StrEnum):
+    LDAPS = "ldaps"         # porta 636, cifrata dall'inizio
+    STARTTLS = "starttls"   # porta 389, poi cifrata
+    NONE = "none"           # in chiaro: i domain controller recenti la rifiutano

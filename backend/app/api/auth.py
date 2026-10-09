@@ -4,6 +4,8 @@ Sessione: token firmato in un cookie httpOnly (il browser lo manda da solo, anch
 script e integrazioni possono usare lo stesso token con "Authorization: Bearer".
 Ruoli: viewer = solo lettura, editor = modifica i dati, admin = anche gli utenti.
 Al primo avvio, senza utenti, la pagina di login chiede di creare l'amministratore.
+Con Active Directory attivo (api/directory.py) chi non ha un utente locale entra con l'utente di dominio: l'utente
+NetMap si crea al primo accesso e ruolo e nome si aggiornano a ogni accesso, dai gruppi del dominio.
 """
 import logging
 from datetime import datetime, timezone
@@ -17,7 +19,8 @@ from app.core.auth import create_token, decode_token, hash_password, verify_pass
 from app.core.throttle import Throttle, client_ip
 from app.database import get_db
 from app.models import User
-from app.models.enums import UserRole
+from app.services import directory
+from app.models.enums import UserRole, UserSource
 from app.schemas.auth import AuthStatus, LoginRequest, LoginResult, PasswordChange, SetupRequest, UserRead
 
 COOKIE = "netmap_session"
@@ -88,7 +91,8 @@ def _users_count(db: Session) -> int:
 
 @router.get("/status", response_model=AuthStatus, summary="Login attivo? Serve creare il primo amministratore?")
 def auth_status(db: Session = Depends(get_db)):
-    return {"auth_enabled": settings.auth_enabled, "setup_required": settings.auth_enabled and _users_count(db) == 0}
+    return {"auth_enabled": settings.auth_enabled, "setup_required": settings.auth_enabled and _users_count(db) == 0,
+            "directory": settings.auth_enabled and directory.active_settings(db) is not None}
 
 
 @router.post("/setup", response_model=LoginResult, status_code=201,
@@ -109,6 +113,50 @@ def _too_many(seconds: int) -> HTTPException:
     return HTTPException(429, f"Troppi tentativi sbagliati: riprova tra {text}", headers={"Retry-After": str(seconds)})
 
 
+def _failed(username: str, ip: str) -> HTTPException:
+    lock = max(user_throttle.failure(username), ip_throttle.failure(ip))
+    log.warning("Accesso non riuscito per %r da %s%s", username, ip, f": bloccato per {lock} s" if lock else "")
+    return HTTPException(401, "Nome utente o password sbagliati")
+
+
+def _domain_user(db: Session, cfg, login: str, password: str, username: str, ip: str) -> User:
+    """Accesso con Active Directory: l'utente NetMap (source=ad) si crea o si aggiorna con ruolo e nome del dominio."""
+    try:
+        found = directory.authenticate(cfg, login, password)
+    except directory.DirectoryError as exc:
+        log.error("Active Directory non disponibile per %r: %s", username, exc)
+        raise HTTPException(503, str(exc))
+    except directory.LoginDenied as exc:
+        # Conta come tentativo sbagliato: AD dà alcuni di questi codici anche con la password sbagliata
+        lock = max(user_throttle.failure(username), ip_throttle.failure(ip))
+        log.warning("Accesso di dominio negato per %r da %s: %s%s", username, ip, exc, f" (bloccato per {lock} s)" if lock else "")
+        raise HTTPException(403, str(exc))
+    if found is None:
+        raise _failed(username, ip)
+    user = db.scalars(select(User).where(User.username == found.username)).first()
+    if user is not None and user.source != UserSource.AD.value:
+        raise HTTPException(409, f"In NetMap c'è già un utente locale {found.username}: entra con la sua password "
+                                 "oppure chiedi a un amministratore di eliminarlo per usare l'utente di dominio")
+    db.info["audit_source"] = "directory"  # storico: utente creato o cambiato dall'accesso di dominio
+    if found.role is None:
+        log.warning("Utente di dominio %r senza gruppi di NetMap", found.username)
+        if user is not None:  # tolto dai gruppi: chiudo anche le sessioni aperte
+            user.token_version += 1
+            db.commit()
+        raise HTTPException(403, "Il tuo utente di dominio non è in nessun gruppo di NetMap: chiedi a un amministratore")
+    if user is None:
+        user = User(username=found.username, password_hash="!ad", source=UserSource.AD.value, active=True,
+                    token_version=0, role=found.role, full_name=found.full_name)
+        db.add(user)
+        db.flush()
+        log.info("Primo accesso dell'utente di dominio %r (%s)", found.username, found.role)
+    else:
+        user.role = found.role
+        if found.full_name:
+            user.full_name = found.full_name
+    return user
+
+
 @router.post("/login", response_model=LoginResult, summary="Accedi")
 def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     username = payload.username.strip().lower()
@@ -118,15 +166,18 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         raise _too_many(wait)
 
     user = db.scalars(select(User).where(User.username == username)).first()
-    valid = verify_password(payload.password, user.password_hash if user else _DUMMY_HASH)
-    if user is None or not valid:
-        lock = max(user_throttle.failure(username), ip_throttle.failure(ip))
-        log.warning("Accesso non riuscito per %r da %s%s", username, ip, f": bloccato per {lock} s" if lock else "")
-        raise HTTPException(401, "Nome utente o password sbagliati")
+    cfg = directory.active_settings(db) if settings.auth_enabled else None
+    if cfg is not None and (user is None or user.source == UserSource.AD.value):
+        user = _domain_user(db, cfg, payload.username, payload.password, username, ip)
+    else:
+        valid = verify_password(payload.password, user.password_hash if user else _DUMMY_HASH)
+        if user is None or not valid:
+            raise _failed(username, ip)
     if not user.active:
+        db.commit()  # ruolo e nome aggiornati dal dominio restano
         raise HTTPException(403, "Utente disattivato: chiedi a un amministratore")
     user_throttle.success(username)
-    log.info("Accesso di %r da %s", username, ip)
+    log.info("Accesso di %r da %s%s", user.username, ip, " (Active Directory)" if user.source == UserSource.AD.value else "")
     return _start_session(response, user, db)
 
 
@@ -149,6 +200,8 @@ def change_password(payload: PasswordChange, response: Response, user: User | No
                     db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(404, "Login disattivato (AUTH_ENABLED=false)")
+    if user.source == UserSource.AD.value:
+        raise HTTPException(422, "La password degli utenti di dominio si cambia in Windows (Active Directory), non qui")
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(422, "La password attuale non è corretta")
     user.password_hash = hash_password(payload.new_password)

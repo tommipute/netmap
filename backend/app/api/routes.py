@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
-from app.api import alerts, auth, backups, discovery, extra, history, system
+from app.api import alerts, auth, backups, directory, discovery, extra, history, system
 from app.api.auth import require_admin, require_user
 from app.api.crud import build_crud_router
 from app.models import (
@@ -100,7 +100,7 @@ _routers = [
          search=("name", "description"), order_by=(DiscoveryJob.name,), hook=rules.discovery_job_hook),
     # ---------- Utenti (solo amministratori) ----------
     dict(model=User, create_schema=sa.UserCreate, update_schema=sa.UserUpdate, read_schema=sa.UserRead,
-         path="/users", tag="Utenti", filters=("role", "active"), search=("username", "full_name"),
+         path="/users", tag="Utenti", filters=("role", "active", "source"), search=("username", "full_name"),
          order_by=(User.username,), hook=rules.user_hook, delete_hook=rules.user_delete_hook,
          dependencies=[Depends(require_admin)]),
     # ---------- Avvisi (solo amministratori) ----------
@@ -120,6 +120,7 @@ protected.include_router(discovery.router)
 protected.include_router(history.router)
 protected.include_router(alerts.router)
 protected.include_router(backups.router)
+protected.include_router(directory.router)
 protected.include_router(system.admin)
 
 for config in _routers:

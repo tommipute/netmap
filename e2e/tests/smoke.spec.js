@@ -112,6 +112,18 @@ test('amministrazione: aggiornamenti e backup', async ({ page }) => {
   await expect(page.locator('.update-live').first()).toContainText('Riuscito')
 })
 
+test('active directory: prova con un dominio che non esiste (non salva niente)', async ({ page }) => {
+  await login(page)
+  await page.goto('/directory')
+  await expect(page.getByRole('heading', { name: 'Active Directory', level: 1 })).toBeVisible()
+  await page.getByRole('textbox', { name: /^Dominio/ }).fill('prova-e2e.invalid')
+  await page.getByRole('textbox', { name: /^Domain controller/ }).fill('dc1.prova-e2e.invalid')
+  await page.getByLabel('Utente del dominio').fill('mario.rossi')
+  await page.locator('.directory-test input[type=password]').fill('una-password')
+  await page.getByRole('button', { name: 'Prova con questo utente' }).click()
+  await expect(page.locator('.directory-test .update-live')).toContainText('Nessun domain controller risponde', { timeout: 30_000 })
+})
+
 test('interfaccia in inglese', async ({ page }) => {
   await login(page)
   await page.evaluate(() => window.localStorage.setItem('netmap.lang', 'en'))

@@ -11,3 +11,5 @@ cryptography>=43
 # Copie dei backup fuori dal server: cartella di rete (SMB 2/3) e SFTP
 smbprotocol>=1.15,<2
 paramiko>=3.4
+# Accesso con Active Directory (LDAP)
+ldap3>=2.9,<3

@@ -2,7 +2,7 @@
  * Configurazione delle entità: colonne della tabella e campi del modulo.
  * Per aggiungere un'entità basta una voce qui (più il backend).
  */
-import { ROLES } from './auth'
+import { ROLES, USER_SOURCES } from './auth'
 import AlertTestButton from './components/AlertTestButton'
 import { Badge, CellLink, LiveStatus, Mono } from './components/Bits'
 import RefLabel from './components/RefLabel'
@@ -771,6 +771,8 @@ resources['alert-channels'] = {
   ],
 }
 
+const fromDirectory = (item) => item?.source === 'ad' && t('Viene da Active Directory a ogni accesso.')
+
 resources.users = {
   path: 'users',
   title: t('Utenti'),
@@ -778,27 +780,32 @@ resources.users = {
   editLabel: t('Modifica utente'),
   intro: t('Chi può accedere. Solo lettura: consulta e cerca. Modifica: cambia i dati e approva le scansioni. Amministratore: anche gli utenti.'),
   label: (o) => o.username,
-  filters: [{ name: 'role', label: t('Ruolo'), options: ROLES }],
+  filters: [{ name: 'role', label: t('Ruolo'), options: ROLES }, { name: 'source', label: t('Origine'), options: USER_SOURCES }],
   columns: [
     { name: 'username', label: t('Nome utente'), render: (o) => <strong>{o.username}</strong> },
     { name: 'full_name', label: t('Nome') },
     { name: 'role', label: t('Ruolo'), type: 'select', options: ROLES },
+    { name: 'source', label: t('Origine'), type: 'select', options: USER_SOURCES },
     { name: 'active', label: t('Attivo'), type: 'bool' },
     { name: 'last_login_at', label: t('Ultimo accesso'), render: (o) => O.formatDateTime(o.last_login_at) },
   ],
   fields: [
-    { name: 'username', label: t('Nome utente'), required: true, placeholder: t('mario.rossi') },
+    { name: 'username', label: t('Nome utente'), required: true, placeholder: t('mario.rossi'), lockedFor: fromDirectory },
     { name: 'full_name', label: t('Nome e cognome') },
-    { name: 'role', label: t('Ruolo'), type: 'select', options: ROLES, default: 'viewer', required: true },
+    { name: 'role', label: t('Ruolo'), type: 'select', options: ROLES, default: 'viewer', required: true, lockedFor: fromDirectory },
     {
       name: 'password',
       label: t('Password'),
       type: 'secret',
       requiredOnCreate: true,
+      showIf: (values, item) => item?.source !== 'ad',
       savedHint: (item) => (item ? t('Lascia vuoto per non cambiarla') : undefined),
       help: t('Almeno 8 caratteri. Cambiandola, le sessioni aperte dell\'utente si chiudono.'),
     },
-    { name: 'active', label: t('Attivo'), type: 'bool', default: true, help: t('Un utente disattivato non può più accedere.') },
+    {
+      name: 'active', label: t('Attivo'), type: 'bool', default: true,
+      help: t('Un utente disattivato non può più accedere, nemmeno con la password del dominio.'),
+    },
   ],
 }
 
@@ -813,5 +820,5 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', { to: 'directory', title: t('Active Directory') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]

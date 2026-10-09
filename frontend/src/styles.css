@@ -804,3 +804,14 @@ button.tile:hover { border-color: var(--accent); }
 .backup-target__dest { min-width: 200px; overflow-wrap: anywhere; }
 .backup-target__status { min-width: 260px; overflow-wrap: anywhere; }
 .backup-msg--error { color: var(--danger); font-weight: 500; }
+
+/* ---------- Active Directory ---------- */
+.directory-file { padding: 0; margin-left: 12px; font-weight: 400; }
+.directory-result { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.directory-dn { margin: 0; overflow-wrap: anywhere; }
+.directory-page .form { padding: 0; }
+.directory-page > .form { margin-bottom: 32px; }
+.directory-page .section > .hint, .directory-test__intro { margin: 0 0 12px; max-width: 760px; }
+.directory-page .update-actions { margin-top: 16px; }
+.directory-page .error-box { margin-top: 14px; }
+.directory-test .form { max-width: 760px; }

@@ -13,19 +13,24 @@ export const ROLES = [
   { value: 'admin', label: t('Amministratore') },
 ]
 
+export const USER_SOURCES = [
+  { value: 'local', label: t('Locale') },
+  { value: 'ad', label: t('Active Directory') },
+]
+
 export function AuthProvider({ children }) {
-  const [state, setState] = useState({ loading: true, enabled: true, setupRequired: false, user: null, error: null })
+  const [state, setState] = useState({ loading: true, enabled: true, setupRequired: false, directory: false, user: null, error: null })
 
   const refresh = useCallback(async () => {
     try {
       const status = await api.get('/auth/status')
       if (!status.auth_enabled) {
-        setState({ loading: false, enabled: false, setupRequired: false, user: null, error: null })
+        setState({ loading: false, enabled: false, setupRequired: false, directory: false, user: null, error: null })
         return
       }
       let user = null
       if (!status.setup_required) user = await api.get('/auth/me').catch(() => null)
-      setState({ loading: false, enabled: true, setupRequired: status.setup_required, user, error: null })
+      setState({ loading: false, enabled: true, setupRequired: status.setup_required, directory: Boolean(status.directory), user, error: null })
     } catch (error) {
       setState((prev) => ({ ...prev, loading: false, error }))
     }

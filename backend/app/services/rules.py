@@ -12,7 +12,7 @@ from app.core.secrets import SecretError, encrypt
 from app.models import (
     VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, StackMember, User,
 )
-from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole
+from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole, UserSource
 
 
 def _fail(message: str) -> None:
@@ -376,6 +376,15 @@ def _other_active_admins(db: Session, user: User) -> int:
 
 
 def user_hook(db: Session, user: User, data: dict[str, Any], is_create: bool) -> None:
+    if user.source == UserSource.AD.value:
+        # Nome, password e ruolo degli utenti di dominio vengono da Active Directory a ogni accesso
+        changed = inspect(user).attrs
+        if data.get("password"):
+            _fail("La password degli utenti di dominio si cambia in Active Directory")
+        if changed.role.history.has_changes():
+            _fail("Il ruolo degli utenti di dominio viene dai gruppi di Active Directory")
+        if changed.username.history.has_changes():
+            _fail("Il nome degli utenti di dominio viene da Active Directory")
     stmt = select(User.id).where(User.username == user.username)
     if user.id is not None:
         stmt = stmt.where(User.id != user.id)

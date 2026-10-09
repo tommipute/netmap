@@ -77,6 +77,7 @@ function UserMenu() {
               <strong>{name}</strong>
               <span className="muted">{user.username}</span> <span className="tag">{labelOf(ROLES, user.role)}</span>
               <p className="hint">{ROLE_HELP[user.role]}</p>
+              {user.source === 'ad' && <p className="hint">{t('Utente di dominio: password e ruolo vengono da Active Directory.')}</p>}
             </div>
           )}
           <div className="user-menu__section">
@@ -102,7 +103,7 @@ function UserMenu() {
             </div>
           </div>
           <div className="user-menu__sep" />
-          {signedIn && (
+          {signedIn && user.source !== 'ad' && (
             <button type="button" role="menuitem" className="user-menu__item" onClick={() => { setOpen(false); setDialog(true) }}>
               <Icon name="key" /> {t('Cambia password')}
             </button>

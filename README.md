@@ -7,7 +7,8 @@ automatiche o disegnate a mano.
 - **Fase 2** ✔ interfaccia web: elenchi e moduli per tutto, scheda device con le porte, subnet con IP liberi, mappe,
   import/export CSV dei device
 - **Fase 3** ✔ scansione SNMP (v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
-- Fase 4: stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login
+- **Fase 4** ✔ stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login con ruoli
+  (anche con Active Directory), storico delle modifiche, avvisi, backup
 
 ## Licenza
 
@@ -115,6 +116,32 @@ vedi cosa succederebbe senza scrivere niente; le righe sbagliate vengono elencat
 
 La chiave che cifra le credenziali sta in `SECRETS_KEY` (file `.env`) oppure, se è vuota, in `backend/.secrets_key`
 creato al primo uso: non cancellarlo, altrimenti i profili SNMP vanno reinseriti.
+
+### Utenti e accesso con Active Directory
+
+Al primo avvio la pagina di accesso chiede di creare l'amministratore; gli altri utenti si creano in **Utenti**
+con un ruolo: solo lettura, modifica (dati e approvazioni della scansione) o amministratore (anche utenti e
+impostazioni). Se si perde l'accesso: `docker compose exec -it api python -m app.users password admin`.
+
+Con **Active Directory** (menu Amministrazione) gli utenti di Windows entrano con il loro nome (`mario.rossi`,
+`AZIENDA\mario.rossi` o `mario.rossi@azienda.local`) e la password del dominio:
+
+- servono il dominio (`azienda.local`) e i domain controller con il nome completo, quello del loro certificato;
+  la connessione è LDAPS (636) o StartTLS (389), quindi il domain controller deve avere un certificato (Servizi
+  certificati di Active Directory). Per verificarlo incolla il certificato della CA del dominio esportato in
+  Base64. Il server di NetMap deve risolvere quei nomi e raggiungere la porta;
+- niente account di servizio: NetMap si collega con le credenziali di chi entra e legge i suoi gruppi;
+- il ruolo viene da tre gruppi (amministratori, modifica, solo lettura), anche con gruppi dentro i gruppi; chi è
+  in più gruppi prende il ruolo più alto, chi non è in nessuno non entra (oppure entra con il ruolo scelto per
+  tutti gli altri). La base di ricerca, se indicata, limita l'accesso agli utenti di quella OU;
+- l'utente NetMap si crea al primo accesso e a ogni accesso prende ruolo e nome dal dominio: password e ruolo non
+  si cambiano in NetMap. Disattivato in NetMap non entra nemmeno con la password giusta. Tolto da tutti i gruppi,
+  al tentativo successivo viene respinto e le sue sessioni si chiudono; altrimenti una sessione dura al massimo
+  `SESSION_HOURS` (12 ore);
+- *Prova con questo utente* controlla le impostazioni (anche non salvate) con un utente vero e mostra ruolo e
+  gruppi trovati;
+- gli utenti locali entrano sempre con la loro password: tieni almeno un amministratore locale per quando il
+  dominio non risponde. `python -m app.users password <nome>` trasforma un utente di dominio in locale.
 
 ### Rete di laboratorio (apparati finti)
 
@@ -363,4 +390,3 @@ frontend/
 ## Limiti noti
 
 - I menu a tendina caricano al massimo 1000 elementi per tipo (sedi, device, VLAN...).
-- Non c'è ancora login: per ora usala solo in rete interna.

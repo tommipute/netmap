@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (76 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (85 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -207,6 +207,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/status/summary` · `POST /api/devices/{id}/check` | riepilogo su/giù · controllo immediato di un device |
 | `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
+| `GET`/`PUT /api/directory` · `POST /api/directory/test` | Active Directory: impostazioni, prova con un utente (solo admin) |
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
 Anche `/snmp-profiles` e `/discovery-jobs` sono CRUD generati.
@@ -274,6 +275,22 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   poi l'attesa raddoppia fino a 15; per indirizzo 20 errori in 15 minuti = 15 minuti. L'indirizzo vero viene da
   `client_ip` con `TRUSTED_PROXIES` (proxy fidati contati da destra in X-Forwarded-For: 2 nelle installazioni con
   Caddy + nginx, 1 in `docker-compose.prod.yml`, 0 in sviluppo). Log dell'app (logger `netmap`) con data e ora.
+- **Active Directory** (`services/directory.py`, `api/directory.py`, tabella `directory_settings` con una riga,
+  `users.source` = `local`|`ad`, pagina `DirectoryPage` su `/directory`). Libreria `ldap3`. Niente account di
+  servizio: bind con `utente@dominio` (o `DOMINIO\utente`, o UPN) e con la stessa connessione si cercano utente
+  (`sAMAccountName`, sotto `base_dn` o tutto il dominio) e gruppi (sempre in tutto il dominio, per nome o DN);
+  appartenenza anche annidata con `memberOf:1.2.840.113556.1.4.1941:=` (ricerca BASE sul DN dell'utente). Ruolo =
+  primo gruppo tra admin → editor → viewer, poi `default_role`, altrimenti non entra. **Password vuota mai** (in LDAP
+  un bind senza password "riesce" come anonimo). Codici AD nel messaggio del bind (`data 533` disattivato, 532/773
+  password scaduta/da cambiare, 775 bloccato) → `LoginDenied` (403); domain controller irraggiungibile,
+  certificato, configurazione → `DirectoryError` (503 al login, non conta per il freno ai tentativi).
+  Login (`api/auth.py`): un utente locale con quel nome vince sempre (solo la sua password); altrimenti, con AD
+  attivo, si prova il dominio e l'utente NetMap si crea o aggiorna (ruolo, nome) con `audit_source = "directory"`;
+  omonimo locale di un utente di dominio → 409; tolto da tutti i gruppi → 403 e `token_version + 1`.
+  `user_hook` rifiuta password, ruolo e nome per gli utenti `ad`; `/auth/password` → 422; `python -m app.users
+  password` li trasforma in locali. Nei test `open_session` si sostituisce con una directory finta
+  (`tests/test_directory.py`). Provato (9/10/2026) contro Samba AD in un container (`smblds`): LDAPS e StartTLS con
+  la CA, nome diverso dal certificato, in chiaro rifiutato, utente disattivato, gruppo annidato, OU, primo DC spento.
 - **Stato live** (`services/monitor.py`, `monitor.py`): device attivi con IP primario; raggiungibile se risponde
   al ping o all'SNMP. Colonne `reachable` (NULL = mai controllato), `last_check_at`, `reachable_changed_at`, `rtt_ms`;
   `oper_status` delle porte da ifOperStatus (abbinate per `if_index`).
@@ -326,7 +343,8 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Scritto da solo all'evento `after_flush` di ogni sessione (registrato importando il modulo in `database.py`):
   vale per API, modifiche in blocco, scansione, import. Righe nella stessa transazione (rollback = spariscono).
 - Chi: `session.info["audit_user"]` (lo mette `current_user` in `api/auth.py`), `session.info["audit_source"]`
-  (`scansione` in `execute_run` e `apply_change`, `import` nell'import CSV; altrimenti `utente`/`sistema`).
+  (`scansione` in `execute_run` e `apply_change`, `import` nell'import CSV, `directory` per gli utenti creati o
+  aggiornati dall'accesso con Active Directory; altrimenti `utente`/`sistema`).
 - Non registra i campi in `IGNORED` (stato live, last_seen, if_index...), i segreti (solo "cambiata"), né porte e
   IP creati insieme al loro device nella stessa transazione. I riferimenti (`*_id`) si salvano con il nome.
 - `device_id`/`device_id_2` (cavi) per lo storico nella scheda del device, anche dopo l'eliminazione.
@@ -359,7 +377,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   = segreto su più righe, es. chiave privata).
   Opzioni dei campi: `required`, `default`, `createOnly` (mostrato disabilitato in modifica e non inviato),
   `dependsOn` + `waitLabel` (es. posizione filtrata per sede, svuotata se cambia la sede), `params`,
-  `showIf(values, item)` + `hiddenValue` (valore inviato quando il campo è nascosto), `freeOnly` (solo porte libere),
+  `showIf(values, item)` + `hiddenValue` (valore inviato quando il campo è nascosto), `lockedFor(item)` (motivo per
+  cui in modifica il campo è bloccato e non inviato, es. ruolo degli utenti di dominio), `freeOnly` (solo porte libere),
   `ordered` (refmulti con numero d'ordine), `savedHint(item)` (segnaposto dei campi `secret` già salvati).
   `NAV` accetta chiavi di risorse oppure pagine speciali `{ to, title, badge }`.
 - **Tabelle degli elenchi** (`components/TableTools.jsx`): colonne da mostrare/nascondere e riordinare (pulsante

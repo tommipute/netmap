@@ -127,7 +127,7 @@ def test_controllo_manuale_senza_ip(client, monitored):
 # ---------------------------------------------------------------- login e permessi
 def test_senza_login_solo_salute_e_stato_del_login(anonymous):
     assert anonymous.get("/api/health").status_code == 200
-    assert anonymous.get("/api/auth/status").json() == {"auth_enabled": True, "setup_required": False}
+    assert anonymous.get("/api/auth/status").json() == {"auth_enabled": True, "setup_required": False, "directory": False}
     assert anonymous.get("/api/devices").status_code == 401
     assert anonymous.post("/api/sites", json={"name": "x"}).status_code == 401
     assert anonymous.get("/api/auth/me").status_code == 401

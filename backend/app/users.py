@@ -3,6 +3,8 @@
     docker compose exec api python -m app.users list
     docker compose exec api python -m app.users create mario --role admin
     docker compose exec api python -m app.users password mario
+
+Con 'password' un utente di Active Directory diventa locale: serve se il dominio non risponde.
 """
 import argparse
 import getpass
@@ -13,7 +15,7 @@ from sqlalchemy import select
 from app.core.auth import hash_password
 from app.database import SessionLocal
 from app.models import User
-from app.models.enums import UserRole
+from app.models.enums import UserRole, UserSource
 
 
 def _ask_password() -> str:
@@ -35,7 +37,7 @@ def main() -> int:
     create.add_argument("username")
     create.add_argument("--role", choices=[r.value for r in UserRole], default=UserRole.ADMIN.value)
     create.add_argument("--full-name")
-    password = sub.add_parser("password", help="reimposta la password (e riattiva l'utente)")
+    password = sub.add_parser("password", help="reimposta la password (e riattiva l'utente; uno di dominio diventa locale)")
     password.add_argument("username")
     args = parser.parse_args()
 
@@ -43,7 +45,8 @@ def main() -> int:
         if args.command == "list":
             for user in db.scalars(select(User).order_by(User.username)):
                 state = "attivo" if user.active else "disattivato"
-                print(f"{user.username:<24} {user.role:<8} {state}")
+                origin = "Active Directory" if user.source == UserSource.AD.value else "locale"
+                print(f"{user.username:<24} {user.role:<8} {state:<12} {origin}")
             return 0
         username = args.username.strip().lower()
         user = db.scalars(select(User).where(User.username == username)).first()
@@ -57,8 +60,11 @@ def main() -> int:
             if user is None:
                 print(f"Utente {username} non trovato.")
                 return 1
+            if user.source == UserSource.AD.value:
+                print(f"{username} è un utente di Active Directory: con la password diventa un utente locale.")
             user.password_hash = hash_password(_ask_password())
             user.active = True
+            user.source = UserSource.LOCAL.value
             user.token_version += 1
         db.commit()
         print("Fatto.")

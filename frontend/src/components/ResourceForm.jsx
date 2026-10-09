@@ -191,7 +191,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
     e.stopPropagation() // un modulo aperto da un menu di un altro modulo: l'invio non deve arrivare a quello
     const payload = {}
     for (const f of config.fields) {
-      if (isEdit && f.createOnly) continue
+      if (isEdit && (f.createOnly || f.lockedFor?.(item))) continue
       const visible = !f.showIf || f.showIf(values, item)
       const missing = f.type === 'refmulti' ? !(values[f.name] || []).length : isEmpty(values[f.name])
       if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {
@@ -222,7 +222,9 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
         <div className="form__grid">
           {config.fields.map((f) => {
             if (f.showIf && !f.showIf(values, item)) return null
-            const locked = isEdit && f.createOnly
+            // lockedFor(item): motivo per cui quel campo di quell'elemento non si cambia (non si invia)
+            const lockReason = isEdit ? f.lockedFor?.(item) : null
+            const locked = (isEdit && f.createOnly) || Boolean(lockReason)
             const disabled = locked || Boolean(filled[f.name])
             const wide = WIDE_TYPES.has(f.type)
             if (f.type === 'bool') {
@@ -238,7 +240,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
                 </Label>
                 <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields}
                   onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />
-                {locked && <span className="hint">{t('Non modificabile dopo la creazione.')}</span>}
+                {locked && <span className="hint">{lockReason || t('Non modificabile dopo la creazione.')}</span>}
                 {!locked && filled[f.name] && <span className="hint">{f.fillFrom.hint}</span>}
                 {!disabled && f.help && <span className="hint">{f.help}</span>}
               </div>

@@ -22,11 +22,15 @@ export const OBJECT_TYPES = [
   { value: 'snmp_profile', label: t('Profilo SNMP') },
   { value: 'discovery_job', label: t('Scansione') },
   { value: 'user', label: t('Utente') },
+  { value: 'alert_channel', label: t('Canale di avviso') },
+  { value: 'backup_target', label: t('Destinazione dei backup') },
+  { value: 'directory', label: t('Active Directory') },
 ]
 export const SOURCES = [
   { value: 'utente', label: t('A mano') },
   { value: 'scansione', label: t('Scansione SNMP') },
   { value: 'import', label: t('Import CSV') },
+  { value: 'directory', label: t('Accesso con Active Directory') },
   { value: 'sistema', label: t('Sistema') },
 ]
 const ACTIONS = { create: [t('Creato'), 'ok'], update: [t('Modificato'), 'info'], delete: [t('Eliminato'), 'danger'] }
