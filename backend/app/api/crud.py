@@ -6,6 +6,7 @@ Oltre ai filtri dichiarati (uguaglianza, compaiono in /docs) l'elenco accetta fi
 dai filtri sotto le intestazioni delle tabelle: `<campo>__contains=testo` (contiene, senza maiuscole),
 `<campo>__eq=valore`, `<campo>__isnull=true|false`, e `sort=<campo>` / `sort=-<campo>`. Valgono per le colonne
 del modello e per i campi calcolati cercabili (es. management_ip del device); un campo sconosciuto dà 422.
+I campi personalizzati definiti si filtrano e ordinano come cf_<nome>; la ricerca (q) guarda anche i loro valori.
 """
 import inspect
 from typing import Any, Callable, Optional
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.base import Base
 from app.schemas.common import Page
+from app.services import custom_fields as cf
 
 # hook(db, oggetto, dati_ricevuti, is_create) -> solleva HTTPException se qualcosa non va
 Hook = Callable[[Session, Any, dict[str, Any], bool], None]
@@ -73,8 +75,11 @@ def commit_or_error(db: Session) -> None:
         raise HTTPException(422, f"Valore non valido ({_short(exc)})") from exc
 
 
-def column_attribute(model: type, searchable: tuple[str, ...], name: str):
-    """Colonna del modello o campo calcolato cercabile (es. management_ip del device); None se non esiste."""
+def column_attribute(model: type, searchable: tuple[str, ...], name: str, extra: dict | None = None):
+    """Colonna del modello o campo calcolato cercabile (es. management_ip del device); None se non esiste.
+    extra: altre espressioni per nome (i campi personalizzati, cf_<nome>)."""
+    if extra and name in extra:
+        return extra[name]
     columns = model.__table__.columns
     if name in columns:
         return columns[name]
@@ -98,13 +103,13 @@ def _parse(attr, raw: str):
         raise HTTPException(422, f"Valore non valido: {raw}") from exc
 
 
-def apply_column_filters(model: type, searchable: tuple[str, ...], stmt, query_params):
+def apply_column_filters(model: type, searchable: tuple[str, ...], stmt, query_params, extra: dict | None = None):
     """Filtri per colonna (<campo>__contains / __eq / __isnull) presi dai parametri della richiesta."""
     for key, raw in query_params.multi_items():
         if "__" not in key:
             continue
         name, op = key.rsplit("__", 1)
-        attr = column_attribute(model, searchable, name)
+        attr = column_attribute(model, searchable, name, extra)
         if attr is None or op not in ("contains", "eq", "isnull"):
             raise HTTPException(422, f"Filtro non valido: {key}")
         if op == "contains":
@@ -136,6 +141,15 @@ def build_crud_router(
     router = APIRouter(prefix=path, tags=[tag], dependencies=dependencies or [])
     columns = model.__table__.columns
     ordering = order_by or (model.id,)
+    # Oggetti con campi personalizzati: si chiamano come il percorso dell'API (devices, ip-addresses…)
+    object_type = path.strip("/") if path.strip("/") in cf.OBJECT_TYPES and "custom_fields" in columns else None
+
+    def custom_columns(db: Session) -> dict:
+        return cf.column_expressions(db, model, object_type) if object_type else {}
+
+    def clean_custom_fields(db: Session, data: dict) -> None:
+        if object_type and "custom_fields" in data:
+            data["custom_fields"] = cf.clean_values(db, object_type, data["custom_fields"])
 
     def get_or_404(db: Session, item_id: int):
         obj = db.get(model, item_id)
@@ -143,13 +157,13 @@ def build_crud_router(
             raise HTTPException(404, "Elemento non trovato")
         return obj
 
-    def sorting(sort: str | None):
+    def sorting(sort: str | None, extra: dict):
         if not sort:
             return ordering
         name = sort.lstrip("-")
         attr = (sort_by or {}).get(name)
         if attr is None:
-            attr = column_attribute(model, search, name)
+            attr = column_attribute(model, search, name, extra)
         if attr is None:
             raise HTTPException(422, f"Ordinamento non valido: {sort}")
         first = attr.desc().nulls_last() if sort.startswith("-") else attr.asc().nulls_last()
@@ -164,16 +178,20 @@ def build_crud_router(
         sort: str | None = kwargs.pop("sort", None)
         q: str | None = kwargs.pop("q", None)
 
-        stmt = apply_column_filters(model, search, select(model), request.query_params)
+        extra = custom_columns(db)
+        stmt = apply_column_filters(model, search, select(model), request.query_params, extra)
         for name, value in kwargs.items():
             if value is not None:
                 stmt = stmt.where(columns[name] == value)
         if q and search:
             # Anche campi calcolati (column_property), es. l'IP di management del device
-            stmt = stmt.where(or_(*((columns[f] if f in columns else getattr(model, f)).ilike(f"%{q}%") for f in search)))
+            fields = [(columns[f] if f in columns else getattr(model, f)).ilike(f"%{q}%") for f in search]
+            if object_type:
+                fields.append(cf.search_clause(model, f"%{q}%"))
+            stmt = stmt.where(or_(*fields))
 
         total = db.scalar(select(func.count()).select_from(stmt.subquery()))
-        rows = db.scalars(stmt.order_by(*sorting(sort)).limit(limit).offset(offset)).all()
+        rows = db.scalars(stmt.order_by(*sorting(sort, extra)).limit(limit).offset(offset)).all()
         return {"total": total, "items": [read_schema.model_validate(r) for r in rows]}
 
     kw = inspect.Parameter.KEYWORD_ONLY
@@ -210,6 +228,7 @@ def build_crud_router(
     @router.post("", response_model=read_schema, status_code=201, summary=f"Crea ({tag})")
     def create_item(payload: create_schema, db: Session = Depends(get_db)):
         data = payload.model_dump()
+        clean_custom_fields(db, data)
         check_foreign_keys(db, model, data)
         obj = model()
         apply_data(model, obj, data)
@@ -225,6 +244,7 @@ def build_crud_router(
     def update_item(item_id: int, payload: update_schema, db: Session = Depends(get_db)):
         obj = get_or_404(db, item_id)
         data = payload.model_dump(exclude_unset=True)
+        clean_custom_fields(db, data)
         check_foreign_keys(db, model, data)
         apply_data(model, obj, data)
         if hook:

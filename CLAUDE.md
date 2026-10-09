@@ -437,6 +437,19 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   `PLACEHOLDERS` (nomi inglesi e italiani); `render` toglie parentesi e parti dopo " · "/" › " rimaste vuote.
   `POST /api/alert-messages/preview` → testi d'esempio, `unknown`, `defaults` (frontend `components/AlertFields.jsx`).
 
+## Campi personalizzati (`services/custom_fields.py`, tabella `custom_field_definitions`)
+
+- I valori stanno in `custom_fields` (JSON) degli oggetti con `CustomFieldsMixin`; le definizioni dicono tipo
+  (text, longtext, number, bool, date, select, url), `object_types` (percorsi dell'API, `OBJECT_TYPES`), `required`,
+  `weight`. Chiavi senza definizione = campi liberi, lasciati com'erano. `name` non si cambia (`custom_field_hook`).
+- `crud.py`: `clean_values` su create/PATCH quando arriva `custom_fields` (converte, controlla, toglie i vuoti, 422 se
+  manca un obbligatorio); filtri e ordinamento `cf_<nome>` (`column_expressions`: as_float / as_boolean / as_string);
+  la ricerca `q` guarda anche i valori (`values_text`: `jsonb_each_text` su Postgres, `json_each` su SQLite).
+  Anche ricerca globale ed export dei device (colonne `cf_<nome>`, JSON con `custom_fields`).
+- `/api/custom-fields`: leggono tutti (servono a moduli e tabelle), scrive l'admin (`require_admin_to_write`).
+- Frontend `components/CustomFields.jsx`: `useCustomFields(percorso)`, `customColumns` (aggiunte in `ResourcePage`),
+  `CustomFieldsEditor` (campo `custom_fields` dei moduli), `CustomValue` (scheda device).
+
 ## Frontend (`frontend/src`)
 
 Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `html-to-image` (export mappa). CSS semplice.

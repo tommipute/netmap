@@ -2,25 +2,28 @@ import { useState } from 'react'
 import { t } from '../i18n'
 
 const SEPARATORS = /[\s,;]+/
+const LINE_SEPARATORS = /[\n,;]+/ // con spaces: lo spazio fa parte del valore (es. "Contratto Oro")
 
 /**
  * Elenco di valori a "bolle": si scrive e Invio, virgola, spazio o punto e virgola fanno la bolla; un elenco
  * incollato diventa tante bolle; la × (o Backspace a casella vuota) la toglie. validate(testo) -> motivo se non va
  * bene (bolla rossa, motivo nel tooltip); summary(valori) -> riga sotto le bolle (es. quanti indirizzi).
+ * spaces: i valori possono contenere spazi (separano solo Invio, virgola, punto e virgola e gli a capo).
  */
-export default function ChipInput({ id, value, onChange, placeholder, disabled, validate, summary, label }) {
+export default function ChipInput({ id, value, onChange, placeholder, disabled, validate, summary, label, spaces = false }) {
+  const separators = spaces ? LINE_SEPARATORS : SEPARATORS
   const [text, setText] = useState('')
   const chips = value || []
 
   const add = (raw) => {
-    const added = raw.split(SEPARATORS).map((part) => part.trim()).filter((part) => part && !chips.includes(part))
+    const added = raw.split(separators).map((part) => part.trim()).filter((part) => part && !chips.includes(part))
     if (added.length) onChange([...chips, ...new Set(added)])
     setText('')
   }
   const remove = (index) => onChange(chips.filter((_, i) => i !== index))
 
   const onKeyDown = (e) => {
-    if (['Enter', ',', ';', ' '].includes(e.key) || (e.key === 'Tab' && text.trim())) {
+    if (['Enter', ',', ';', ...(spaces ? [] : [' '])].includes(e.key) || (e.key === 'Tab' && text.trim())) {
       if (e.key !== 'Tab' || text.trim()) e.preventDefault() // Invio non deve inviare il modulo
       if (text.trim()) add(text)
     } else if (e.key === 'Backspace' && !text && chips.length) {
@@ -29,9 +32,9 @@ export default function ChipInput({ id, value, onChange, placeholder, disabled, 
   }
   const onPaste = (e) => {
     const pasted = e.clipboardData.getData('text')
-    if (!SEPARATORS.test(pasted.trim())) return // un valore solo: lo incolla nella casella come sempre
+    if (!separators.test(pasted.trim())) return // un valore solo: lo incolla nella casella come sempre
     e.preventDefault()
-    add(`${text} ${pasted}`) // quello già scritto resta una bolla a sé
+    add(`${text}${spaces ? '\n' : ' '}${pasted}`) // quello già scritto resta una bolla a sé
   }
 
   const errors = chips.map((chip) => validate?.(chip) || null)
@@ -41,7 +44,7 @@ export default function ChipInput({ id, value, onChange, placeholder, disabled, 
       <div className={`chip-input${disabled ? ' is-disabled' : ''}`} onClick={() => document.getElementById(id)?.focus()}>
         {chips.map((chip, i) => (
           <span key={chip} className={`chip chip--value${errors[i] ? ' chip--invalid' : ''}`} title={errors[i] || undefined}>
-            <span className="mono">{chip}</span>
+            <span className={spaces ? undefined : 'mono'}>{chip}</span>
             {!disabled && (
               <button type="button" className="chip__remove" onClick={() => remove(i)} aria-label={t('Togli {value}', { value: chip })}>
                 ×
@@ -49,7 +52,7 @@ export default function ChipInput({ id, value, onChange, placeholder, disabled, 
             )}
           </span>
         ))}
-        <input id={id} className="chip-input__text mono" value={text} disabled={disabled} aria-label={label}
+        <input id={id} className={`chip-input__text${spaces ? '' : ' mono'}`} value={text} disabled={disabled} aria-label={label}
           placeholder={chips.length ? '' : placeholder} onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown} onPaste={onPaste} onBlur={() => text.trim() && add(text)} />
       </div>

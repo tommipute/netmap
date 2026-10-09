@@ -23,6 +23,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   anche le porte: quelle con un cavo collegato oppure porte scelte una per una, con un avviso quando vanno giù
   mentre il device risponde. Il testo dei messaggi si può cambiare con i segnaposto ({device}, {ip}, {sede},
   {posizione}, {durata}, {porta}…), con l'anteprima nel modulo del canale.
+- Campi personalizzati veri (Amministrazione → Campi personalizzati): l'amministratore sceglie etichetta, tipo
+  (testo, testo lungo, numero, sì/no, data, scelta da un elenco, link), oggetti a cui si applicano, se sono
+  obbligatori e l'ordine. Nei moduli hanno il controllo adatto; negli elenchi sono colonne con filtro e ordinamento;
+  si trovano con la ricerca ed escono nell'export dei device. I campi liberi nome/valore restano.
 
 ### Modifiche
 

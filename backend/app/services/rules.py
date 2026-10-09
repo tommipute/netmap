@@ -426,3 +426,19 @@ def stack_member_hook(db: Session, member: StackMember, data: dict[str, Any], is
         device = db.get(Device, member.device_id)
         if device.rack_id is None:
             _fail("Per indicare l'unità il device dello stack deve essere in un rack")
+
+
+def custom_field_hook(db: Session, definition, data: dict[str, Any], is_create: bool) -> None:
+    from app.services.custom_fields import OBJECT_TYPES
+
+    if not is_create and "name" in data and inspect(definition).attrs.name.history.deleted:
+        _fail("Il nome di un campo personalizzato non si cambia: i valori già salvati resterebbero senza campo")
+    unknown = [o for o in definition.object_types or [] if o not in OBJECT_TYPES]
+    if unknown:
+        _fail(f"Oggetti sconosciuti: {', '.join(unknown)}")
+    if not definition.object_types:
+        _fail("Scegli almeno un tipo di oggetto")
+    choices = list(dict.fromkeys(c.strip() for c in definition.choices or [] if c and c.strip()))
+    definition.choices = choices if definition.type == "select" else []
+    if definition.type == "select" and not choices:
+        _fail("Un campo a scelta ha bisogno dei valori ammessi")

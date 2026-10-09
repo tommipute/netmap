@@ -82,8 +82,14 @@ of one source. In the device page the same icon is next to the ports that were n
 ### Forms
 
 Fields with an asterisk are required. Drop-down menus end with **"+ New …"** (for example "+ New site…"): create a
-missing site, rack, model or role on the fly without losing what you were typing. Almost every object has
-**Custom fields**: free name/value pairs (e.g. "Contract" → "CN-2024-18").
+missing site, rack, model or role on the fly without losing what you were typing. Almost every object (devices, ports,
+cables, sites, locations, racks, models, subnets, IPs, VLANs, VRFs) has **custom fields**. The administrator defines
+them in Administration → Custom fields: label, name (the key in the data, which cannot be changed), type (text, long
+text, number, yes/no, date, choice from a list, link), which objects they apply to, whether they are required and in
+which order they appear. A defined field shows in the form with the right control (menu, date, checkbox…), is a list
+column with filter and sorting, is found by search and is exported with the devices (column `cf_<name>`). Below the
+defined fields there are still free name/value fields (e.g. those that came from an import). Deleting a definition
+does not delete the values: they become free fields.
 
 ### Printing
 

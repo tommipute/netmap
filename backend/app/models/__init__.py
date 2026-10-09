@@ -9,6 +9,7 @@ from app.models.audit import AuditEntry
 from app.models.auth import DirectorySettings, User
 from app.models.backups import BackupCopy, BackupTarget, BackupTask
 from app.models.base import Base
+from app.models.custom_fields import CustomFieldDefinition
 from app.models.dcim import (
     Cable,
     Device,
@@ -77,6 +78,7 @@ __all__ = [
     "BackupTask",
     "Base",
     "Cable",
+    "CustomFieldDefinition",
     "Device",
     "DeviceRole",
     "DeviceType",

@@ -27,6 +27,7 @@ from app.models import (
     Site,
 )
 from app.models.enums import DeviceStatus
+from app.services.custom_fields import definitions, search_clause
 from app.services.locations import SEPARATOR
 from app.services.rules import device_hook, set_management_ip
 
@@ -98,6 +99,7 @@ def get_devices_data(
                 Device.asset_tag.ilike(term),
                 Device.sys_name.ilike(term),
                 Device.description.ilike(term),
+                search_clause(Device, term),
             )
         )
     stmt = stmt.order_by(Device.name)
@@ -162,8 +164,17 @@ def get_devices_data(
             "sys_name": d.sys_name or "",
             "ports_count": port_counts.get(d.id, 0),
             "description": d.description or "",
+            "custom_fields": d.custom_fields or {},
         })
     return items
+
+
+def _csv_value(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "sì" if value else "no"
+    return str(value)
 
 
 def export_devices(
@@ -221,10 +232,14 @@ def export_devices(
         "description",
     ]
     delim = delimiter if delimiter in (",", ";", "\t") else ";"
+    # Una colonna per campo personalizzato definito per i device (cf_<nome>)
+    custom = [d.name for d in definitions(db, "devices")]
+    fieldnames += [f"cf_{name}" for name in custom]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore", delimiter=delim)
     writer.writeheader()
     for item in items:
-        writer.writerow(item)
+        values = item["custom_fields"]
+        writer.writerow({**item, **{f"cf_{name}": _csv_value(values.get(name)) for name in custom}})
 
     return output.getvalue(), "text/csv; charset=utf-8", "devices_export.csv"
 

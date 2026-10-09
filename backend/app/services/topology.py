@@ -22,6 +22,7 @@ from app.models import (
     Rack,
     StackMember,
 )
+from app.services.custom_fields import search_clause
 from app.models.dcim import interface_tagged_vlans
 from app.models.enums import NON_CABLEABLE_TYPES
 
@@ -382,7 +383,8 @@ def global_search(db: Session, q: str, limit: int = 25) -> list[dict]:
 
     devices = db.scalars(
         select(Device)
-        .where(or_(Device.name.ilike(like), Device.serial.ilike(like), Device.asset_tag.ilike(like), Device.sys_name.ilike(like)))
+        .where(or_(Device.name.ilike(like), Device.serial.ilike(like), Device.asset_tag.ilike(like), Device.sys_name.ilike(like),
+                   search_clause(Device, like)))
         .order_by(Device.name)
         .limit(limit)
     )

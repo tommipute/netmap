@@ -73,6 +73,13 @@ def require_admin(user: User | None = Depends(current_user)) -> User | None:
     return user
 
 
+def require_admin_to_write(request: Request, user: User | None = Depends(current_user)) -> User | None:
+    """Tutti leggono (es. le definizioni dei campi personalizzati, che servono ai moduli); scrive solo l'admin."""
+    if user is not None and request.method not in READ_METHODS and user.role != UserRole.ADMIN.value:
+        raise HTTPException(403, "Solo gli amministratori possono cambiare questa impostazione")
+    return user
+
+
 # ---------------------------------------------------------------- sessione
 def _start_session(response: Response, user: User, db: Session) -> dict:
     user.last_login_at = datetime.now(timezone.utc)

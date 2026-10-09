@@ -64,7 +64,7 @@ export function convert(field, value, isEdit) {
   }
 }
 
-export function FieldControl({ field, value, values, fields, onChange, disabled, editingId, item }) {
+export function FieldControl({ field, value, values, fields, onChange, disabled, editingId, item, resourceKey }) {
   const id = `field-${field.name}`
   switch (field.type) {
     case 'textarea':
@@ -77,7 +77,7 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
     case 'tags':
       return (
         <ChipInput id={id} value={value} onChange={onChange} placeholder={field.placeholder} disabled={disabled}
-          validate={field.validate} summary={field.summary} label={field.label} />
+          validate={field.validate} summary={field.summary} label={field.label} spaces={field.spaces} />
       )
     case 'secret':
       return (
@@ -122,7 +122,7 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
     case 'kv':
       return <KeyValueEditor value={value} onChange={onChange} />
     case 'custom':
-      return <field.Component id={id} field={field} value={value} values={values} onChange={onChange} disabled={disabled} />
+      return <field.Component id={id} field={field} value={value} values={values} onChange={onChange} disabled={disabled} resourceKey={resourceKey} />
     case 'color':
       return (
         <div className="color-field">
@@ -206,7 +206,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
     for (const f of config.fields) {
       if (isEdit && (f.createOnly || f.lockedFor?.(item))) continue
       const visible = !f.showIf || f.showIf(values, item)
-      const missing = f.type === 'refmulti' || f.type === 'tags' ? !(values[f.name] || []).length : isEmpty(values[f.name])
+      const missing = Array.isArray(values[f.name]) ? !values[f.name].length : isEmpty(values[f.name])
       if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {
         setError(t('Compila il campo "{field}".', { field: f.label }))
         return
@@ -251,7 +251,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
                   {f.label}
                   {(f.required || (f.requiredOnCreate && !isEdit)) && <span className="field__req" aria-hidden="true"> *</span>}
                 </Label>
-                <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields}
+                <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields} resourceKey={config.path}
                   onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />
                 {locked && <span className="hint">{lockReason || t('Non modificabile dopo la creazione.')}</span>}
                 {!locked && filled[f.name] && <span className="hint">{f.fillFrom.hint}</span>}

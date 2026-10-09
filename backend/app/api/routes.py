@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
 from app.api import alerts, auth, backups, directory, discovery, extra, history, netbox, system
-from app.api.auth import require_admin, require_user
+from app.api.auth import require_admin, require_admin_to_write, require_user
 from app.api.crud import build_crud_router
 from app.models import (
     AlertChannel,
@@ -10,6 +10,7 @@ from app.models import (
     VLAN,
     VRF,
     Cable,
+    CustomFieldDefinition,
     Device,
     DeviceRole,
     DeviceType,
@@ -29,6 +30,7 @@ from app.models import (
 from app.schemas import alerts as al
 from app.schemas import backups as bk
 from app.schemas import auth as sa
+from app.schemas import custom_fields as cfs
 from app.schemas import dcim as d
 from app.schemas import discovery as sd
 from app.schemas import ipam as i
@@ -99,6 +101,11 @@ _routers = [
     dict(model=DiscoveryJob, create_schema=sd.DiscoveryJobCreate, update_schema=sd.DiscoveryJobUpdate,
          read_schema=sd.DiscoveryJobRead, path="/discovery-jobs", tag="Scansione", filters=("site_id", "enabled"),
          search=("name", "description"), order_by=(DiscoveryJob.name,), hook=rules.discovery_job_hook),
+    # ---------- Campi personalizzati (li leggono tutti, li cambia l'amministratore) ----------
+    dict(model=CustomFieldDefinition, create_schema=cfs.CustomFieldCreate, update_schema=cfs.CustomFieldUpdate,
+         read_schema=cfs.CustomFieldRead, path="/custom-fields", tag="Campi personalizzati", filters=("type",),
+         search=("name", "label"), order_by=(CustomFieldDefinition.weight, CustomFieldDefinition.label),
+         hook=rules.custom_field_hook, dependencies=[Depends(require_admin_to_write)]),
     # ---------- Utenti (solo amministratori) ----------
     dict(model=User, create_schema=sa.UserCreate, update_schema=sa.UserUpdate, read_schema=sa.UserRead,
          path="/users", tag="Utenti", filters=("role", "active", "source"), search=("username", "full_name"),

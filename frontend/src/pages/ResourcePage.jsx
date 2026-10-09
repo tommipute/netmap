@@ -4,6 +4,7 @@ import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import BulkEditDialog from '../components/BulkEditDialog'
+import { customColumns, useCustomFields } from '../components/CustomFields'
 import DeleteDialog from '../components/DeleteDialog'
 import DeviceImportDialog from '../components/DeviceImportDialog'
 import { IconButton } from '../components/Icon'
@@ -89,7 +90,11 @@ export default function ResourcePage({ resourceKey }) {
   const [bulkResult, setBulkResult] = useState(null) // { done, failed: [{ label, error }], verb }
   const q = useDebounced(search)
   // Tabella: colonne scelte (salvate nel browser), filtri sotto le intestazioni, ordinamento
-  const { layout, visible: columns, save: saveColumns, customized } = useTableColumns(resourceKey, config.columns)
+  // In fondo una colonna per ogni campo personalizzato definito per questi oggetti
+  const definitions = useCustomFields(config.fields.some((f) => f.name === 'custom_fields') ? config.path : null)
+  const definitionsKey = JSON.stringify(definitions)
+  const allColumns = useMemo(() => [...config.columns, ...customColumns(definitions)], [config.columns, definitionsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { layout, visible: columns, save: saveColumns, customized } = useTableColumns(resourceKey, allColumns)
   const [showColumnFilters, setShowColumnFilters] = useState(false)
   const [columnFilters, setColumnFilters] = useState({})
   const [sort, setSort] = useState(null) // "campo" o "-campo"

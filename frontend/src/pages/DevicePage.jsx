@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { Badge, ErrorBox, LiveStatus, Loading, Mono, PrintFooter, SourceIcon } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
+import { CustomValue, useCustomFields } from '../components/CustomFields'
 import DeleteDialog from '../components/DeleteDialog'
 import HistoryList from '../components/HistoryList'
 import { IconButton, IconLink } from '../components/Icon'
@@ -156,6 +157,8 @@ function DeviceHistory({ deviceId }) {
   )
 }
 
+const isBlank = (value) => value === null || value === undefined || value === ''
+
 export default function DevicePage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -166,6 +169,7 @@ export default function DevicePage() {
   const [dialog, setDialog] = useState(null)
   const [checking, setChecking] = useState(false)
   const { canEdit } = useAuth()
+  const customDefinitions = useCustomFields('devices')
 
   const refresh = () => {
     setDialog(null)
@@ -205,7 +209,11 @@ export default function DevicePage() {
 
   const primary = ports?.flatMap((p) => p.ips.map((ip) => ({ ...ip, port: p.name }))).find((ip) => ip.is_primary)
   const connected = ports?.filter((p) => p.cable_id).length ?? 0
-  const customEntries = Object.entries(device.custom_fields || {})
+  // Prima i campi definiti (con etichetta e formato), poi quelli liberi
+  const customEntries = [
+    ...customDefinitions.filter((d) => !isBlank(device.custom_fields?.[d.name])).map((d) => [d.name, d.label, d]),
+    ...Object.keys(device.custom_fields || {}).filter((k) => !customDefinitions.some((d) => d.name === k)).map((k) => [k, k, null]),
+  ]
 
   return (
     <div className="page">
@@ -275,8 +283,8 @@ export default function DevicePage() {
         <div><dt>{t('Origine dati')}</dt><dd><SourceIcon source={device.source} withLabel /></dd></div>
         {device.last_seen_at && <div><dt>{t('Ultima scansione')}</dt><dd>{formatDateTime(device.last_seen_at)}</dd></div>}
         {device.sys_name && device.sys_name !== device.name && <div><dt>{t('sysName')}</dt><dd><Mono>{device.sys_name}</Mono></dd></div>}
-        {customEntries.map(([key, value]) => (
-          <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>
+        {customEntries.map(([key, label, definition]) => (
+          <div key={key}><dt>{label}</dt><dd><CustomValue definition={definition} value={device.custom_fields[key]} /></dd></div>
         ))}
         {device.sys_descr && (
           <div className="facts__wide"><dt>{t('Descrizione SNMP')}</dt><dd className="hint">{device.sys_descr}</dd></div>

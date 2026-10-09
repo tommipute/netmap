@@ -5,6 +5,7 @@
 import { ROLES, USER_SOURCES } from './auth'
 import { AlertTemplates, DeviceMulti, PortPicker } from './components/AlertFields'
 import AlertTestButton from './components/AlertTestButton'
+import { CUSTOM_FIELD_TYPES, CustomFieldsEditor, ObjectTypesPicker } from './components/CustomFields'
 import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
 import RefLabel from './components/RefLabel'
 import * as O from './options'
@@ -12,7 +13,7 @@ import { emailError, targetError, targetsSummary } from './targets'
 import { LANGUAGES, t, tc, tServer } from './i18n'
 
 const description = { name: 'description', label: t('Note'), type: 'textarea' }
-const customFields = { name: 'custom_fields', label: t('Campi personalizzati'), type: 'kv' }
+const customFields = { name: 'custom_fields', label: t('Campi personalizzati'), type: 'custom', Component: CustomFieldsEditor, empty: {} }
 // Icona dell'origine (a mano, scansione, import da un altro programma), con filtro
 const sourceColumn = {
   name: 'source', label: t('Origine'), render: (o) => <SourceIcon source={o.source} />,
@@ -799,6 +800,43 @@ resources['alert-channels'] = {
   ],
 }
 
+resources['custom-fields'] = {
+  path: 'custom-fields',
+  title: t('Campi personalizzati'),
+  newLabel: t('Nuovo campo personalizzato'),
+  editLabel: t('Modifica campo personalizzato'),
+  intro: t('Campi in più per device, porte, sedi e gli altri oggetti: compaiono nei moduli, come colonne degli elenchi (con filtro e ordinamento), nella ricerca e nell\'export dei device.'),
+  label: (o) => o.label,
+  filters: [{ name: 'type', label: t('Tipo'), options: CUSTOM_FIELD_TYPES }],
+  columns: [
+    { name: 'label', label: t('Etichetta'), render: (o) => <strong>{o.label}</strong>, filter: { kind: 'text' }, sortField: 'label' },
+    { name: 'name', label: t('Nome'), type: 'mono' },
+    { name: 'type', label: t('Tipo'), type: 'select', options: CUSTOM_FIELD_TYPES },
+    {
+      name: 'object_types', label: t('Oggetti'), filter: false, sortField: null,
+      render: (o) => (o.object_types || []).map((k) => resources[k]?.title || k).join(', '),
+    },
+    { name: 'required', label: t('Obbligatorio'), type: 'bool' },
+    { name: 'weight', label: t('Ordine'), hidden: true },
+  ],
+  fields: [
+    { name: 'label', label: t('Etichetta'), required: true, placeholder: t('Contratto di assistenza') },
+    {
+      name: 'name', label: t('Nome'), required: true, createOnly: true, placeholder: t('contratto'),
+      help: t('Minuscole, cifre e _: è la chiave nei dati, nell\'API e nell\'export (cf_nome). Non si cambia dopo.'),
+    },
+    { name: 'type', label: t('Tipo'), type: 'select', options: CUSTOM_FIELD_TYPES, default: 'text', required: true },
+    { name: 'weight', label: t('Ordine'), type: 'number', default: 100, help: t('Nei moduli e nelle colonne prima i numeri più bassi.') },
+    {
+      name: 'choices', label: t('Valori ammessi'), type: 'tags', spaces: true, showIf: (v) => v.type === 'select',
+      placeholder: t('Base, Oro…'), help: t('Invio o virgola dopo ogni valore.'),
+    },
+    { name: 'object_types', label: t('Vale per'), type: 'custom', Component: ObjectTypesPicker, empty: [], required: true },
+    { name: 'required', label: t('Obbligatorio'), type: 'bool' },
+    description,
+  ],
+}
+
 const fromDirectory = (item) => item?.source === 'ad' && t('Viene da Active Directory a ogni accesso.')
 
 resources.users = {
@@ -850,5 +888,5 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', { to: 'directory', title: t('Active Directory') }, { to: 'import-netbox', title: t('Import da NetBox') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import-netbox', title: t('Import da NetBox') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]

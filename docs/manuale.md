@@ -82,7 +82,14 @@ un'origine. Nella scheda del device la stessa icona è accanto alle porte che no
 
 Nei moduli i campi con l'asterisco sono obbligatori. I menu a tendina hanno in fondo la voce **"+ Nuovo …"**: crei
 al volo una sede, un rack, un modello o un ruolo che manca, senza perdere quello che stavi scrivendo.
-Quasi tutti gli oggetti hanno i **campi personalizzati**: coppie nome/valore libere (es. "Contratto" → "CN-2024-18").
+Quasi tutti gli oggetti (device, porte, cavi, sedi, posizioni, rack, modelli, subnet, IP, VLAN, VRF) hanno i
+**campi personalizzati**. L'amministratore li definisce in Amministrazione → Campi personalizzati: etichetta, nome
+(la chiave nei dati, che non si cambia), tipo (testo, testo lungo, numero, sì/no, data, scelta da un elenco, link),
+a quali oggetti si applicano, se sono obbligatori e in che ordine compaiono. Un campo definito compare nel modulo
+con il controllo adatto (menu, data, casella…), è una colonna degli elenchi con filtro e ordinamento, si trova con la
+ricerca ed esce nell'export dei device (colonna `cf_<nome>`). Sotto i campi definiti restano i campi liberi
+nome/valore (es. quelli arrivati da un import). Eliminare una definizione non cancella i valori: diventano campi
+liberi.
 
 ### Stampa
 

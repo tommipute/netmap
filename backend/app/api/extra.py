@@ -23,6 +23,7 @@ from app.schemas.views import (
     Topology,
     XlsxConverted,
 )
+from app.services import custom_fields
 from app.services.device_import_export import (
     export_devices,
     generate_device_csv_template,
@@ -70,7 +71,8 @@ def get_devices_export(
     db: Session = Depends(get_db),
 ):
     # Stessi filtri per colonna dell'elenco (<campo>__contains, __eq, __isnull), come id dei device da esportare
-    only = apply_column_filters(Device, ("management_ip",), select(Device.id), request.query_params)
+    only = apply_column_filters(Device, ("management_ip",), select(Device.id), request.query_params,
+                                custom_fields.column_expressions(db, Device, "devices"))
     if reachable is not None:
         only = only.where(Device.reachable.is_(reachable))
     content, media_type, filename = export_devices(
