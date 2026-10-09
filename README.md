@@ -5,7 +5,7 @@ automatiche o disegnate a mano.
 
 - **Fase 1** ✔ modello dati + API REST
 - **Fase 2** ✔ interfaccia web: elenchi e moduli per tutto, scheda device con le porte, subnet con IP liberi, mappe,
-  import/export CSV dei device
+  import/export dei device (CSV ed Excel), import da NetBox
 - **Fase 3** ✔ scansione SNMP (v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
 - **Fase 4** ✔ stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login con ruoli
   (anche con Active Directory), storico delle modifiche, avvisi, backup
@@ -98,9 +98,13 @@ La barra di ricerca in alto trova device, IP e MAC (anche nel formato Cisco `aab
 ### Import ed export dei device
 
 Nell'elenco **Device**: *Esporta CSV* (apribile in Excel) o *Esporta JSON* rispettano i filtri attivi.
-*Importa* accetta un file o testo incollato, con intestazioni in italiano o inglese (*Scarica modello CSV* ne dà
-un esempio). Sedi, posizioni, rack, produttori, modelli e ruoli mancanti vengono creati. Con *Simulazione*
-vedi cosa succederebbe senza scrivere niente; le righe sbagliate vengono elencate e le altre importate.
+*Importa* accetta un file CSV o Excel (`.xlsx`) o testo incollato, con intestazioni in italiano o inglese
+(*Scarica modello CSV* ne dà un esempio). Sedi, posizioni, rack, produttori, modelli e ruoli mancanti vengono
+creati. Con *Simulazione* vedi cosa succederebbe senza scrivere niente; le righe sbagliate vengono elencate e le
+altre importate.
+
+Da **NetBox** (3.3 o successivo) si importa tutto in una volta: *Amministrazione → Import da NetBox*, con un token
+in sola lettura (dettagli nel [manuale](docs/manuale.md#da-netbox)).
 
 ### Scansione SNMP
 

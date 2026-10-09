@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -20,11 +21,13 @@ from app.schemas.views import (
     SearchResult,
     StatusSummary,
     Topology,
+    XlsxConverted,
 )
 from app.services.device_import_export import (
     export_devices,
     generate_device_csv_template,
     import_devices_from_csv,
+    xlsx_to_csv,
 )
 from app.services.endpoints import endpoint_query, endpoint_rows
 from app.services.ipam import available_ips, prefix_ip_addresses, prefix_utilization
@@ -94,6 +97,18 @@ def get_device_import_template(
     template = generate_device_csv_template(delimiter=delimiter)
     headers = {"Content-Disposition": 'attachment; filename="modello_import_device.csv"'}
     return Response(content=template, media_type="text/csv; charset=utf-8", headers=headers)
+
+
+@router.post("/devices/import/xlsx", response_model=XlsxConverted, tags=["Device"],
+             summary="Converte un file Excel (.xlsx, corpo della richiesta) nel testo CSV da importare")
+async def post_device_import_xlsx(request: Request):
+    data = await request.body()
+    if not data:
+        raise HTTPException(422, "Il file è vuoto")
+    try:
+        return await run_in_threadpool(xlsx_to_csv, data)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.post("/devices/import", response_model=DeviceImportResult, tags=["Device"], summary="Importa device da testo o file CSV")

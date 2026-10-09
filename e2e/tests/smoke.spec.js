@@ -146,6 +146,17 @@ test('active directory: prova con un dominio che non esiste (non salva niente)',
   await expect(page.locator('.directory-test .update-live')).toContainText('Nessun domain controller risponde', { timeout: 30_000 })
 })
 
+test('import da NetBox: prova con un NetBox che non risponde (non importa niente)', async ({ page }) => {
+  await login(page)
+  await page.goto('/import-netbox')
+  await expect(page.getByRole('heading', { name: 'Import da NetBox', level: 1 })).toBeVisible()
+  await page.getByRole('textbox', { name: /^Indirizzo di NetBox/ }).fill('http://127.0.0.1:9')
+  await page.getByLabel(/^Token API/).fill('0123456789abcdef0123456789abcdef01234567')
+  await page.getByRole('button', { name: 'Prova la connessione' }).click()
+  await expect(page.locator('.error-box')).toContainText('NetBox non risponde', { timeout: 30_000 })
+  await expect(page.getByRole('button', { name: "Simula l'import" })).toHaveCount(0)
+})
+
 test('interfaccia in inglese', async ({ page }) => {
   await login(page)
   await page.evaluate(() => window.localStorage.setItem('netmap.lang', 'en'))

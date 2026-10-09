@@ -820,5 +820,5 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', { to: 'directory', title: t('Active Directory') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', { to: 'directory', title: t('Active Directory') }, { to: 'import-netbox', title: t('Import da NetBox') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]

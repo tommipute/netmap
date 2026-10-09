@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (87 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (96 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -57,7 +57,7 @@ docker compose build api worker                     # dopo aver cambiato require
 |---|---|---|
 | web (Vite + React) | http://localhost:5174 | proxy verso l'API per `/api`, `/docs`, `/openapi.json` |
 | api (FastAPI) | http://localhost:8001/docs | reload automatico, codice montato da `./backend` |
-| worker | — | esegue le scansioni in coda; `watchfiles` lo riavvia quando cambia il codice |
+| worker | — | esegue scansioni, copie dei backup e import da NetBox in coda (un thread ciascuno); `watchfiles` lo riavvia quando cambia il codice |
 | monitor | — | stato live: ping + SNMP ifOperStatus ogni `MONITOR_INTERVAL_SECONDS` (0 = spento) |
 | db (Postgres 16) | localhost:5433 | |
 
@@ -146,6 +146,9 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
   `services/topology.py`: porte, topologia, mappe, ricerca. `services/ipam.py`: utilizzo e IP liberi.
   `services/device_import_export.py`: export CSV/JSON e import CSV dei device (ogni riga in un SAVEPOINT: le righe
   sbagliate finiscono negli errori e le altre passano; il dry-run dà gli stessi errori e poi fa rollback).
+  Excel: `xlsx_to_csv` (openpyxl in sola lettura, con `defusedxml` installato) sceglie il primo foglio con la
+  colonna del nome e lo converte in CSV con `;`, che il client mostra nel riquadro e poi importa come un CSV.
+  Intestazioni: alias in `HEADER_ALIASES` (anche quelle dell'export di NetBox), senza accenti né maiuscole.
 - `core/net.py`: normalizzazione MAC/IP/prefissi e chiavi di ordinamento. `core/secrets.py`: cifratura Fernet.
 - `discovery/`: scansione SNMP (sezione dedicata). `worker.py`: processo del container worker.
 
@@ -212,6 +215,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `PUT /api/maps/{id}/nodes` | sostituisce l'elenco `[{device_id, x, y}]` della mappa |
 | `GET /api/search?q=` | device (nome, seriale, asset tag), MAC anche parziale/formato Cisco, IP, DNS |
 | `GET /api/devices/export?format=csv\|json&<filtri>` · `GET /api/devices/import/template` · `POST /api/devices/import` | import/export dei device |
+| `POST /api/devices/import/xlsx` (corpo = file) | converte un `.xlsx` nel CSV da importare (`{csv_data, sheet, rows}`) |
 | `POST /api/discovery-jobs/{id}/run` | mette in coda una scansione (409 se ce n'è già una in coda o in corso) |
 | `GET /api/discovery-runs?job_id=` · `/discovery-runs/{id}` | storico delle scansioni con log |
 | `GET /api/discovery-changes?status=&job_id=&device_id=` · `/discovery-changes/count` | modifiche proposte, contatore |
@@ -222,6 +226,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
 | `GET`/`PUT /api/directory` · `POST /api/directory/test` | Active Directory: impostazioni, prova con un utente (solo admin) |
 | `GET /api/diagnostics` | pacchetto diagnostico zip (solo admin) |
+| `POST /api/netbox/test` · `GET`/`POST /api/netbox/imports` · `GET /api/netbox/imports/{id}` | import da NetBox: prova, coda, stato con log e problemi (solo admin) |
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
 Anche `/snmp-profiles` e `/discovery-jobs` sono CRUD generati.
@@ -365,9 +370,12 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   vale per API, modifiche in blocco, scansione, import. Righe nella stessa transazione (rollback = spariscono).
 - Chi: `session.info["audit_user"]` (lo mette `current_user` in `api/auth.py`), `session.info["audit_source"]`
   (`scansione` in `execute_run` e `apply_change`, `import` nell'import CSV, `directory` per gli utenti creati o
-  aggiornati dall'accesso con Active Directory; altrimenti `utente`/`sistema`).
+  aggiornati dall'accesso con Active Directory, `netbox` nell'import da NetBox; altrimenti `utente`/`sistema`).
 - Non registra i campi in `IGNORED` (stato live, last_seen, if_index...), i segreti (solo "cambiata"), né porte e
-  IP creati insieme al loro device nella stessa transazione. I riferimenti (`*_id`) si salvano con il nome.
+  IP creati insieme al loro device nella stessa transazione (né le loro modifiche, es. LAG o flag di management).
+  I riferimenti (`*_id`) si salvano con il nome. I device creati si ricordano in `session.info` fino alla fine
+  della transazione esterna (`after_transaction_end` con `parent is None`): `after_commit` scatta anche a ogni
+  SAVEPOINT e l'import da NetBox crea device e porte in SAVEPOINT diversi.
 - `device_id`/`device_id_2` (cavi) per lo storico nella scheda del device, anche dopo l'eliminazione.
 - API `GET /api/audit-log`; pagina "Storico modifiche" (`/history`) e sezione nella scheda device.
 - **Nelle prove**: dopo aver usato un utente di prova cancellare anche le sue righe di storico.
@@ -378,6 +386,33 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   (Modifiche → `/history?since=` dello stesso periodo) o scorrono alla loro sezione.
 - Vite in sviluppo a volte resta con una versione a metà di un file modificato più volte di fila ("does not provide
   an export named 'default'", pagina bianca): `docker compose restart web`.
+
+## Import da NetBox (`services/netbox.py`, `api/netbox.py`, tabella `import_runs`, pagina `/import-netbox`)
+
+- Solo admin. Il token (v1 → `Token …`, v2 `nbt_…` → `Bearer …`) sta cifrato in `import_runs.token_enc` (in
+  `keys.ENCRYPTED`) solo finché il worker non ha finito, poi `None`. `POST /netbox/test` (versione ≥ 3.3, conteggi,
+  sedi) gira nell'API; `POST /netbox/imports` mette in coda (409 se ce n'è già uno in coda o in corso); il worker
+  (thread `import_loop`: `claim_next` con SKIP LOCKED, `recover_interrupted` all'avvio) esegue `execute_import`;
+  la pagina (`NetBoxImportPage`) rilegge `GET /netbox/imports/{id}` ogni 2 s. Si tengono gli ultimi 20 (`prune`).
+- Lettura (`fetch`): urllib, pagine da 1000 con offset, oggetti ridotti ai campi che servono (`_device`,
+  `_interface`…). Con le sedi scelte filtra NetBox (`site_id`) per posizioni, rack, device, porte e cavi e riduce
+  il catalogo a quello usato da quei device. Prima si legge tutto (log man mano, con commit), poi si scrive.
+- Scrittura (`Importer`): una transazione sola (simulazione = rollback alla fine), ogni oggetto in un SAVEPOINT
+  con schema + `apply_data` + hook di `rules.py` (dentro `no_autoflush`: altrimenti i controlli di unicità trovano
+  l'oggetto stesso). Chiavi naturali: sede per nome, posizione (sede, padre, nome), rack (sede, nome), modello
+  (produttore, modello), VRF per nome o RD, VLAN (sede, vid; la sede anche dall'ambito del gruppo), prefisso (VRF,
+  prefisso), device (sede, nome), IP (VRF, host). Quello che c'è già **non si tocca**. Porte solo sui device nuovi
+  (quelle dei device esistenti si cercano per nome, servono a cavi e IP). Virtual chassis → un device con il nome
+  del VC, dati del master, `StackMember` per membro. Cavi: porta↔porta diretti; attraverso front/rear port si
+  usano i `connected_endpoints` e il patch panel va nella descrizione; circuiti, alimentazione e console saltati
+  (nota nel log). IP: con le sedi scelte quelli delle porte lette e quelli liberi dentro le subnet di quelle sedi.
+  Primary IP → `is_primary` solo per i device nuovi.
+- Esito: `counts` per tipo (created/existing/failed/skipped), `problems` `{kind, name, message}` (massimo 1000).
+  Messaggi e log in italiano, tradotti dai `patterns` di en.js (`inner()` traduce il motivo dentro "Import non
+  eseguito: …"). Storico con `audit_source = "netbox"` e l'utente che l'ha chiesto.
+- Test: `tests/test_netbox.py` con `FakeNetBox` (sottoclasse di `Client` che risponde con le forme vere delle API,
+  pagine da 3). Provato (9/10/2026) contro il NetBox demo 4.7.2 in container: tutte le sedi = 2149 oggetti in
+  ~10 s, seconda volta 0 creati, stack, patch panel, LAG, trunk, primary IP, simulazione dal browser.
 
 ## Avvisi (`services/alerts.py`, tabelle `alert_channels`, `alert_states`)
 

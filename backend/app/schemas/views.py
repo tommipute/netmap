@@ -125,6 +125,12 @@ class DeviceImportError(BaseModel):
     error: str
 
 
+class XlsxConverted(BaseModel):
+    csv_data: str
+    sheet: str   # foglio letto
+    rows: int    # righe di dati, senza l'intestazione
+
+
 class DeviceImportResult(BaseModel):
     total_rows: int
     created_count: int

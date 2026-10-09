@@ -2,7 +2,13 @@
 import csv
 import io
 import json
+import unicodedata
+import zipfile
+from datetime import date, datetime
 from typing import Any
+
+import openpyxl
+from openpyxl.utils.exceptions import InvalidFileException
 
 from fastapi import HTTPException
 from sqlalchemy import func, or_, select
@@ -24,18 +30,20 @@ from app.models.enums import DeviceStatus
 from app.services.locations import SEPARATOR
 from app.services.rules import device_hook, set_management_ip
 
-# Mappatura sinonimi/alias per le intestazioni CSV (italiano e inglese)
+# Mappatura sinonimi/alias per le intestazioni CSV (italiano e inglese, più quelle dell'export dei device di
+# NetBox: Type, Position, Primary IP / IPv4 Address)
 HEADER_ALIASES: dict[str, list[str]] = {
     "name": ["name", "nome", "device", "dispositivo", "hostname", "device_name"],
     "status": ["status", "stato"],
     "site": ["site", "sede", "site_name", "nome_sede"],
     "location": ["location", "posizione", "luogo", "stanza", "piano", "ubicazione"],
     "rack": ["rack", "armadio"],
-    "rack_position": ["rack_position", "u", "posizione_rack", "rack_pos", "unit", "unita"],
+    "rack_position": ["rack_position", "u", "posizione_rack", "rack_pos", "unit", "unita", "position"],
     "manufacturer": ["manufacturer", "produttore", "marca", "vendor", "costruttore"],
-    "model": ["model", "modello", "device_type", "tipo_device", "part_number"],
+    "model": ["model", "modello", "device_type", "tipo_device", "part_number", "type"],
     "role": ["role", "ruolo", "device_role"],
-    "primary_ip": ["primary_ip", "ip", "ip_address", "ip_primario", "indirizzo_ip", "mgmt_ip", "ip_management"],
+    "primary_ip": ["primary_ip", "ip", "ip_address", "ip_primario", "indirizzo_ip", "mgmt_ip", "ip_management",
+                   "primary_ipv4", "ipv4_address", "primary_ip4"],
     "serial": ["serial", "seriale", "sn", "serial_number", "numero_serie"],
     "asset_tag": ["asset_tag", "asset", "cespite", "tag"],
     "description": ["description", "descrizione", "note", "notes", "dettagli"],
@@ -46,6 +54,8 @@ VALID_STATUSES = {s.value for s in DeviceStatus}
 
 def _normalize_header(h: str) -> str:
     cleaned = h.strip().lower().replace(" ", "_").replace("-", "_")
+    # "Unità" come "unita": gli accenti non contano
+    cleaned = "".join(c for c in unicodedata.normalize("NFKD", cleaned) if not unicodedata.combining(c))
     for standard_name, aliases in HEADER_ALIASES.items():
         if cleaned in aliases:
             return standard_name
@@ -291,12 +301,16 @@ def generate_device_csv_template(delimiter: str = ";") -> str:
 
 # ---------------------------------------------------------------- import
 
-# Stati scritti in italiano (come nell'interfaccia) -> valore salvato
+# Stati scritti in italiano (come nell'interfaccia) o quelli di NetBox -> valore salvato
 STATUS_ALIASES = {
     "attivo": DeviceStatus.ACTIVE.value,
     "pianificato": DeviceStatus.PLANNED.value,
     "spento": DeviceStatus.OFFLINE.value,
     "dismesso": DeviceStatus.DECOMMISSIONED.value,
+    "staged": DeviceStatus.PLANNED.value,
+    "failed": DeviceStatus.OFFLINE.value,
+    "inventory": DeviceStatus.OFFLINE.value,
+    "decommissioning": DeviceStatus.DECOMMISSIONED.value,
 }
 class RowError(Exception):
     """Errore di una singola riga: la riga viene saltata, le altre proseguono."""
@@ -410,24 +424,29 @@ def _resolve_device_type(db: Session, manufacturer_name: str, model: str) -> Dev
     return dev_type
 
 
+def guess_role_style(name: str) -> tuple[int, str]:
+    """Livello in mappa e colore di un ruolo nuovo, dal nome (firewall in alto, access point in basso)."""
+    r_lower = name.lower()
+    if "firewall" in r_lower or "gw" in r_lower or "router" in r_lower:
+        return 0, "#E24B4B"
+    if "core" in r_lower:
+        return 0, "#2B7FFF"
+    if "distrib" in r_lower:
+        return 1, "#4FA8F6"
+    if "access" in r_lower or "switch" in r_lower:
+        return 2, "#10B981"
+    if "ap" in r_lower.split() or "wifi" in r_lower or "wi-fi" in r_lower:
+        return 3, "#F59E0B"
+    return 2, "#888780"
+
+
 def _resolve_role(db: Session, value: str) -> DeviceRole | None:
     if not value:
         return None
     role = _by_id_or_name(db, DeviceRole, value, DeviceRole.name)
     if role is not None:
         return role
-    r_lower = value.lower()
-    lvl, col = 2, "#888780"
-    if "firewall" in r_lower or "gw" in r_lower or "router" in r_lower:
-        lvl, col = 0, "#E24B4B"
-    elif "core" in r_lower:
-        lvl, col = 0, "#2B7FFF"
-    elif "distrib" in r_lower:
-        lvl, col = 1, "#4FA8F6"
-    elif "access" in r_lower or "switch" in r_lower:
-        lvl, col = 2, "#10B981"
-    elif "ap" in r_lower.split() or "wifi" in r_lower or "wi-fi" in r_lower:
-        lvl, col = 3, "#F59E0B"
+    lvl, col = guess_role_style(value)
     role = DeviceRole(name=value, level=lvl, color=col)
     db.add(role)
     db.flush()
@@ -450,9 +469,11 @@ def _parse_status(value: str) -> str | None:
 def _parse_rack_position(value: str) -> int | None:
     if not value:
         return None
-    if not value.isdigit() or not 1 <= int(value) <= 60:
+    # "12.0" o "12,5" (export di NetBox, mezze unità): conta l'unità intera
+    whole, _, fraction = value.replace(",", ".").partition(".")
+    if not whole.isdigit() or (fraction and not fraction.isdigit()) or not 1 <= int(whole) <= 60:
         raise RowError(f"Unità nel rack non valida: '{value}' (serve un numero da 1 a 60)")
-    return int(value)
+    return int(whole)
 
 
 def _import_row(db: Session, row: dict[str, str], update_existing: bool) -> str:
@@ -577,3 +598,64 @@ def import_devices_from_csv(
     else:
         db.commit()
     return result
+
+
+# ---------------------------------------------------------------- Excel
+
+MAX_SHEET_ROWS = 100_000
+
+
+def _cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))  # 42.0 -> "42" (Excel salva i numeri come decimali)
+    if isinstance(value, datetime):
+        return value.date().isoformat() if value.time() == datetime.min.time() else value.isoformat(sep=" ")
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value).strip()
+
+
+def xlsx_to_csv(data: bytes) -> dict[str, Any]:
+    """Foglio Excel (.xlsx) -> testo CSV col punto e virgola, da controllare nell'anteprima e importare come un CSV.
+
+    Prende il primo foglio che ha la colonna del nome (name, nome, hostname...), altrimenti il primo con dei dati;
+    l'intestazione è la prima riga non vuota. Le formule valgono il risultato salvato nel file.
+    """
+    try:
+        book = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except (zipfile.BadZipFile, InvalidFileException, KeyError, ValueError, OSError) as exc:
+        raise ValueError(
+            "Il file non è un Excel .xlsx leggibile (un vecchio .xls va salvato come .xlsx o come CSV)"
+        ) from exc
+    try:
+        first = None
+        for sheet in book.worksheets:
+            rows: list[list[str]] = []
+            for values in sheet.iter_rows(values_only=True):
+                cells = [_cell_text(v) for v in values]
+                if not any(cells):
+                    continue
+                rows.append(cells)
+                if len(rows) > MAX_SHEET_ROWS + 1:
+                    raise ValueError(f"Il foglio {sheet.title} ha più di {MAX_SHEET_ROWS} righe: dividilo in più file")
+            if not rows:
+                continue
+            # Colonne in più a destra senza intestazione (Excel ne conta spesso qualcuna vuota): fuori
+            width = max(i + 1 for i, h in enumerate(rows[0]) if h) if any(rows[0]) else 0
+            table = [(row + [""] * width)[:width] for row in rows]
+            found = {"sheet": sheet.title, "rows": len(table) - 1, "table": table}
+            if "name" in (_normalize_header(h) for h in rows[0]):
+                first = found
+                break
+            first = first or found
+        if first is None:
+            raise ValueError("Il file Excel è vuoto")
+    finally:
+        book.close()
+    output = io.StringIO()
+    csv.writer(output, delimiter=";", lineterminator="\n").writerows(first["table"])
+    return {"csv_data": output.getvalue(), "sheet": first["sheet"], "rows": first["rows"]}

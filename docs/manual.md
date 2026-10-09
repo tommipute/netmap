@@ -1,7 +1,7 @@
 # NetMap manual
 
 NetMap keeps your network documentation: devices with their ports, cables, VLANs, subnets and IP addresses, racks
-and maps. Data is entered by hand, imported from a CSV file or found by the SNMP scan, which proposes changes and
+and maps. Data is entered by hand, imported from Excel, a CSV file or NetBox or found by the SNMP scan, which proposes changes and
 waits for your approval. NetMap also checks every minute which devices respond, finds the switch port a PC is
 connected to and alerts you when a device stops responding.
 
@@ -20,7 +20,7 @@ The interface is available in English: pick it on the sign-in page or in the use
 6. [Devices and ports](#6-devices-and-ports)
 7. [Cables](#7-cables)
 8. [Addressing: subnets, IPs, VLANs, VRFs](#8-addressing-subnets-ips-vlans-vrfs)
-9. [Device import and export](#9-device-import-and-export)
+9. [Import and export](#9-import-and-export)
 10. [Maps](#10-maps)
 11. [Rack view](#11-rack-view)
 12. [SNMP scan](#12-snmp-scan)
@@ -96,7 +96,8 @@ The order that saves the most time:
 4. Complete by hand what the scan can't see: patch panels, devices without SNMP, cables to servers.
 5. Create a **map** for the site.
 
-If you already have a list in Excel, start with the [CSV import](#9-device-import-and-export).
+If you already have a list in Excel, start with the [import](#devices-from-csv-or-excel); if your network is
+documented in NetBox, bring it into NetMap with the [NetBox import](#from-netbox).
 
 ## 4. Catalog: roles, manufacturers, models
 
@@ -163,17 +164,57 @@ grey; planned cables are dashed.
   The scan reads them from the switches.
 - **VRFs**: for networks with separate routing tables; the same IPs and subnets in different VRFs don't clash.
 
-## 9. Device import and export
+## 9. Import and export
+
+### Devices from CSV or Excel
 
 In the **Devices** list:
 
 - **Export to CSV** (opens in Excel) or **to JSON**: exports the devices with the active filters.
-- **Import**: upload a CSV file or paste the text. **Download CSV template** gives you a sample file with the right
-  columns; headers can be in English or Italian. Missing sites, locations (also as a path "Building A > Floor 1"),
-  racks, manufacturers, models and roles are created.
+- **Import**: upload a CSV or Excel (`.xlsx`) file or paste the text. **Download CSV template** gives you a sample
+  file with the right columns; headers can be in English or Italian, and the headers of the NetBox device export
+  work too (Name, Site, Rack, Position, Type, Primary IPv4…). Missing sites, locations (also as a path
+  "Building A > Floor 1"), racks, manufacturers, models and roles are created.
+- From an **Excel** file NetMap reads the first sheet that has the name column (Name, Hostname, Nome…): empty rows
+  above the headers are fine, dates become `2026-01-31`. The content goes into the text box, where you check it
+  before importing. An old `.xls` file must be saved from Excel as `.xlsx` or CSV.
 - **Simulation**: shows what would happen without writing anything. Wrong rows are listed with the reason; the
   others are imported. With **Update devices that already exist** a device with the same name on the same site is
   updated (only with the filled-in cells), not duplicated.
+
+### From NetBox
+
+Administrators only: **Administration → NetBox import**. It copies what is in NetBox (version 3.3 or later) into
+NetMap: sites, locations, racks, manufacturers, roles, models, VRFs, VLANs, subnets, devices with ports and stacks,
+cables and IP addresses.
+
+1. Enter the NetBox address (the one you open in the browser) and an **API token**: a read-only one is enough (in
+   NetBox you create it from your profile, API Tokens). NetMap does not keep it: the worker deletes it when the
+   import ends.
+2. **Test the connection**: NetMap shows the NetBox version, how many objects there are and the list of sites.
+3. Choose **All sites** or **Only the chosen sites**. Objects without a site (VRFs, global VLANs and subnets) always
+   come along; with chosen sites you get the IPs of their ports and the free ones inside their subnets.
+4. **Simulate the import**: it does all the work and rolls it back at the end, so you see how many objects would be
+   created and what problems there are without changing anything. If the numbers look right, **Import**.
+
+The worker runs the import in the background: the page shows the log as it goes and at the end a table with the
+objects created, those that were already there and those that did not go through, with the reason. You can close
+the page: the latest imports stay in **Previous imports**.
+
+- **It only creates what is missing**. An object already in NetMap (site with the same name, device with the same
+  name on the same site, VLAN with the same number on the site, IP with the same address…) stays as it is, even if
+  it differs in NetBox. You can run the import again whenever you like: it does not create duplicates.
+- Ports are only added to devices created by the import; ports of a device that was already there stay as they are,
+  and cables to ports that NetMap doesn't have are skipped.
+- A NetBox **stack** (virtual chassis) becomes a single device, with the stack's name and its members, as in the
+  SNMP scan.
+- A cable that goes through a **patch panel** becomes a direct cable between the two ports, with the patch panel in
+  the notes. Cables to circuits, power outlets and consoles are not imported: the log says how many.
+- Status, serial number, asset tag, custom fields, port mode (access or trunk) with the VLANs, MAC, speed, LAG,
+  cable color and length and the management IP (the NetBox primary IP) come along too. An object that fails
+  NetMap's checks is listed among the problems; the others go ahead.
+- In the **Change history** the import shows up with the origin "NetBox import" and the name of whoever started it;
+  a simulation leaves no trace.
 
 ## 10. Maps
 

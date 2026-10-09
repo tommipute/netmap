@@ -23,6 +23,7 @@ from app.models.dcim import (
     interface_tagged_vlans,
 )
 from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
+from app.models.imports import ImportRun
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
 from app.models.maps import MapCableRoute, MapNode, NetworkMap
 from app.models.monitoring import Endpoint
@@ -84,6 +85,7 @@ __all__ = [
     "DiscoveryJob",
     "DiscoveryRun",
     "Endpoint",
+    "ImportRun",
     "Interface",
     "IPAddress",
     "Location",

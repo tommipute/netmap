@@ -24,6 +24,13 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Nello storico anche avvisi, destinazioni dei backup e impostazioni di Active Directory tra i tipi filtrabili.
 - Manuale d'uso in italiano e in inglese (`docs/manuale.md`, `docs/manual.md`), aperto dal menu utente nella
   versione che corrisponde a quella installata.
+- Import dei device da Excel (`.xlsx`): si legge il primo foglio con la colonna del nome e lo si controlla nel
+  riquadro prima di importare. Accettate anche le intestazioni dell'export dei device di NetBox e quelle con gli
+  accenti ("Unità").
+- Import da NetBox (3.3 o successivo, Amministrazione → Import da NetBox): sedi, posizioni, rack, catalogo, VRF,
+  VLAN, subnet, device con porte e stack, cavi (anche attraverso i patch panel) e IP, di tutte le sedi o di quelle
+  scelte. Basta un token in sola lettura, che non resta salvato; simulazione prima di importare; crea solo quello
+  che manca, quindi si può rilanciare senza doppioni.
 - Pacchetto diagnostico nella pagina Aggiornamenti: uno zip con versione, configurazione senza password, stato del
   database e log dell'API, dello script e (se raccolti) dei container, da allegare a una segnalazione.
 

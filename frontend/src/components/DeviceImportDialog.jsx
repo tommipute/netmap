@@ -2,11 +2,12 @@ import { useState, useRef } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from './Bits'
 import Modal from './Modal'
-import { t } from '../i18n'
+import { t, tn, tServer } from '../i18n'
 
 export default function DeviceImportDialog({ onClose, onImported }) {
   const [csvText, setCsvText] = useState('')
   const [fileName, setFileName] = useState('')
+  const [sheet, setSheet] = useState(null) // foglio letto da un file Excel
   const [updateExisting, setUpdateExisting] = useState(true)
   const [dryRun, setDryRun] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -17,9 +18,26 @@ export default function DeviceImportDialog({ onClose, onImported }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = '' // lo stesso file si può scegliere di nuovo (es. dopo averlo corretto in Excel)
     setFileName(file.name)
     setError(null)
     setResult(null)
+    setSheet(null)
+    if (/\.xls[xm]?$/i.test(file.name)) {
+      // Excel: lo converte il server, poi si vede e si importa come un CSV
+      setLoading(true)
+      api.post('/devices/import/xlsx', file)
+        .then((res) => {
+          setCsvText(res.csv_data)
+          setSheet(res)
+        })
+        .catch((err) => {
+          setCsvText('')
+          setError(err.message)
+        })
+        .finally(() => setLoading(false))
+      return
+    }
     const reader = new FileReader()
     reader.onload = (event) => {
       setCsvText(event.target.result || '')
@@ -67,7 +85,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
       <form onSubmit={handleSubmit} className="form">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <p className="page-intro" style={{ margin: 0 }}>
-            {t('Importa o aggiorna device con sedi, posizioni, rack, modelli, ruoli e IP di management da un file CSV.')}
+            {t('Importa o aggiorna device con sedi, posizioni, rack, modelli, ruoli e IP di management da un file CSV o Excel (.xlsx).')}
           </p>
           <button
             type="button"
@@ -83,12 +101,12 @@ export default function DeviceImportDialog({ onClose, onImported }) {
 
         {/* Selezione file */}
         <div className="field" style={{ marginBottom: '14px' }}>
-          <label className="field__label">{t('Seleziona file CSV')}</label>
+          <label className="field__label">{t('Seleziona file CSV o Excel')}</label>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.txt"
+              accept=".csv,.txt,.xlsx,.xlsm"
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
@@ -101,6 +119,11 @@ export default function DeviceImportDialog({ onClose, onImported }) {
             </button>
             {fileName && <span className="mono" style={{ fontSize: '13px' }}>{fileName}</span>}
           </div>
+          {sheet && (
+            <span className="hint">
+              {tn(sheet.rows, 'Foglio "{sheet}": 1 riga, convertita qui sotto.', 'Foglio "{sheet}": {n} righe, convertite qui sotto.', { sheet: sheet.sheet })}
+            </span>
+          )}
         </div>
 
         {/* Area di testo per incollare o visualizzare il CSV */}
@@ -156,20 +179,20 @@ export default function DeviceImportDialog({ onClose, onImported }) {
           >
             <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: result.errors.length ? '10px' : 0 }}>
               <strong>{result.dry_run ? t('Risultato simulazione:') : t('Importazione completata:')}</strong>
-              <span className="badge badge--ok">{result.created_count} creati</span>
-              <span className="badge badge--info">{result.updated_count} aggiornati</span>
-              {result.skipped_count > 0 && <span className="badge badge--muted">{result.skipped_count} ignorati</span>}
-              {result.errors.length > 0 && <span className="badge badge--danger">{result.errors.length} errori</span>}
+              <span className="badge badge--ok">{tn(result.created_count, '1 creato', '{n} creati')}</span>
+              <span className="badge badge--info">{tn(result.updated_count, '1 aggiornato', '{n} aggiornati')}</span>
+              {result.skipped_count > 0 && <span className="badge badge--muted">{tn(result.skipped_count, '1 ignorato', '{n} ignorati')}</span>}
+              {result.errors.length > 0 && <span className="badge badge--danger">{tn(result.errors.length, '1 errore', '{n} errori')}</span>}
             </div>
 
             {result.created_devices.length > 0 && (
               <p className="hint" style={{ marginTop: '6px' }}>
-                Creati: <span className="mono">{result.created_devices.join(', ')}</span>
+                {t('Creati:')} <span className="mono">{result.created_devices.join(', ')}</span>
               </p>
             )}
             {result.updated_devices.length > 0 && (
               <p className="hint" style={{ marginTop: '4px' }}>
-                Aggiornati: <span className="mono">{result.updated_devices.join(', ')}</span>
+                {t('Aggiornati:')} <span className="mono">{result.updated_devices.join(', ')}</span>
               </p>
             )}
 
@@ -179,7 +202,7 @@ export default function DeviceImportDialog({ onClose, onImported }) {
                 <ul style={{ margin: '6px 0 0 18px', padding: 0, fontSize: '13px', color: 'var(--danger)' }}>
                   {result.errors.map((err, i) => (
                     <li key={i}>
-                      Riga {err.row}{err.device ? ` (${err.device})` : ''}: {err.error}
+                      {t('Riga {row}', { row: err.row })}{err.device ? ` (${err.device})` : ''}: {tServer(err.error)}
                     </li>
                   ))}
                 </ul>

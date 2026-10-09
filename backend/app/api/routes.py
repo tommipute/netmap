@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
-from app.api import alerts, auth, backups, directory, discovery, extra, history, system
+from app.api import alerts, auth, backups, directory, discovery, extra, history, netbox, system
 from app.api.auth import require_admin, require_user
 from app.api.crud import build_crud_router
 from app.models import (
@@ -122,6 +122,7 @@ protected.include_router(history.router)
 protected.include_router(alerts.router)
 protected.include_router(backups.router)
 protected.include_router(directory.router)
+protected.include_router(netbox.router)
 protected.include_router(system.admin)
 protected.include_router(system.support)
 

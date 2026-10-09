@@ -1,7 +1,7 @@
 # Manuale di NetMap
 
 NetMap tiene la documentazione della rete: apparati (device) con le loro porte, cavi, VLAN, subnet e indirizzi IP,
-rack e mappe. I dati si inseriscono a mano, si importano da un CSV o arrivano dalla scansione SNMP, che propone le
+rack e mappe. I dati si inseriscono a mano, si importano da Excel, da un CSV o da NetBox o arrivano dalla scansione SNMP, che propone le
 modifiche e aspetta la tua approvazione. In più NetMap controlla ogni minuto chi risponde, trova su quale porta è
 collegato un PC e ti avvisa quando un apparato non risponde.
 
@@ -18,7 +18,7 @@ Questo manuale è per chi usa NetMap. Installazione e aggiornamenti sul server s
 6. [Device e porte](#6-device-e-porte)
 7. [Cavi](#7-cavi)
 8. [Indirizzamento: subnet, IP, VLAN, VRF](#8-indirizzamento-subnet-ip-vlan-vrf)
-9. [Import ed export dei device](#9-import-ed-export-dei-device)
+9. [Import ed export](#9-import-ed-export)
 10. [Mappe](#10-mappe)
 11. [Vista del rack](#11-vista-del-rack)
 12. [Scansione SNMP](#12-scansione-snmp)
@@ -95,7 +95,8 @@ L'ordine che fa risparmiare più tempo:
 4. Completa a mano quello che la scansione non vede: patch panel, apparati senza SNMP, cavi verso i server.
 5. Crea una **mappa** per la sede.
 
-Se hai già un elenco in Excel, puoi partire dall'[import CSV](#9-import-ed-export-dei-device).
+Se hai già un elenco in Excel, puoi partire dall'[import](#device-da-csv-o-excel); se la rete è documentata in
+NetBox, la porti in NetMap con l'[import da NetBox](#da-netbox).
 
 ## 4. Catalogo: ruoli, produttori, modelli
 
@@ -162,17 +163,56 @@ i pianificati sono tratteggiati.
   (trunk). La scansione le legge dagli switch.
 - **VRF**: per le reti con tabelle di routing separate; IP e subnet uguali in VRF diverse non si scontrano.
 
-## 9. Import ed export dei device
+## 9. Import ed export
+
+### Device da CSV o Excel
 
 Nell'elenco **Device**:
 
 - **Esporta in CSV** (si apre con Excel) o **in JSON**: esporta i device con i filtri attivi.
-- **Importa**: carica un file CSV o incolla il testo. **Scarica modello CSV** ti dà un file d'esempio con le
-  colonne giuste; le intestazioni possono essere in italiano o in inglese. Sedi, posizioni (anche con il percorso
-  "Palazzina A > Piano 1"), rack, produttori, modelli e ruoli che mancano vengono creati.
+- **Importa**: carica un file CSV o Excel (`.xlsx`) o incolla il testo. **Scarica modello CSV** ti dà un file
+  d'esempio con le colonne giuste; le intestazioni possono essere in italiano o in inglese, e vanno bene anche
+  quelle dell'export dei device di NetBox (Name, Site, Rack, Position, Type, Primary IPv4…). Sedi, posizioni (anche
+  con il percorso "Palazzina A > Piano 1"), rack, produttori, modelli e ruoli che mancano vengono creati.
+- Di un file **Excel** si legge il primo foglio che ha la colonna del nome (Nome, Name, Hostname…): le righe vuote
+  sopra le intestazioni non danno fastidio, le date diventano `2026-01-31`. Il contenuto finisce nel riquadro di
+  testo, dove lo controlli prima di importare. Un vecchio `.xls` va salvato da Excel come `.xlsx` o come CSV.
 - **Simulazione**: mostra cosa succederebbe senza scrivere niente. Le righe sbagliate vengono elencate con il
   motivo; le altre vengono importate. Con **Aggiorna i device se già esistenti** un device con lo stesso nome
   nella stessa sede viene aggiornato (solo con le celle compilate), non duplicato.
+
+### Da NetBox
+
+Solo per gli amministratori: **Amministrazione → Import da NetBox**. Copia in NetMap quello che c'è in NetBox
+(versione 3.3 o successiva): sedi, posizioni, rack, produttori, ruoli, modelli, VRF, VLAN, subnet, device con porte
+e stack, cavi e indirizzi IP.
+
+1. Scrivi l'indirizzo di NetBox (quello che apri nel browser) e un **token API**: basta in sola lettura (in NetBox
+   lo crei dal tuo profilo, Token API). NetMap non lo tiene: il worker lo cancella a fine import.
+2. **Prova la connessione**: NetMap mostra la versione di NetBox, quanti oggetti ci sono e l'elenco delle sedi.
+3. Scegli **Tutte le sedi** o **Solo le sedi scelte**. Gli oggetti che non hanno una sede (VRF, VLAN e subnet
+   globali) arrivano sempre; con le sedi scelte arrivano gli IP delle loro porte e quelli liberi dentro le loro subnet.
+4. **Simula l'import**: fa tutto il lavoro e alla fine torna indietro, così vedi quanti oggetti verrebbero creati e
+   quali problemi ci sono senza cambiare niente. Se i numeri ti convincono, **Importa**.
+
+L'import lo fa il worker, in sottofondo: la pagina mostra il log man mano e alla fine una tabella con gli oggetti
+creati, quelli che c'erano già e quelli che non sono passati, con il motivo. Puoi chiudere la pagina: gli ultimi
+import restano in **Import precedenti**.
+
+- **Crea solo quello che manca**. Un oggetto che c'è già in NetMap (sede con lo stesso nome, device con lo stesso
+  nome nella stessa sede, VLAN con lo stesso numero nella sede, IP con lo stesso indirizzo…) resta com'è, anche se
+  in NetBox è diverso. Puoi rilanciare l'import quando vuoi: non crea doppioni.
+- Le porte arrivano solo sui device creati dall'import; quelle di un device che c'era già restano come sono, e i
+  cavi verso porte che in NetMap non ci sono vengono saltati.
+- Uno **stack** di NetBox (virtual chassis) diventa un device solo, con il nome dello stack e i suoi membri, come
+  nella scansione SNMP.
+- Un cavo che passa da un **patch panel** diventa un cavo diretto tra le due porte, con il patch panel nelle note.
+  I cavi verso circuiti, prese elettriche e console non vengono importati: il log dice quanti sono.
+- Passano anche stato, seriale, asset tag, campi personalizzati, modo delle porte (access o trunk) con le VLAN,
+  MAC, velocità, LAG, colore e lunghezza dei cavi e l'IP di management (il primary IP di NetBox). Un oggetto che
+  non supera i controlli di NetMap finisce tra i problemi, gli altri vanno avanti.
+- Nello **Storico modifiche** l'import compare con l'origine "Import da NetBox" e il nome di chi l'ha avviato; una
+  simulazione non lascia traccia.
 
 ## 10. Mappe
 

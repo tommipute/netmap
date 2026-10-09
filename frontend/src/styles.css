@@ -815,3 +815,23 @@ button.tile:hover { border-color: var(--accent); }
 .directory-page .update-actions { margin-top: 16px; }
 .directory-page .error-box { margin-top: 14px; }
 .directory-test .form { max-width: 760px; }
+
+/* ---------- Import da NetBox ---------- */
+.netbox-page .form { padding: 0; }
+.netbox-page .num { text-align: right; font-variant-numeric: tabular-nums; }
+.netbox-actions { margin-top: 16px; }
+.netbox-sites { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+.netbox-sites__search { max-width: 320px; }
+.netbox-sites__list {
+  list-style: none; margin: 0; padding: 10px 14px; width: 100%; max-height: 320px; overflow: auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 18px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.netbox-sites__list .check { align-items: baseline; }
+.netbox-sites__list .check .muted { font-size: 12px; }
+.netbox-note { max-width: 760px; margin: 0 0 14px; }
+.netbox-run .log { margin-bottom: 14px; }
+.netbox-counts { max-width: 640px; margin-bottom: 18px; }
+.netbox-counts .hint { display: block; margin-top: 6px; }
+.netbox-problems h3 { font-size: 14px; margin: 0 0 8px; }
+.netbox-problems .table-wrap { max-height: 420px; overflow: auto; }

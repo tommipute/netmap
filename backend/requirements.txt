@@ -13,3 +13,6 @@ smbprotocol>=1.15,<2
 paramiko>=3.4
 # Accesso con Active Directory (LDAP)
 ldap3>=2.9,<3
+# Import dei device da Excel (.xlsx); con defusedxml openpyxl rifiuta i file XML costruiti per far danni
+openpyxl>=3.1,<4
+defusedxml>=0.7

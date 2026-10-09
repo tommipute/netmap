@@ -23,7 +23,11 @@ function formatError(data, status) {
 
 async function request(method, url, body) {
   const options = { method, headers: {} }
-  if (body !== undefined) {
+  if (body instanceof Blob) {
+    // Un file (es. Excel da convertire): va com'è, il server lo legge dal corpo della richiesta
+    options.headers['Content-Type'] = 'application/octet-stream'
+    options.body = body
+  } else if (body !== undefined) {
     options.headers['Content-Type'] = 'application/json'
     options.body = JSON.stringify(body)
   }

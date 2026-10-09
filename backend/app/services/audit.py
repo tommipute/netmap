@@ -204,6 +204,8 @@ def _record(session: Session, flush_context) -> None:
         for obj in session.dirty:
             if type(obj) not in TRACKED or not session.is_modified(obj, include_collections=True):
                 continue
+            if isinstance(obj, (Interface, IPAddress)) and _devices(session, obj)[0] in created_devices:
+                continue  # ritocchi (LAG, IP di management) a porte e IP di un device appena creato
             changes = _changes(session, obj)
             if changes:
                 rows.append((obj, "update", changes))
@@ -229,7 +231,9 @@ def _record(session: Session, flush_context) -> None:
     session.connection().execute(insert(AuditEntry), values)
 
 
-@event.listens_for(Session, "after_commit")
-@event.listens_for(Session, "after_rollback")
-def _reset(session: Session) -> None:
-    session.info.pop("audit_created_devices", None)
+@event.listens_for(Session, "after_transaction_end")
+def _reset(session: Session, transaction) -> None:
+    # Solo alla fine della transazione vera: after_commit scatta anche a ogni SAVEPOINT, e l'import da NetBox crea
+    # device e porte in SAVEPOINT diversi
+    if transaction.parent is None:
+        session.info.pop("audit_created_devices", None)

@@ -67,10 +67,10 @@ def test_simulazione_non_scrive_niente(client):
 
 def test_aggiornamento_tocca_solo_le_colonne_presenti(client):
     run_import(client, ["sw-1;planned;Sede;;;;;;;;SN-OLD;;nota"])
-    result = run_import(client, ["sw-1;SN-NEW"], header="nome;seriale")
+    result = run_import(client, ["sw-1;SN-NEW;7"], header="Nome;Seriale;Unità")
     assert result["updated_count"] == 1 and result["errors"] == []
     device = device_by_name(client, "sw-1")
-    assert device["serial"] == "SN-NEW"
+    assert device["serial"] == "SN-NEW" and device["rack_position"] == 7
     assert device["status"] == "planned" and device["description"] == "nota"
 
 
@@ -105,3 +105,54 @@ def test_import_con_il_percorso_della_posizione(client):
     assert device_by_name(client, "sw-pb")["location_id"] == p1["id"]
     exported = client.get("/api/devices/export", params={"format": "csv"}).text
     assert "Palazzina A › P1" in exported
+
+
+def xlsx(*sheets):
+    """File Excel in memoria: ogni foglio è (titolo, righe)."""
+    import io
+    from datetime import date
+
+    import openpyxl
+
+    book = openpyxl.Workbook()
+    book.remove(book.active)
+    for title, rows in sheets:
+        sheet = book.create_sheet(title)
+        for row in rows:
+            sheet.append([date(2026, 1, 31) if cell == "DATA" else cell for cell in row])
+    data = io.BytesIO()
+    book.save(data)
+    return data.getvalue()
+
+
+def test_excel_diventa_csv_da_importare(client):
+    # Primo foglio senza la colonna del nome (note), secondo come l'export dei device di NetBox
+    data = xlsx(
+        ("Note", [["Elenco preparato da", "IT"]]),
+        ("Device", [
+            [],
+            ["Name", "Status", "Site", "Rack", "Position", "Manufacturer", "Type", "IPv4 Address", "Asset tag", None],
+            ["sw-01", "Staged", "Sede; Nord", "R1", 12.0, "Cisco", "C9300", "10.0.0.1/24", 1001, None],
+            ["sw-02", "Active", "Sede; Nord", "R1", 14.5, "Cisco", "C9300", None, "DATA", None],
+        ]),
+    )
+    converted = client.post("/api/devices/import/xlsx", content=data)
+    assert converted.status_code == 200, converted.text
+    body = converted.json()
+    assert body["sheet"] == "Device" and body["rows"] == 2
+    assert body["csv_data"].splitlines()[1] == 'sw-01;Staged;"Sede; Nord";R1;12;Cisco;C9300;10.0.0.1/24;1001'
+
+    result = client.post("/api/devices/import", json={"csv_data": body["csv_data"]}).json()
+    assert result["created_count"] == 2 and result["errors"] == []
+    sw1, sw2 = device_by_name(client, "sw-01"), device_by_name(client, "sw-02")
+    assert sw1["status"] == "planned" and sw1["rack_position"] == 12 and sw1["asset_tag"] == "1001"
+    assert sw1["management_ip"] == "10.0.0.1/24"
+    assert sw2["rack_position"] == 14 and sw2["asset_tag"] == "2026-01-31"
+
+
+def test_excel_non_valido(client):
+    assert client.post("/api/devices/import/xlsx", content=b"").status_code == 422
+    wrong = client.post("/api/devices/import/xlsx", content=b"name;site\nsw;Sede")
+    assert wrong.status_code == 422 and ".xlsx" in wrong.json()["detail"]
+    empty = client.post("/api/devices/import/xlsx", content=xlsx(("Vuoto", [])))
+    assert empty.status_code == 422 and "vuoto" in empty.json()["detail"]

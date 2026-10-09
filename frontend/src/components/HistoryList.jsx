@@ -29,7 +29,8 @@ export const OBJECT_TYPES = [
 export const SOURCES = [
   { value: 'utente', label: t('A mano') },
   { value: 'scansione', label: t('Scansione SNMP') },
-  { value: 'import', label: t('Import CSV') },
+  { value: 'import', label: t('Import CSV o Excel') },
+  { value: 'netbox', label: t('Import da NetBox') },
   { value: 'directory', label: t('Accesso con Active Directory') },
   { value: 'sistema', label: t('Sistema') },
 ]
