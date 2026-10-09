@@ -79,6 +79,11 @@ def test_lettura_completa_dei_due_switch(agents):
     ]
 
 
+def test_snmp_v1(agents):
+    creds = Credentials(profile_id=5, name="v1", version="v1", community="public", port=PORT, timeout=1, retries=1)
+    assert collect_all(["127.0.0.1"], [creds]) == [host_data(SW1, "127.0.0.1", 5, "v1")]
+
+
 def test_snmpv3_con_autenticazione_e_cifratura(agents):
     # snmpsim sceglie i dati dal context name, sui device veri di solito è vuoto
     creds = Credentials(profile_id=3, name="v3", version="v3", port=PORT, context="public", **V3)

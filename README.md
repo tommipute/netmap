@@ -6,7 +6,7 @@ automatiche o disegnate a mano.
 - **Fase 1** ✔ modello dati + API REST
 - **Fase 2** ✔ interfaccia web: elenchi e moduli per tutto, scheda device con le porte, subnet con IP liberi, mappe,
   import/export dei device (CSV ed Excel), import da NetBox
-- **Fase 3** ✔ scansione SNMP (v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
+- **Fase 3** ✔ scansione SNMP (v1, v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
 - **Fase 4** ✔ stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login con ruoli
   (anche con Active Directory), storico delle modifiche, avvisi, backup
 
@@ -108,7 +108,7 @@ in sola lettura (dettagli nel [manuale](docs/manuale.md#da-netbox)).
 
 ### Scansione SNMP
 
-1. **Profili SNMP**: crea le credenziali (community per v2c, utente e chiavi per v3). Vengono salvate cifrate
+1. **Profili SNMP**: crea le credenziali (community per v1 e v2c, utente e chiavi per v3). Vengono salvate cifrate
    e non si possono rileggere: in modifica lascia vuoto il campo per non cambiarle.
 2. **Scansioni**: indica gli indirizzi (uno per riga: `10.10.99.0/24`, `10.10.98.1-20`, `10.10.1.1`),
    i profili da provare in ordine, la sede dove mettere i device nuovi e, se vuoi, ogni quante ore ripeterla.

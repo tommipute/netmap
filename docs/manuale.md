@@ -262,14 +262,15 @@ dal rack. Gli stack mostrano ogni membro nella sua unità.
 
 ## 12. Scansione SNMP
 
-La scansione legge gli apparati con SNMP (v2c o v3): nome, modello, numero di serie, porte, IP, VLAN, membri dello
+La scansione legge gli apparati con SNMP (v1, v2c o v3): nome, modello, numero di serie, porte, IP, VLAN, membri dello
 stack e vicini LLDP/CDP (cioè i cavi tra gli apparati). **Non cambia niente da sola** sui dati inseriti a mano:
 propone modifiche che approvi tu.
 
 ### Preparazione
 
-1. **Profili SNMP**: le credenziali. Per v2c la community, per v3 utente, protocollo e chiave di
-   autenticazione, protocollo e chiave di cifratura. Vengono salvate cifrate e non si rileggono: in modifica,
+1. **Profili SNMP**: le credenziali. Per v1 e v2c la community, per v3 utente, protocollo e chiave di
+   autenticazione, protocollo e chiave di cifratura. La v1 serve solo per apparati vecchi che non conoscono la v2c:
+   è più lenta e non legge i contatori a 64 bit. Vengono salvate cifrate e non si rileggono: in modifica,
    lascia vuoto il campo per non cambiarle.
 2. Sugli apparati: SNMP attivo in sola lettura, e l'indirizzo del server NetMap ammesso nelle ACL. Serve la
    porta UDP 161 aperta dal server NetMap verso gli apparati.

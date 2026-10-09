@@ -11,6 +11,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Utenti: nome e cognome in due campi separati (anche nella creazione dell'amministratore). Gli utenti di dominio
   li prendono da Active Directory (Nome e Cognome, oppure il nome visualizzato); quelli esistenti sono stati divisi
   alla prima parola e si correggono dalla pagina Utenti.
+- Profili SNMP: anche SNMP v1, per gli apparati vecchi che non conoscono la v2c (le tabelle si leggono con
+  GETNEXT, una riga alla volta).
 
 ## [1.0.0] - 2026-10-09
 

@@ -29,6 +29,7 @@ from pysnmp.hlapi.v3arch.asyncio import (
     UsmUserData,
     bulk_walk_cmd,
     get_cmd,
+    walk_cmd,
 )
 
 from app.core.net import normalize_mac
@@ -298,7 +299,7 @@ def _auth_data(creds: Credentials):
             authProtocol=AUTH_PROTOCOLS.get(creds.auth_protocol, USM_AUTH_NONE),
             privProtocol=PRIV_PROTOCOLS.get(creds.priv_protocol, USM_PRIV_NONE),
         )
-    return CommunityData(creds.community or "", mpModel=1)  # mpModel=1 -> SNMP v2c
+    return CommunityData(creds.community or "", mpModel=0 if creds.version == "v1" else 1)  # 0 = v1, 1 = v2c
 
 
 class _Session:
@@ -321,11 +322,13 @@ class _Session:
         """Colonna di una tabella: {indice (tupla dopo l'OID della colonna): valore}."""
         prefix = tuple(int(part) for part in oid.split("."))
         result: dict[tuple[int, ...], Any] = {}
-        async for error, status, _index, var_binds in bulk_walk_cmd(
-            self.engine, self.auth, self.transport, self.context, 0, 25,
-            ObjectType(ObjectIdentity(oid)),
-            lexicographicMode=False, lookupMib=False,
-        ):
+        if self.creds.version == "v1":  # in v1 non c'è GETBULK: una riga alla volta con GETNEXT
+            rows = walk_cmd(self.engine, self.auth, self.transport, self.context, ObjectType(ObjectIdentity(oid)),
+                            lexicographicMode=False, lookupMib=False)
+        else:
+            rows = bulk_walk_cmd(self.engine, self.auth, self.transport, self.context, 0, 25,
+                                 ObjectType(ObjectIdentity(oid)), lexicographicMode=False, lookupMib=False)
+        async for error, status, _index, var_binds in rows:
             if error or status:
                 logger.debug("%s: walk %s interrotto (%s)", self.host, oid, error or status.prettyPrint())
                 break

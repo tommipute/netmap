@@ -248,7 +248,7 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 `runner.record` salva le modifiche → l'utente approva in "Da approvare" → `apply.apply_change`.
 
 - `targets.py`: `10.0.0.0/24`, `10.0.0.5`, `10.0.0.1-10.0.0.20`, `10.0.0.1-20`; massimo `discovery_max_hosts` (4096).
-- `snmp.py`: pysnmp **7.x** (lextudio), `pysnmp.hlapi.v3arch.asyncio`: `get_cmd`, `bulk_walk_cmd`
+- `snmp.py`: pysnmp **7.x** (lextudio), `pysnmp.hlapi.v3arch.asyncio`: `get_cmd`, `bulk_walk_cmd` (in v1 `walk_cmd`: niente GETBULK)
   (`lexicographicMode=False, lookupMib=False`), `await UdpTransportTarget.create(...)`, `engine.close_dispatcher()`.
   Profili provati in ordine: vince il primo che risponde al get di sistema. Legge system, IF-MIB (ifTable + ifXTable),
   IP-MIB (ipAddrTable + ipAddressTable per IPv6), ENTITY-MIB (seriale e modello dello chassis), LLDP (le porte

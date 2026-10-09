@@ -341,9 +341,9 @@ def snmp_profile_hook(db: Session, profile: SnmpProfile, data: dict[str, Any], i
     except SecretError as exc:
         raise HTTPException(500, str(exc)) from exc
 
-    if profile.version == SnmpVersion.V2C.value:
+    if profile.version in (SnmpVersion.V1.value, SnmpVersion.V2C.value):
         if not profile.community_enc:
-            _fail("Per SNMP v2c serve la community")
+            _fail("Per SNMP v1 e v2c serve la community")
         return
     if not profile.username:
         _fail("Per SNMPv3 serve il nome utente")

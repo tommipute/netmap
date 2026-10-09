@@ -76,6 +76,7 @@ export function formatSpeed(mbps) {
 
 // ---------- Scansione SNMP ----------
 export const SNMP_VERSIONS = [
+  { value: 'v1', label: t('SNMP v1 (community, apparati vecchi)') },
   { value: 'v2c', label: t('SNMP v2c (community)') },
   { value: 'v3', label: t('SNMPv3 (utente e chiavi)') },
 ]

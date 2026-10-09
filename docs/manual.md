@@ -263,14 +263,15 @@ each member in its own unit.
 
 ## 12. SNMP scan
 
-The scan reads devices over SNMP (v2c or v3): name, model, serial number, ports, IPs, VLANs, stack members and
+The scan reads devices over SNMP (v1, v2c or v3): name, model, serial number, ports, IPs, VLANs, stack members and
 LLDP/CDP neighbours (that is, the cables between devices). **It never changes data entered by hand on its own**:
 it proposes changes that you approve.
 
 ### Preparation
 
-1. **SNMP profiles**: the credentials. For v2c the community, for v3 user, authentication protocol and key,
-   privacy protocol and key. They are stored encrypted and cannot be read back: when editing, leave the field empty
+1. **SNMP profiles**: the credentials. For v1 and v2c the community, for v3 user, authentication protocol and
+   key, privacy protocol and key. Use v1 only for old devices that don't know v2c: it is slower and does not read
+   64-bit counters. They are stored encrypted and cannot be read back: when editing, leave the field empty
    to keep them.
 2. On the devices: SNMP enabled read-only, and the NetMap server address allowed in the ACLs. UDP port 161 must be
    open from the NetMap server to the devices.

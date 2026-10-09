@@ -64,6 +64,7 @@ NON_CABLEABLE_TYPES = {InterfaceType.VIRTUAL.value, InterfaceType.LAG.value}
 
 # ---------- Scansione SNMP (fase 3) ----------
 class SnmpVersion(StrEnum):
+    V1 = "v1"  # apparati vecchi: niente GETBULK né contatori a 64 bit
     V2C = "v2c"
     V3 = "v3"
 
