@@ -215,7 +215,8 @@ Clicking the name of a rack or location selects all its devices, to move them to
 ## 11. Rack view
 
 The rack page shows the front with the occupied units. With the plus button or by clicking a free unit you add a
-device to that unit (NetMap checks it fits, using the model height). Devices can be **dragged** to another unit
+device of the site to that unit (NetMap checks it fits, using the model height; if the site has more than 1000
+devices a search field appears above the menu). Devices can be **dragged** to another unit
 (green = fits, red = occupied) or to **In the rack without a unit**; the X removes them from the rack. Stacks show
 each member in its own unit.
 

@@ -167,8 +167,9 @@ function besideLabel(end, text) {
  * nodes: device (nodi React Flow misurati), bubbles: bolle dei rack, edges: cavi React Flow con
  * data.type, data.sourceLabel, data.targetLabel (nomi delle porte, solo se vanno mostrati).
  * Restituisce { [edgeId]: { points, labels: [{ x, y, text, vertical }], edit, ends: [partenza, arrivo] } }.
+ * only + previous (mentre si trascina): ricalcola solo i cavi dei device in only, gli altri restano quelli di previous.
  */
-export function cableGeometry(nodes, bubbles, edges) {
+export function cableGeometry(nodes, bubbles, edges, { only = null, previous = {} } = {}) {
   const withLabels = edges.some((e) => e.data?.sourceLabel)
   const anchors = assignAnchors(nodes, edges, { separate: withLabels })
   const devices = nodes.map((n) => ({ id: n.id, r: rectOf(n) })).filter((d) => d.r)
@@ -176,6 +177,10 @@ export function cableGeometry(nodes, bubbles, edges) {
   const result = {}
 
   for (const e of edges) {
+    if (only && !only.has(e.source) && !only.has(e.target) && previous[e.id]) {
+      result[e.id] = previous[e.id]
+      continue
+    }
     const anchor = anchors[e.id]
     if (!anchor) continue
     const from = anchor.source

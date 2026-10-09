@@ -32,6 +32,17 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   raddoppia l'attesa fino a 15 minuti; 20 errori dallo stesso indirizzo lo bloccano per 15 minuti. I tentativi
   falliti finiscono nel log dell'API con l'indirizzo di provenienza.
 - I log dei container non crescono più all'infinito: al massimo 30 MB per servizio.
+- Più veloce con migliaia di device (provato con 2900 device e mappe da 290 device e 540 cavi): la vista
+  topologia passa da 7 secondi a meno di uno, spostare un device in una mappa grande da 2 secondi a meno di un
+  decimo per movimento, "Disponi" da 6 a poco più di un secondo; elenco dei device ordinato o cercato per IP in
+  pochi centesimi di secondo.
+- Elenco dei device ordinato per IP di management in ordine numerico (10.0.0.2 prima di 10.0.0.10).
+- Aggiungere un device a un rack in una sede con più di 1000 device: la finestra ha un campo di ricerca (prima
+  mostrava solo i primi 1000).
+- "Da approvare" dice quante modifiche mostra quando sono più di 5000.
+
+### Correzioni
+- Alcune frasi della pagina rack e di "Da approvare" restavano in italiano con l'interfaccia in inglese.
 
 ## [1.0.0-rc.2] - 2026-10-09
 

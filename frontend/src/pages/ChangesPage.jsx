@@ -162,7 +162,7 @@ export default function ChangesPage() {
             : `${tn(result.applied, '1 modifica applicata', '{n} modifiche applicate')}.`}
           {result.failed?.length > 0 && (
             <>
-              {' '}Non applicate perché nel frattempo i dati sono cambiati:
+              {' '}{t('Non applicate perché nel frattempo i dati sono cambiati:')}
               <ul>
                 {result.failed.map((f) => (
                   <li key={f.id}>{tServer(f.summary)}: {tServer(f.error)}</li>
@@ -174,6 +174,11 @@ export default function ChangesPage() {
       )}
       <ErrorBox error={result?.error ? { message: result.error } : error} />
       {!data && loading && <Loading />}
+      {data && data.total > data.items.length && (
+        <p className="notice" role="status">
+          {t('Qui ne vedi {n} su {total}: le altre compaiono man mano che approvi o rifiuti queste.', { n: data.items.length, total: data.total })}
+        </p>
+      )}
 
       {data && data.items.length === 0 && (
         <div className="empty">

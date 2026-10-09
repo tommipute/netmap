@@ -128,6 +128,7 @@ def build_crud_router(
     filters: tuple[str, ...] = (),
     search: tuple[str, ...] = (),
     order_by: tuple = (),
+    sort_by: dict[str, Any] | None = None,  # campo da ordinare -> espressione (es. IP in ordine numerico)
     hook: Hook | None = None,
     delete_hook: Callable[[Session, Any, dict], None] | None = None,  # riceve anche i parametri della richiesta
     dependencies: list | None = None,
@@ -145,7 +146,10 @@ def build_crud_router(
     def sorting(sort: str | None):
         if not sort:
             return ordering
-        attr = column_attribute(model, search, sort.lstrip("-"))
+        name = sort.lstrip("-")
+        attr = (sort_by or {}).get(name)
+        if attr is None:
+            attr = column_attribute(model, search, name)
         if attr is None:
             raise HTTPException(422, f"Ordinamento non valido: {sort}")
         first = attr.desc().nulls_last() if sort.startswith("-") else attr.asc().nulls_last()

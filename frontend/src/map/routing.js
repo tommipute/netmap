@@ -8,6 +8,10 @@
  * dove ogni curva costa come BEND pixel: escono linee pulite con poche curve.
  * Il tratto orizzontale preferito sta appena sopra il device di arrivo (preferY): così i cavi verso la stessa
  * fila si sovrappongono e formano un'unica linea, come in uno schema di rete fatto a mano.
+ *
+ * Con centinaia di cavi la mappa ricalcola tutti i percorsi a ogni spostamento: i risultati restano in memoria
+ * (stessi capi e stessi ostacoli vicini = stesso percorso) e gli array della ricerca si riusano invece di
+ * allocarli e azzerarli ogni volta.
  */
 export const MARGIN = 14 // distanza minima tra un cavo e un device
 export const STUB = 20 // tratto dritto fisso in uscita e in entrata (più corto se i device sono vicini)
@@ -15,6 +19,7 @@ const BEND = 40
 const OFF_PREFERRED = 0.02 // piccolo sovrapprezzo per i tratti orizzontali fuori dalla riga preferita
 const MAX_CELLS = 60000 // oltre: niente ricerca (meglio un cavo semplice che una mappa lenta)
 const NEAR = 400 // considero solo i device vicini al rettangolo tra partenza e arrivo
+const CACHE_SIZE = 5000 // percorsi ricordati (i più vecchi escono per primi)
 
 // Direzioni: 0 destra, 1 giù, 2 sinistra, 3 su
 const OUT_DIR = { right: 0, bottom: 1, left: 2, top: 3 }
@@ -92,6 +97,34 @@ class Heap {
   }
 }
 
+// Array della ricerca riusati: uno stato vale solo se il suo "timbro" è quello della ricerca in corso
+let capacity = 0
+let costs = new Float64Array(0)
+let prevs = new Int32Array(0)
+let stamps = new Uint32Array(0)
+let blocks = new Uint8Array(0)
+let generation = 0
+
+function prepare(cells) {
+  const states = cells * 4
+  if (states > capacity) {
+    capacity = Math.max(states, capacity * 2)
+    costs = new Float64Array(capacity)
+    prevs = new Int32Array(capacity)
+    stamps = new Uint32Array(capacity)
+    blocks = new Uint8Array(capacity / 2)
+    generation = 0
+  }
+  generation += 1
+  if (generation === 0xffffffff) {
+    stamps.fill(0)
+    generation = 1
+  }
+  blocks.fill(0, 0, cells * 2)
+}
+
+const cache = new Map()
+
 /**
  * from/to: { x, y, side } punti di attacco sui bordi. rects: [{ x, y, width, height, margin? }] degli ostacoli.
  * preferY: riga preferita per i tratti orizzontali; stub (o stubFrom/stubTo): lunghezza dei tratti dritti alle
@@ -131,15 +164,25 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
     })
     .filter((b) => b && b.r > minX && b.l < maxX && b.b > minY && b.t < maxY)
 
+  const key = `${from.x},${from.y},${startDir},${to.x},${to.y},${arriveDir},${start.x},${start.y},${end.x},${end.y},${preferY}|${
+    boxes.map((b) => `${b.l},${b.t},${b.r},${b.b}`).join(';')}`
+  if (cache.has(key)) return cache.get(key)
+  const points = searchGrid(from, to, start, end, startDir, arriveDir, preferY, boxes)
+  cache.set(key, points)
+  if (cache.size > CACHE_SIZE) cache.delete(cache.keys().next().value)
+  return points
+}
+
+function searchGrid(from, to, start, end, startDir, arriveDir, preferY, boxes) {
   const xs = withMidpoints(uniqueSorted([start.x, end.x, ...boxes.flatMap((b) => [b.l, b.r])]))
   const ys = withMidpoints(uniqueSorted([start.y, end.y, ...(preferY === null ? [] : [preferY]), ...boxes.flatMap((b) => [b.t, b.b])]))
   const nx = xs.length
   const ny = ys.length
   if (nx * ny > MAX_CELLS) return null
+  const cells = nx * ny
+  prepare(cells)
 
-  // Tratti bloccati: hBlock[j*nx+i] = tratto da (i,j) a (i+1,j), vBlock[j*nx+i] = da (i,j) a (i,j+1)
-  const hBlock = new Uint8Array(nx * ny)
-  const vBlock = new Uint8Array(nx * ny)
+  // Tratti bloccati: blocks[j*nx+i] = tratto da (i,j) a (i+1,j), blocks[cells + j*nx+i] = da (i,j) a (i,j+1)
   for (const b of boxes) {
     const i0 = lowerIndex(xs, b.l)
     const i1 = lowerIndex(xs, b.r)
@@ -148,11 +191,11 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
     // Orizzontali strettamente dentro (t < y < b), tra l e r
     for (let j = j0; j < ny && ys[j] < b.b; j++) {
       if (ys[j] <= b.t) continue
-      for (let i = i0; i < i1; i++) hBlock[j * nx + i] = 1
+      for (let i = i0; i < i1; i++) blocks[j * nx + i] = 1
     }
     for (let i = i0; i < nx && xs[i] < b.r; i++) {
       if (xs[i] <= b.l) continue
-      for (let j = j0; j < j1; j++) vBlock[j * nx + i] = 1
+      for (let j = j0; j < j1; j++) blocks[cells + j * nx + i] = 1
     }
   }
 
@@ -163,13 +206,12 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
   const goal = ej * nx + ei
 
   // Stato = cella * 4 + direzione di arrivo
-  const states = nx * ny * 4
-  const cost = new Float64Array(states).fill(Infinity)
-  const prev = new Int32Array(states).fill(-1)
   const heap = new Heap()
   const h = (i, j) => Math.abs(xs[i] - end.x) + Math.abs(ys[j] - end.y)
   const first = (sj * nx + si) * 4 + startDir
-  cost[first] = 0
+  stamps[first] = generation
+  costs[first] = 0
+  prevs[first] = -1
   heap.push(first, h(si, sj))
 
   let found = -1
@@ -177,7 +219,7 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
     const state = heap.pop()
     const cell = state >> 2
     const dir = state & 3
-    const c = cost[state]
+    const c = costs[state]
     if (cell === goal) {
       found = state
       break
@@ -189,10 +231,10 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
       const ni = i + DX[d]
       const nj = j + DY[d]
       if (ni < 0 || nj < 0 || ni >= nx || nj >= ny) continue
-      if (d === 0 && hBlock[j * nx + i]) continue
-      if (d === 2 && hBlock[j * nx + ni]) continue
-      if (d === 1 && vBlock[j * nx + i]) continue
-      if (d === 3 && vBlock[nj * nx + i]) continue
+      if (d === 0 && blocks[j * nx + i]) continue
+      if (d === 2 && blocks[j * nx + ni]) continue
+      if (d === 1 && blocks[cells + j * nx + i]) continue
+      if (d === 3 && blocks[cells + nj * nx + i]) continue
       const horizontal = d === 0 || d === 2
       const length = horizontal ? Math.abs(xs[ni] - xs[i]) : Math.abs(ys[nj] - ys[j])
       let step = length + (d !== dir ? BEND : 0)
@@ -201,9 +243,10 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
       // Arrivo: l'ultimo tratto deve già andare verso il device
       const arrival = nj * nx + ni === goal && d !== arriveDir ? BEND : 0
       const nc = c + step + arrival
-      if (nc < cost[next]) {
-        cost[next] = nc
-        prev[next] = state
+      if (stamps[next] !== generation || nc < costs[next]) {
+        stamps[next] = generation
+        costs[next] = nc
+        prevs[next] = state
         heap.push(next, nc + h(ni, nj))
       }
     }
@@ -211,7 +254,7 @@ function search(rawFrom, rawTo, rects, { preferY: rawPreferY, stub = STUB, stubF
   if (found < 0) return null
 
   const points = []
-  for (let s = found; s >= 0; s = prev[s]) {
+  for (let s = found; s >= 0; s = prevs[s]) {
     const cell = s >> 2
     points.push({ x: xs[cell % nx], y: ys[(cell / nx) | 0] })
   }

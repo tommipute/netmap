@@ -56,18 +56,29 @@ function sideToward(r, p) {
   return p.x >= r.x + r.w / 2 ? 'right' : 'left'
 }
 
-/** Lato sopra/sotto di un device coperto da un altro device vicino (non l'altro capo del cavo) -> lato sinistro/destro. */
-function sideIfBlocked(rects, ownId, otherId, side) {
-  if (side !== 'top' && side !== 'bottom') return side
+/** Device che stanno subito sopra/sotto (side) il device ownId: il cavo non ha spazio per uscire da lì. */
+function blockersOf(rects, ownId, side) {
   const r = rects.get(ownId)
-  const blocked = [...rects].some(([id, o]) => {
-    if (id === ownId || id === otherId) return false
+  const ids = []
+  for (const [id, o] of rects) {
+    if (id === ownId) continue
     const overlapX = o.x < r.x + r.w && o.x + o.w > r.x
     const gap = side === 'bottom' ? o.y - (r.y + r.h) : r.y - (o.y + o.h)
-    return overlapX && gap >= 0 && gap < CLEARANCE
-  })
-  if (!blocked) return side
-  return center(rects.get(otherId)).x < center(r).x ? 'left' : 'right'
+    if (overlapX && gap >= 0 && gap < CLEARANCE) ids.push(id)
+  }
+  return ids
+}
+
+/**
+ * Lato sopra/sotto di un device coperto da un altro device vicino (non l'altro capo del cavo) -> lato sinistro/destro.
+ * blockers: memoria "device|lato" -> device che lo coprono, calcolati una volta sola per tutti i cavi.
+ */
+function sideIfBlocked(rects, blockers, ownId, otherId, side) {
+  if (side !== 'top' && side !== 'bottom') return side
+  const key = `${ownId}|${side}`
+  if (!blockers.has(key)) blockers.set(key, blockersOf(rects, ownId, side))
+  if (!blockers.get(key).some((id) => id !== otherId)) return side
+  return center(rects.get(otherId)).x < center(rects.get(ownId)).x ? 'left' : 'right'
 }
 
 /**
@@ -82,6 +93,7 @@ export function assignAnchors(nodes, edges, { separate = false } = {}) {
     if (r) rects.set(n.id, r)
   }
   const sides = new Map() // "nodo|lato" -> [{ edgeId, end, kind, otherId, other }]
+  const blockers = new Map()
   const result = {}
   for (const e of edges) {
     const a = rects.get(e.source)
@@ -97,8 +109,8 @@ export function assignAnchors(nodes, edges, { separate = false } = {}) {
     } else {
       ;[sa, sb] = chooseSides(a, b)
       // Sopra/sotto c'è subito un altro device (es. impilati nello stesso rack): il cavo esce di lato, verso l'altro capo
-      sa = sideIfBlocked(rects, e.source, e.target, sa)
-      sb = sideIfBlocked(rects, e.target, e.source, sb)
+      sa = sideIfBlocked(rects, blockers, e.source, e.target, sa)
+      sb = sideIfBlocked(rects, blockers, e.target, e.source, sb)
       towardA = center(b)
       towardB = center(a)
     }

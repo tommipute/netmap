@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api'
+import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, LiveStatus, Loading, PrintFooter } from '../components/Bits'
 import { IconButton } from '../components/Icon'
 import Modal from '../components/Modal'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
-import { invalidate, useApi, useOptions } from '../hooks'
+import { invalidate, useApi, useDebounced, useOptions } from '../hooks'
 import { t } from '../i18n'
 
 const UNIT_PX = 26
@@ -96,16 +96,24 @@ function Elevation({ view, canEdit, drag, onDragStart, onEmptyUnit, bayRef }) {
 
 /** Aggiunge al rack un device della stessa sede (anche spostandolo da un altro rack), all'unità scelta. */
 function AddDeviceDialog({ rack, view, unit, onClose, onDone }) {
-  const { data } = useApi(`/devices?site_id=${rack.site_id}&limit=1000`)
+  // Una sede con più device di quelli che si caricano in una volta: campo di ricerca (sul server) sopra il menu
+  const [query, setQuery] = useState('')
+  const q = useDebounced(query.trim())
+  const { data } = useApi(`/devices${qs({ site_id: rack.site_id, limit: 1000, q })}`)
+  const [many, setMany] = useState(false)
+  useEffect(() => {
+    if (data && data.total > data.items.length) setMany(true)
+  }, [data])
   const types = useOptions('device-types')
-  const [deviceId, setDeviceId] = useState('')
+  const [chosen, setChosen] = useState(null)
   const [position, setPosition] = useState(unit ? String(unit) : '')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   // Già al loro posto in questo rack: non si propongono
   const placed = new Set(view.devices.filter((d) => !d.member_id).map((d) => d.id))
-  const candidates = (data?.items || []).filter((d) => !placed.has(d.id))
-  const chosen = candidates.find((d) => d.id === Number(deviceId))
+  const found = (data?.items || []).filter((d) => !placed.has(d.id))
+  // Quello scelto resta nel menu anche se una ricerca dopo non lo trova più
+  const candidates = chosen && !found.some((d) => d.id === chosen.id) ? [chosen, ...found] : found
   const height = Math.max(1, types.find((dt) => dt.id === chosen?.device_type_id)?.u_height || 1)
 
   const submit = async (e) => {
@@ -136,8 +144,13 @@ function AddDeviceDialog({ rack, view, unit, onClose, onDone }) {
         <div className="form__grid">
           <div className="field field--wide">
             <label className="field__label" htmlFor="add-device">{t('Device')} <span className="field__req" aria-hidden="true">*</span></label>
-            <select id="add-device" className="input" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>
-              <option value="">{data ? (candidates.length ? t('Scegli…') : t('Nessun device da aggiungere in questa sede')) : t('Caricamento…')}</option>
+            {many && (
+              <input type="search" className="input" value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('Cerca per nome, seriale, IP…')} aria-label={t('Cerca il device')} />
+            )}
+            <select id="add-device" className="input" value={chosen?.id ?? ''}
+              onChange={(e) => setChosen(candidates.find((d) => d.id === Number(e.target.value)) || null)}>
+              <option value="">{data ? (candidates.length ? t('Scegli…') : q ? t('Nessun device trovato') : t('Nessun device da aggiungere in questa sede')) : t('Caricamento…')}</option>
               {candidates.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}{d.rack_id === rack.id ? t(' (in questo rack, senza unità)') : d.rack_id ? t(' (ora in un altro rack)') : ''}
@@ -151,7 +164,8 @@ function AddDeviceDialog({ rack, view, unit, onClose, onDone }) {
             <input id="add-unit" type="number" className="input" min={1} max={view.u_height} value={position}
               onChange={(e) => setPosition(e.target.value)} />
             <span className="hint">
-              {chosen ? `Occupa ${height} U, dalla ${position || '…'} in su.` : t("L'unità più bassa occupata.")} Vuoto: nel rack senza unità.
+              {chosen ? t('Occupa {n} U, dalla {from} in su.', { n: height, from: position || '…' }) : t("L'unità più bassa occupata.")}{' '}
+              {t('Vuoto: nel rack senza unità.')}
             </span>
           </div>
         </div>

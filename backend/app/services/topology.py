@@ -54,11 +54,17 @@ def _port_vlans(db: Session, device_ids: list[int]) -> tuple[dict[int, set[int]]
     return by_port, by_device
 
 
-def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
+# Nodi e collegamenti leggono solo le colonne che servono: caricare gli oggetti si porterebbe dietro le relazioni
+# "joined" (cavo -> porte -> device) e l'IP di management di ogni device, decine di volte più lento con migliaia di device.
+def _nodes(db: Session, device_ids: list[int], device_vlans: dict[int, set[int]] | None = None) -> list[dict]:
     if not device_ids:
         return []
     rows = db.execute(
-        select(Device, DeviceRole, Rack.name)
+        select(
+            Device.id, Device.name, Device.status, Device.site_id, Device.location_id, Device.reachable,
+            Device.last_check_at, Device.reachable_changed_at, Device.rtt_ms, Device.rack_id, Device.rack_position,
+            DeviceRole.name.label("role"), DeviceRole.color, DeviceRole.level, Rack.name.label("rack_name"),
+        )
         .select_from(Device)
         .outerjoin(DeviceRole, Device.role_id == DeviceRole.id)
         .outerjoin(Rack, Device.rack_id == Rack.id)
@@ -73,69 +79,77 @@ def _nodes(db: Session, device_ids: list[int]) -> list[dict]:
             .where(IPAddress.is_primary.is_(True), Interface.device_id.in_(device_ids))
         ).all()
     )
-    _, device_vlans = _port_vlans(db, device_ids)
+    if device_vlans is None:
+        _, device_vlans = _port_vlans(db, device_ids)
     stack_sizes = dict(db.execute(
         select(StackMember.device_id, func.count()).where(StackMember.device_id.in_(device_ids)).group_by(StackMember.device_id)
     ).all())
     return [
         {
-            "id": device.id,
-            "name": device.name,
-            "status": device.status,
-            "site_id": device.site_id,
-            "location_id": device.location_id,
-            "role": role.name if role else None,
-            "color": role.color if role else DEFAULT_COLOR,
-            "level": role.level if role else DEFAULT_LEVEL,
-            "primary_ip": primary_ips.get(device.id),
-            "reachable": device.reachable,
-            "last_check_at": device.last_check_at,
-            "reachable_changed_at": device.reachable_changed_at,
-            "rtt_ms": device.rtt_ms,
-            "rack_id": device.rack_id,
-            "rack_name": rack_name,
-            "rack_position": device.rack_position,
-            "vlan_ids": sorted(device_vlans.get(device.id, ())),
-            "stack_size": stack_sizes.get(device.id, 0),
+            "id": row.id,
+            "name": row.name,
+            "status": row.status,
+            "site_id": row.site_id,
+            "location_id": row.location_id,
+            "role": row.role,
+            "color": row.color or DEFAULT_COLOR,
+            "level": DEFAULT_LEVEL if row.level is None else row.level,
+            "primary_ip": primary_ips.get(row.id),
+            "reachable": row.reachable,
+            "last_check_at": row.last_check_at,
+            "reachable_changed_at": row.reachable_changed_at,
+            "rtt_ms": row.rtt_ms,
+            "rack_id": row.rack_id,
+            "rack_name": row.rack_name,
+            "rack_position": row.rack_position,
+            "vlan_ids": sorted(device_vlans.get(row.id, ())),
+            "stack_size": stack_sizes.get(row.id, 0),
         }
-        for device, role, rack_name in rows
+        for row in rows
     ]
 
 
-def _edges(db: Session, device_ids: list[int]) -> list[dict]:
+def _edges(db: Session, device_ids: list[int], port_vlans: dict[int, set[int]] | None = None) -> list[dict]:
     if not device_ids:
         return []
     a_side, b_side = aliased(Interface), aliased(Interface)
     rows = db.execute(
-        select(Cable, a_side, b_side)
+        select(
+            Cable.id, Cable.status, Cable.type,
+            a_side.id.label("a_id"), a_side.device_id.label("a_device"), a_side.name.label("a_name"),
+            a_side.speed_mbps.label("a_speed"),
+            b_side.id.label("b_id"), b_side.device_id.label("b_device"), b_side.name.label("b_name"),
+            b_side.speed_mbps.label("b_speed"),
+        )
         .select_from(Cable)
         .join(a_side, Cable.a_interface_id == a_side.id)
         .join(b_side, Cable.b_interface_id == b_side.id)
         .where(a_side.device_id.in_(device_ids), b_side.device_id.in_(device_ids))
         .order_by(Cable.id)
     ).all()
-    port_vlans, _ = _port_vlans(db, device_ids)
+    if port_vlans is None:
+        port_vlans, _ = _port_vlans(db, device_ids)
 
-    def cable_vlans(a: Interface, b: Interface) -> list[int]:
+    def cable_vlans(a_id: int, b_id: int) -> list[int]:
         # Documentate su tutti e due i lati: quelle in comune; su un lato solo (es. server senza VLAN): quelle
-        va, vb = port_vlans.get(a.id, set()), port_vlans.get(b.id, set())
+        va, vb = port_vlans.get(a_id, set()), port_vlans.get(b_id, set())
         return sorted(va & vb if va and vb else va | vb)
 
     return [
         {
-            "id": cable.id,
-            "source": a.device_id,
-            "target": b.device_id,
-            "source_interface": a.name,
-            "target_interface": b.name,
-            "source_interface_id": a.id,
-            "target_interface_id": b.id,
-            "vlan_ids": cable_vlans(a, b),
-            "status": cable.status,
-            "type": cable.type,
-            "speed_mbps": a.speed_mbps or b.speed_mbps,
+            "id": row.id,
+            "source": row.a_device,
+            "target": row.b_device,
+            "source_interface": row.a_name,
+            "target_interface": row.b_name,
+            "source_interface_id": row.a_id,
+            "target_interface_id": row.b_id,
+            "vlan_ids": cable_vlans(row.a_id, row.b_id),
+            "status": row.status,
+            "type": row.type,
+            "speed_mbps": row.a_speed or row.b_speed,
         }
-        for cable, a, b in rows
+        for row in rows
     ]
 
 
@@ -163,7 +177,8 @@ def _scope_device_ids(db: Session, site_id: int | None, location_id: int | None)
 
 def build_topology(db: Session, site_id: int | None = None, location_id: int | None = None) -> dict:
     ids = _scope_device_ids(db, site_id, location_id)
-    return {"nodes": _nodes(db, ids), "edges": _edges(db, ids)}
+    port_vlans, device_vlans = _port_vlans(db, ids)
+    return {"nodes": _nodes(db, ids, device_vlans), "edges": _edges(db, ids, port_vlans)}
 
 
 # ---------------------------------------------------------------- mappe salvate
@@ -176,7 +191,8 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
     else:
         ids = list(saved.keys())
 
-    nodes = _nodes(db, ids)
+    port_vlans, device_vlans = _port_vlans(db, ids)
+    nodes = _nodes(db, ids, device_vlans)
     for node in nodes:
         position = saved.get(node["id"])
         node["x"] = position.x if position else None
@@ -188,7 +204,7 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
         {"id": v.id, "vid": v.vid, "name": v.name}
         for v in db.scalars(select(VLAN).where(VLAN.id.in_(vlan_ids)).order_by(VLAN.vid, VLAN.name))
     ] if vlan_ids else []
-    edges = _edges(db, ids)
+    edges = _edges(db, ids, port_vlans)
     cable_ids = {e["id"] for e in edges}
     routes = [
         {"cable_id": r.cable_id, "points": r.points, "a_end": (r.ends or {}).get("a"), "b_end": (r.ends or {}).get("b")}

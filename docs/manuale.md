@@ -215,7 +215,8 @@ Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device, p
 ## 11. Vista del rack
 
 Dalla pagina di un rack vedi il fronte con le unità occupate. Con il pulsante più o cliccando un'unità libera
-aggiungi un device in quell'unità (NetMap controlla che ci stia, usando l'altezza del modello). I device si
+aggiungi un device della sede in quell'unità (NetMap controlla che ci stia, usando l'altezza del modello; se la
+sede ha più di 1000 device sopra il menu compare un campo per cercarlo). I device si
 **trascinano** su un'altra unità (verde = ci sta, rosso = occupato) o in "Nel rack senza unità"; la X li toglie
 dal rack. Gli stack mostrano ogni membro nella sua unità.
 

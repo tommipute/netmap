@@ -250,6 +250,19 @@ def test_filtri_per_colonna_e_ordinamento(client):
     assert client.get("/api/devices", params={"sort": "inventato"}).status_code == 422
 
 
+def test_device_ordinati_per_ip_di_management(client):
+    site = create(client, "/sites", {"name": "Sede"})
+    for name, ip in (("ap-10", "10.0.0.10/24"), ("senza-ip", None), ("ap-2", "10.0.0.2/24"), ("fw", "9.0.0.1/24")):
+        create(client, "/devices", {"name": name, "site_id": site["id"], **({"management_ip": ip} if ip else {})})
+
+    def names(sort):
+        return [d["name"] for d in client.get("/api/devices", params={"sort": sort}).json()["items"]]
+
+    # Come gli IP, non come testo ("10.0.0.10" < "10.0.0.2" < "9.0.0.1"); senza IP in fondo
+    assert names("management_ip") == ["fw", "ap-2", "ap-10", "senza-ip"]
+    assert names("-management_ip") == ["ap-10", "ap-2", "fw", "senza-ip"]
+
+
 def test_export_con_i_filtri_per_colonna(client):
     site = create(client, "/sites", {"name": "Sede"})
     create(client, "/devices", {"name": "sw-a", "site_id": site["id"]})

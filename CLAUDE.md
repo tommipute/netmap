@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (86 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (87 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -170,7 +170,10 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
   `rules.set_management_ip`, usata anche dall'import CSV, mette l'IP sulla porta di quello attuale, poi su una
   porta di management, altrimenti crea "mgmt"; il vecchio IP resta senza flag. In lettura `Device.management_ip`
   è una `column_property` (definita in `models/__init__.py`) e le interfacce espongono `device_management_ip`,
-  che nel modulo degli IP blocca la casella (`lockedBy` dei campi bool in ResourceForm).
+  che nel modulo degli IP blocca la casella (`lockedBy` dei campi bool in ResourceForm). La sottoquery usa
+  `in_subquery` (su Postgres `= ANY(ARRAY(...))`, altrimenti con migliaia di device il planner scorre tutte le
+  porte per ogni device); `Device.management_ip_key` (deferred) è la `sort_key` dello stesso IP e serve a
+  `sort=management_ip` (`sort_by` della riga dei device in `api/routes.py`: campo → espressione per ordinare).
 - **Unicità con NULL** (VLAN globale, VRF globale): Postgres considera i NULL diversi, quindi i controlli sono negli hook.
 - **Posizioni ad albero**: `Location.path` = nomi dal livello più alto separati da " › " ("Palazzina A › P1"),
   ricalcolato da `services/locations.py` (evento `before_flush`, anche per le posizioni contenute: vale per API,
@@ -222,6 +225,13 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
 Anche `/snmp-profiles` e `/discovery-jobs` sono CRUD generati.
+Un elenco che nel frontend carica "tutto" con `limit=1000` deve sapere cosa fare oltre (`total > items.length`):
+ricerca sul server (`RefSelect`, aggiunta di un device al rack) o un avviso.
+
+**Prestazioni** (provate il 9/10/2026 con 2910 device, 10 sedi, mappe da 291 device e 540 cavi): `topology.py`
+legge solo le colonne per nodi e cavi (caricare oggetti `Device`/`Cable` interi tira dentro `management_ip` e le
+relazioni `lazy="joined"`: 7 s invece di 0,8) e calcola le VLAN delle porte una volta per nodi e cavi.
+Per la mappa vedi "Velocità della mappa" nella sezione del frontend.
 
 ## Scansione SNMP (fase 3, `backend/app/discovery/`)
 
@@ -455,6 +465,14 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   accanto al cavo, solo se in fila non ci stanno. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
   `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
+  **Velocità della mappa** (mappa da 291 device e 540 cavi: trascinamento da 2,3 s a ~80 ms per movimento nella
+  build di produzione, "Disponi" da 6,6 a 1,3 s): `routing.js` ricorda i percorsi (chiave = capi, lati, ostacoli
+  nella zona della ricerca; 5000 voci) e riusa gli array dell'A*; mentre si trascina `cableGeometry` ricalcola solo
+  i cavi dei device con `dragging` (`only` + `previous`), al rilascio tutti; in MapEditor un cavo o un device che
+  non cambia resta **lo stesso oggetto** (`edgeMemo`, `fadedMemo`) e i gestori passati a `<ReactFlow>` sono
+  `useCallback`: una funzione nuova a ogni render fa ridisegnare a React Flow tutti i device e i cavi. Le bolle
+  dei rack si uniscono solo quando dentro la bolla di tutto il rack c'è un estraneo. Per riprovare: un database
+  con migliaia di device (generato a parte) e Playwright con i tempi per passo.
   **Cavi sistemati a mano** (tabella `map_cable_routes`, per mappa e cavo: `points` = spigoli dal lato A al lato B,
   `ends` = `{a, b: {side, f}}`; `view.routes` con `a_end`/`b_end`, `PUT /api/maps/{id}/routes` insieme a "Salva
   disposizione"). Scelta dell'utente: niente punti liberi né "+" (provati e scartati), si **spostano i tratti**.

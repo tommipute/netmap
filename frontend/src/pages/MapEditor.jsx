@@ -129,25 +129,29 @@ function rackBubbles(nodes, onSelect) {
   }
   const bubbles = []
   for (const [rackId, members] of groups) {
-    const others = measured.filter((n) => n.data.rack_id !== rackId)
-    let clusters = members.map((n) => [n])
-    for (;;) {
+    // Una bolla unita sta sempre dentro quella di tutto il rack: contano solo gli estranei lì dentro (di solito
+    // nessuno, e allora la bolla è una sola). La bolla di due gruppi è l'unione delle loro.
+    const whole = bubbleBox(members)
+    const others = measured.filter((n) => n.data.rack_id !== rackId && overlaps(whole, n))
+    let clusters = others.length ? members.map((n) => ({ members: [n], box: bubbleBox([n]) })) : [{ members, box: whole }]
+    while (clusters.length > 1) {
       let best = null
       for (let i = 0; i < clusters.length; i++) {
         for (let j = i + 1; j < clusters.length; j++) {
-          const box = bubbleBox([...clusters[i], ...clusters[j]])
+          const a = clusters[i].box
+          const b = clusters[j].box
+          const box = { l: Math.min(a.l, b.l), t: Math.min(a.t, b.t), r: Math.max(a.r, b.r), b: Math.max(a.b, b.b) }
           if (others.some((n) => overlaps(box, n))) continue
           const area = (box.r - box.l) * (box.b - box.t)
-          if (!best || area < best.area) best = { i, j, area }
+          if (!best || area < best.area) best = { i, j, box, area }
         }
       }
       if (!best) break
-      clusters[best.i] = [...clusters[best.i], ...clusters[best.j]]
+      clusters[best.i] = { members: [...clusters[best.i].members, ...clusters[best.j].members], box: best.box }
       clusters = clusters.filter((_, k) => k !== best.j)
     }
     const allIds = members.map((n) => n.id)
-    clusters.forEach((cluster, k) => {
-      const box = bubbleBox(cluster)
+    clusters.forEach(({ members: cluster, box }, k) => {
       bubbles.push({
         id: `rack-${rackId}-${k}`,
         type: 'rack',
@@ -419,14 +423,32 @@ function Editor() {
     },
     [setNodes],
   )
+  // Gestori stabili: React Flow li passa a ogni device e cavo, una funzione nuova a ogni render li ridisegnerebbe
+  // tutti (in una mappa grande, a ogni movimento del mouse mentre si trascina)
+  const onNodeDragStop = useCallback(() => setDirty(true), [])
+  const onNodeClick = useCallback(
+    (_, node) => node.type === 'device' && setSelection({ kind: 'node', id: Number(node.id) }), [])
+  const onEdgeClick = useCallback((_, edge) => setSelection({ kind: 'edge', id: edge.data.id }), [])
+  const onPaneClick = useCallback(() => setSelection(null), [])
+  const onConnect = useCallback(
+    ({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) }), [])
   const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
   const locationsOn = showLocations && (view?.locations.length || 0) > 0
   const places = useMemo(
     () => (locationsOn ? locationBubbles(nodes, view.locations, selectRack) : []),
     [locationsOn, nodes, view, selectRack],
   )
-  // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni, si ricalcolano mentre si sposta un device
-  const geometry = useMemo(() => cableGeometry(nodes, bubbles, baseEdges), [nodes, bubbles, baseEdges])
+  // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni. Mentre si trascina ricalcolo solo i cavi dei
+  // device che si muovono (con centinaia di cavi rifarli tutti a ogni movimento del mouse rallenta la mappa); al
+  // rilascio si ricalcolano tutti (map/routing.js ricorda i percorsi che non cambiano).
+  const moving = useMemo(() => nodes.filter((n) => n.dragging).map((n) => n.id).join(','), [nodes])
+  const lastGeometry = useRef({})
+  const geometry = useMemo(() => {
+    const only = moving ? new Set(moving.split(',')) : null
+    const next = cableGeometry(nodes, bubbles, baseEdges, { only, previous: lastGeometry.current })
+    lastGeometry.current = next
+    return next
+  }, [nodes, bubbles, baseEdges, moving])
   // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga quanto serve
   const widths = useMemo(() => nodeWidths(nodes, baseEdges), [nodes, baseEdges])
 
@@ -464,27 +486,47 @@ function Editor() {
     return { devices, cables }
   }, [selection, nodes, baseEdges, view, vlanId])
 
-  const edges = useMemo(
-    () =>
-      baseEdges.map((e) => ({
-        ...e,
-        className: !focus ? e.className
-          : !focus.cables.has(e.id) ? `${e.className} cable--faded`
-          : focus.vlan ? `${e.className} cable--vlan` : e.className,
-        // Il cavo selezionato sta sopra gli altri: le sue maniglie non finiscono sotto un cavo che passa di lì
-        zIndex: selection?.kind === 'edge' && selection.id === e.data.id ? 10 : 0,
-        data: {
-          ...e.data,
-          geometry: geometry[e.id] || null,
-          // Cavo selezionato: maniglie per spostarlo
-          onRoute: canEdit && selection?.kind === 'edge' && selection.id === e.data.id
-            ? (change) => changeRoute(e.data.id, e.data.flip, change) : null,
-        },
-      })),
-    [baseEdges, geometry, focus, canEdit, selection, changeRoute],
-  )
+  // Un cavo che non cambia resta lo stesso oggetto: React Flow ridisegna solo quelli nuovi (trascinando un device
+  // in una mappa con centinaia di cavi cambiano solo i suoi)
+  const edgeMemo = useRef(new Map())
+  const edges = useMemo(() => {
+    const previous = edgeMemo.current
+    const next = new Map()
+    const list = baseEdges.map((e) => {
+      const className = !focus ? e.className
+        : !focus.cables.has(e.id) ? `${e.className} cable--faded`
+        : focus.vlan ? `${e.className} cable--vlan` : e.className
+      const selected = selection?.kind === 'edge' && selection.id === e.data.id
+      const geo = geometry[e.id] || null
+      const old = previous.get(e.id)
+      const edge = old && !selected && !old.selected && old.base === e && old.geo === geo && old.edge.className === className
+        ? old.edge
+        : {
+          ...e,
+          className,
+          // Il cavo selezionato sta sopra gli altri: le sue maniglie non finiscono sotto un cavo che passa di lì
+          zIndex: selected ? 10 : 0,
+          data: {
+            ...e.data,
+            geometry: geo,
+            // Cavo selezionato: maniglie per spostarlo
+            onRoute: canEdit && selected ? (change) => changeRoute(e.data.id, e.data.flip, change) : null,
+          },
+        }
+      next.set(e.id, { base: e, geo, selected, edge })
+      return edge
+    })
+    edgeMemo.current = next
+    return list
+  }, [baseEdges, geometry, focus, canEdit, selection, changeRoute])
+  // Stesso discorso per i device in dissolvenza (con un device selezionato, cioè anche trascinandolo)
+  const fadedMemo = useRef(new WeakMap())
   const displayNodes = useMemo(() => {
-    const faded = (node, inFocus) => (focus && !inFocus ? { ...node, className: 'is-faded' } : node)
+    const faded = (node, inFocus) => {
+      if (!focus || inFocus) return node
+      if (!fadedMemo.current.has(node)) fadedMemo.current.set(node, { ...node, className: 'is-faded' })
+      return fadedMemo.current.get(node)
+    }
     return [
       ...places.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
       ...bubbles.map((b) => {
@@ -723,11 +765,11 @@ function Editor() {
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
-          onNodeDragStop={() => setDirty(true)}
-          onNodeClick={(_, node) => node.type === 'device' && setSelection({ kind: 'node', id: Number(node.id) })}
-          onEdgeClick={(_, edge) => setSelection({ kind: 'edge', id: edge.data.id })}
-          onPaneClick={() => setSelection(null)}
-          onConnect={({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) })}
+          onNodeDragStop={onNodeDragStop}
+          onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick}
+          onConnect={onConnect}
           nodesConnectable={canEdit}
           connectionMode={ConnectionMode.Loose}
           deleteKeyCode={null}
