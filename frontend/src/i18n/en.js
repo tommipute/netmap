@@ -1073,7 +1073,7 @@ const strings = {
   'Modifica destinazione dei backup': 'Edit backup destination',
   "NAS dell'ufficio": 'Office NAS',
   'Server': 'Server',
-  'nas.azienda.local o 192.168.1.20': 'nas.company.local or 192.168.1.20',
+  'nas.azienda.local o 10.0.0.20': 'nas.company.local or 10.0.0.20',
   'Predefinita': 'Default',
   'Vuota = 445 per le cartelle di rete, 22 per SFTP.': 'Empty = 445 for network folders, 22 for SFTP.',
   'Condivisione': 'Share',

@@ -6,6 +6,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.0.0-rc.3] - 2026-10-09
+
+Accesso con Active Directory, copie dei backup fuori dal server, import da Excel e da NetBox, manuale d'uso.
+
 ### Novità
 - Test automatici su GitHub a ogni push: backend, migration, interfaccia, script e una prova completa come la fa
   un utente (installazione dell'ultima versione pubblicata, aggiornamento al codice nuovo, ripristino di un

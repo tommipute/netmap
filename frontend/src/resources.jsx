@@ -638,7 +638,7 @@ resources['backup-targets'] = {
   fields: [
     { name: 'name', label: t('Nome'), required: true, placeholder: t("NAS dell'ufficio") },
     { name: 'type', label: t('Tipo'), type: 'select', options: BACKUP_TARGET_TYPES, default: 'smb', required: true, createOnly: true },
-    { name: 'host', label: t('Server'), required: true, placeholder: t('nas.azienda.local o 192.168.1.20') },
+    { name: 'host', label: t('Server'), required: true, placeholder: t('nas.azienda.local o 10.0.0.20') },
     { name: 'port', label: t('Porta'), type: 'number', placeholder: t('Predefinita'), help: t('Vuota = 445 per le cartelle di rete, 22 per SFTP.') },
     {
       name: 'share', label: t('Condivisione'), required: true, showIf: isType('smb'), placeholder: 'backup',
