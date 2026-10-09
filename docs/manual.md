@@ -369,8 +369,9 @@ With Active Directory users sign in with their Windows name and password (`mario
 4. **Roles from groups**: the administrators' group, the editors' group and the readers' group. Nested groups count
    too; a user in several groups gets the highest role. Users in none of the groups can't sign in, unless you choose
    a role for all other domain users.
-5. **Test** with a real user: see whether the connection works, which role they would get and which groups were
-   found. Then save and enable.
+5. Save and enable. **Test (optional)**, at the bottom of the page and closed until you open it: with the password
+   of a real user (for example yours) you see whether the connection works, which role they would get and which
+   groups were found, before saving. Without it, save and try signing in with a domain user.
 
 No service account is needed: NetMap connects with the credentials of the person signing in. The NetMap user is
 created at the first sign-in and at every sign-in takes from the domain the role, first name and last name (the First

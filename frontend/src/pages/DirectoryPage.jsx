@@ -78,7 +78,7 @@ function DirectoryTest({ form }) {
 
   return (
     <form className="form" onSubmit={submit}>
-      <p className="hint directory-test__intro">{t('Si collega al dominio con le impostazioni scritte qui sopra, anche se non le hai ancora salvate, e dice che ruolo avrebbe questo utente. Non salva niente.')}</p>
+      <p className="hint directory-test__intro">{t('Serve la password di un utente del dominio, per esempio la tua. Si collega al dominio con le impostazioni scritte qui sopra, anche se non le hai ancora salvate, e dice che ruolo avrebbe questo utente. Non salva niente.')}</p>
       <div className="form__grid">
         <TextField label={t('Utente del dominio')} value={login.username} placeholder="mario.rossi"
           onChange={(v) => setLogin((prev) => ({ ...prev, username: v }))} />
@@ -299,10 +299,11 @@ export default function DirectoryPage() {
         </div>
       </form>
 
-      <section className="section directory-test">
-        <header className="section__head"><h2>{t('Prova')}</h2></header>
+      {/* Chiusa: serve la password di un utente del dominio (es. la propria); senza si salva e si prova ad accedere */}
+      <details className="section directory-test">
+        <summary className="section__head"><h2>{t('Prova (facoltativa)')}</h2></summary>
         <DirectoryTest form={form} />
-      </section>
+      </details>
     </div>
   )
 }

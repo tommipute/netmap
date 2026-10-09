@@ -373,8 +373,9 @@ Active Directory**:
 4. **Ruoli dai gruppi**: il gruppo degli amministratori, quello di chi modifica e quello di chi legge. Valgono anche
    i gruppi dentro i gruppi; chi è in più gruppi prende il ruolo più alto. Chi non è in nessun gruppo non entra,
    a meno di scegliere un ruolo per tutti gli altri utenti del dominio.
-5. **Prova** con un utente vero: vedi se la connessione funziona, che ruolo avrebbe e in quali gruppi l'ha
-   trovato. Poi salva e attiva.
+5. Salva e attiva. **Prova (facoltativa)**, in fondo alla pagina e chiusa finché non la apri: con la password di
+   un utente vero (per esempio la tua) vedi se la connessione funziona, che ruolo avrebbe e in quali gruppi l'ha
+   trovato, prima di salvare. Senza, salva e prova ad accedere con un utente del dominio.
 
 Non serve un account di servizio: NetMap si collega con le credenziali di chi sta entrando. L'utente NetMap viene
 creato al primo accesso e a ogni accesso prende dal dominio il ruolo, il nome e il cognome (i campi Nome e Cognome

@@ -864,3 +864,8 @@ button.tile:hover { border-color: var(--accent); }
 .source-icon--import { color: var(--import); }
 td .mono + .source-icon { margin-left: 6px; }
 .nowrap { white-space: nowrap; }
+details.directory-test > summary { cursor: pointer; list-style: none; justify-content: flex-start; }
+details.directory-test > summary::-webkit-details-marker { display: none; }
+details.directory-test > summary::before { content: '▸'; color: var(--muted); width: 12px; }
+details.directory-test[open] > summary::before { content: '▾'; }
+details.directory-test:not([open]) > summary { margin-bottom: 0; }

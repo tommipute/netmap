@@ -20,6 +20,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   porte. Gli oggetti importati da NetBox d'ora in poi hanno origine "NetBox" (per la scansione contano sempre come
   inseriti a mano).
 
+### Modifiche
+
+- Active Directory: la prova con un utente è in fondo alla pagina, chiusa ("Prova (facoltativa)"): serve solo se si
+  conosce la password di un utente del dominio.
+
 ## [1.0.0] - 2026-10-09
 
 Prima versione stabile: la 1.0.0-rc.3 con le correzioni qui sotto. Da qui i numeri seguono il versionamento
