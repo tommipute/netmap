@@ -39,7 +39,8 @@ api() { # metodo percorso [json]
   curl -sk --fail-with-body -X "$1" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
     ${3:+--data "$3"} "$URL/api$2"
 }
-status() { jq -r "$1" "$DIR/updater-data/status.json" 2>/dev/null; }
+# Vuoto finché l'updater non ha scritto status.json la prima volta (il timer parte entro un minuto)
+status() { jq -r "$1" "$DIR/updater-data/status.json" 2>/dev/null || true; }
 
 clean() {
   if [ -d "$DIR" ]; then
