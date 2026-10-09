@@ -7,6 +7,7 @@ import AlertTestButton from './components/AlertTestButton'
 import { Badge, CellLink, LiveStatus, Mono } from './components/Bits'
 import RefLabel from './components/RefLabel'
 import * as O from './options'
+import { emailError, targetError, targetsSummary } from './targets'
 import { LANGUAGES, t, tc, tServer } from './i18n'
 
 const description = { name: 'description', label: t('Note'), type: 'textarea' }
@@ -592,10 +593,12 @@ Object.assign(resources, {
       {
         name: 'targets',
         label: t('Indirizzi da scansionare'),
-        type: 'lines',
+        type: 'tags',
         required: true,
-        placeholder: t('10.10.99.0/24\n10.10.98.1-20\n10.10.1.1'),
-        help: t('Uno per riga: subnet, intervallo o IP singolo. Massimo 4096 indirizzi.'),
+        placeholder: '10.10.99.0/24, 10.10.98.1-20, 10.10.1.1',
+        validate: targetError,
+        summary: targetsSummary,
+        help: t('Subnet, intervallo o IP singolo: Invio, virgola o spazio dopo ognuno (o incolla un elenco). Massimo 4096 indirizzi.'),
       },
       {
         name: 'profile_ids',
@@ -754,7 +757,7 @@ resources['alert-channels'] = {
     },
     { name: 'telegram_chat_id', label: t('Chat'), showIf: isType('telegram'), placeholder: '-1001234567890', help: t('Id del gruppo o della chat.') },
     // Email
-    { name: 'email_to', label: t('Destinatari'), type: 'lines', showIf: isType('email'), placeholder: t('it@azienda.it'), help: t('Uno per riga.') },
+    { name: 'email_to', label: t('Destinatari'), type: 'tags', validate: emailError, showIf: isType('email'), placeholder: t('it@azienda.it'), help: t('Invio, virgola o spazio dopo ogni indirizzo.') },
     { name: 'smtp_host', label: t('Server SMTP'), showIf: isType('email'), placeholder: t('smtp.azienda.it') },
     { name: 'smtp_port', label: t('Porta'), type: 'number', showIf: isType('email'), placeholder: '587' },
     {

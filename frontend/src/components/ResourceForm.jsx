@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import ChipInput from './ChipInput'
 import { invalidate, useApi } from '../hooks'
 import { resources } from '../resources'
 import InterfacePicker from './InterfacePicker'
@@ -8,11 +9,11 @@ import Modal from './Modal'
 import { RefMulti, RefSelect } from './RefSelect'
 import { t } from '../i18n'
 
-const WIDE_TYPES = new Set(['textarea', 'secretText', 'lines', 'kv', 'refmulti', 'interface', 'bool'])
+const WIDE_TYPES = new Set(['textarea', 'secretText', 'lines', 'tags', 'kv', 'refmulti', 'interface', 'bool'])
 
 export function emptyValue(field) {
   if (field.type === 'bool') return false
-  if (field.type === 'refmulti') return []
+  if (field.type === 'refmulti' || field.type === 'tags') return []
   if (field.type === 'kv') return {}
   return ''
 }
@@ -47,6 +48,8 @@ export function convert(field, value, isEdit) {
       return isEmpty(value) ? null : Number(value)
     case 'refmulti':
       return (value || []).map(Number)
+    case 'tags':
+      return (value || []).map((v) => v.trim()).filter(Boolean)
     case 'bool':
       return Boolean(value)
     case 'kv':
@@ -67,6 +70,11 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
       return (
         <textarea id={id} className="input mono" rows={4} value={value} placeholder={field.placeholder} disabled={disabled}
           onChange={(e) => onChange(e.target.value)} />
+      )
+    case 'tags':
+      return (
+        <ChipInput id={id} value={value} onChange={onChange} placeholder={field.placeholder} disabled={disabled}
+          validate={field.validate} summary={field.summary} label={field.label} />
       )
     case 'secret':
       return (
@@ -193,7 +201,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
     for (const f of config.fields) {
       if (isEdit && (f.createOnly || f.lockedFor?.(item))) continue
       const visible = !f.showIf || f.showIf(values, item)
-      const missing = f.type === 'refmulti' ? !(values[f.name] || []).length : isEmpty(values[f.name])
+      const missing = f.type === 'refmulti' || f.type === 'tags' ? !(values[f.name] || []).length : isEmpty(values[f.name])
       if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {
         setError(t('Compila il campo "{field}".', { field: f.label }))
         return

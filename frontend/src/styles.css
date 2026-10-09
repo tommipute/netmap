@@ -838,3 +838,20 @@ button.tile:hover { border-color: var(--accent); }
 .netbox-problems h3 { font-size: 14px; margin: 0 0 8px; }
 .netbox-problems .table-wrap { max-height: 420px; overflow: auto; }
 .login__names { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Elenco a bolle (ChipInput): sembra un campo, le bolle stanno dentro */
+.chip-input {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; cursor: text;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  padding: 5px 6px; min-height: 36px;
+}
+.chip-input:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip-input.is-disabled { opacity: 0.6; cursor: default; }
+.chip-input__text { flex: 1; min-width: 140px; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; padding: 2px 4px; }
+.chip--value { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; cursor: default; background: var(--accent-soft); border-color: var(--accent); }
+.chip--invalid { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.chip__remove {
+  font: inherit; line-height: 1; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+}
+.chip__remove:hover { background: var(--line); color: var(--ink); }
+.hint--error { color: var(--danger); }

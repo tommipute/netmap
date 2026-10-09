@@ -13,6 +13,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   alla prima parola e si correggono dalla pagina Utenti.
 - Profili SNMP: anche SNMP v1, per gli apparati vecchi che non conoscono la v2c (le tabelle si leggono con
   GETNEXT, una riga alla volta).
+- Indirizzi delle scansioni e destinatari email degli avvisi a "bolle": Invio, virgola o spazio dopo ognuno, si può
+  incollare un elenco, le bolle non valide sono rosse e sotto gli indirizzi c'è quanti ne verranno scansionati.
 
 ## [1.0.0] - 2026-10-09
 

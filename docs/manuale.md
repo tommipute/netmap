@@ -279,8 +279,9 @@ propone modifiche che approvi tu.
 
 In **Scansioni** crea una scansione con:
 
-- gli **indirizzi**, uno per riga: una rete `10.0.99.0/24`, un intervallo `10.0.99.1-10.0.99.40` o
-  `10.0.99.1-40`, un singolo IP (al massimo 4096 indirizzi);
+- gli **indirizzi**: una rete `10.0.99.0/24`, un intervallo `10.0.99.1-10.0.99.40` o `10.0.99.1-40`, un singolo
+  IP. Dopo ognuno Invio, virgola o spazio lo trasformano in una bolla (si toglie con la ×); si può anche incollare
+  un elenco. Le bolle rosse non sono valide; sotto c'è il conteggio degli indirizzi (al massimo 4096);
 - i **profili** da provare, in ordine (vince il primo che risponde);
 - la **sede dei device nuovi**;
 - **Ripeti ogni (ore)**: vuoto = solo quando la avvii tu;

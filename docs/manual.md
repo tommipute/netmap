@@ -280,8 +280,9 @@ it proposes changes that you approve.
 
 In **Scans** create a scan with:
 
-- the **addresses**, one per line: a network `10.0.99.0/24`, a range `10.0.99.1-10.0.99.40` or `10.0.99.1-40`, a
-  single IP (4096 addresses at most);
+- the **addresses**: a network `10.0.99.0/24`, a range `10.0.99.1-10.0.99.40` or `10.0.99.1-40`, a single IP.
+  After each one Enter, comma or space turns it into a chip (the × removes it); you can also paste a list. Red chips
+  are not valid; below them is the address count (4096 at most);
 - the **profiles** to try, in order (the first that answers wins);
 - the **Site of the new devices**;
 - **Repeat every (hours)**: empty = only when you start it;

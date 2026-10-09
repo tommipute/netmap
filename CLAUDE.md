@@ -434,7 +434,7 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
 
 - `resources.jsx`: **cuore dell'interfaccia**. Per ogni entità: `path`, titoli, `label(o)`, `detail(o)` opzionale,
   `filters`, `columns` (`type`: ref, badge, select, mono, bool, color, oppure `render`), `fields`
-  (`type`: text, textarea, lines, number, select, ref, refmulti, bool, color, interface, kv, secret, secretText
+  (`type`: text, textarea, lines, tags = elenco a bolle con `validate`/`summary` (`ChipInput`), number, select, ref, refmulti, bool, color, interface, kv, secret, secretText
   = segreto su più righe, es. chiave privata).
   Opzioni dei campi: `required`, `default`, `createOnly` (mostrato disabilitato in modifica e non inviato),
   `dependsOn` + `waitLabel` (es. posizione filtrata per sede, svuotata se cambia la sede), `params`,
