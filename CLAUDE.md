@@ -24,6 +24,9 @@ versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricarica
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
 Licenza **AGPL-3.0-only** (`LICENSE`, deciso il 9/10/2026): il piede della pagina e la pagina di accesso hanno il
 link "Codice sorgente" alla versione installata (`components/VersionLabel.jsx`, obbligo della sezione 13): non toglierlo.
+**Manuale utente**: `docs/manuale.md` (it) e `docs/manual.md` (en), aperti dal menu utente (`repoFileUrl` in
+`VersionLabel.jsx`, alla versione installata): una funzione nuova o cambiata va descritta in tutti e due, con le
+etichette dell'interfaccia (in inglese quelle di `en.js`).
 Idee per dopo in `docs/roadmap.md`. **Niente integrazione con l'app inventory**: NetMap lavora da solo (deciso il 6/10/2026).
 
 ### Dove gira

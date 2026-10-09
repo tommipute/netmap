@@ -22,6 +22,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   gruppi (anche annidati) a ogni accesso. LDAPS o StartTLS con verifica del certificato, più domain controller,
   nessun account di servizio, prova con un utente vero prima di salvare. Gli utenti locali entrano sempre.
 - Nello storico anche avvisi, destinazioni dei backup e impostazioni di Active Directory tra i tipi filtrabili.
+- Manuale d'uso in italiano e in inglese (`docs/manuale.md`, `docs/manual.md`), aperto dal menu utente nella
+  versione che corrisponde a quella installata.
 - Pacchetto diagnostico nella pagina Aggiornamenti: uno zip con versione, configurazione senza password, stato del
   database e log dell'API, dello script e (se raccolti) dei container, da allegare a una segnalazione.
 

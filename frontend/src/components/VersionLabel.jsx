@@ -6,6 +6,9 @@ import { t } from '../i18n'
 // Licenza AGPL: chi usa NetMap via rete deve poter avere il codice della versione che sta usando
 export const SOURCE_URL = 'https://github.com/tommipute/netmap'
 
+/** Un file del repository nella versione installata (tag o commit; in sviluppo main), es. il manuale. */
+export const repoFileUrl = (info, path) => `${SOURCE_URL}/blob/${info?.tag || info?.commit || 'main'}/${path}`
+
 /** "NetMap 2026.10.08-2 · a1b2c3d · Codice sorgente": numero di version.js, commit installato e link al codice. */
 export default function VersionLabel() {
   const info = useVersion()

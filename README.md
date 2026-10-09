@@ -10,6 +10,9 @@ automatiche o disegnate a mano.
 - **Fase 4** ✔ stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login con ruoli
   (anche con Active Directory), storico delle modifiche, avvisi, backup
 
+**Manuale d'uso**: [docs/manuale.md](docs/manuale.md) · English: [docs/manual.md](docs/manual.md)
+(nell'app: menu utente → Manuale).
+
 ## Licenza
 
 NetMap è software libero: [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).

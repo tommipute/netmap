@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
  * IconButton: pulsante con solo l'icona; il testo resta come tooltip e per gli screen reader.
  */
 const PATHS = {
+  book: <><path d="M4 5h5a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H4Z" /><path d="M20 5h-5a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h6Z" /></>,
   edit: <><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>,
   trash: <><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M5 7l1 13h12l1-13" /><path d="M9 7V4h6v3" /></>,
   upload: <><path d="M12 15V4" /><path d="m7 9 5-5 5 5" /><path d="M4 15v5h16v-5" /></>,

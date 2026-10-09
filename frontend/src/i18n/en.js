@@ -36,6 +36,7 @@ const strings = {
   'Tema': 'Theme',
   'Lingua': 'Language',
   'Cambia password': 'Change password',
+  'Manuale': 'Manual',
   'Documentazione API': 'API documentation',
   'Esci': 'Sign out',
   'NetMap, vai alle mappe': 'NetMap, go to the maps',

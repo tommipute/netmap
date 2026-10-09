@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { ROLES, useAuth } from '../auth'
-import { usePendingCount, useStatusSummary } from '../hooks'
+import { usePendingCount, useStatusSummary, useVersion } from '../hooks'
 import { labelOf } from '../options'
 import { NAV, resources } from '../resources'
 import { useTheme } from '../theme'
 import PasswordDialog from './PasswordDialog'
 import { Icon } from './Icon'
 import { LANG, LANGUAGES, setLang, t } from '../i18n'
-import VersionLabel from './VersionLabel'
+import VersionLabel, { repoFileUrl } from './VersionLabel'
 
 const THEMES = [
   { value: 'system', label: t('Automatico') },
@@ -41,9 +41,10 @@ function StatusChip() {
 const initials = (name) =>
   name.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?'
 
-/** Utente in alto a destra: menu con ruolo, tema chiaro/scuro, password, documentazione API, esci. */
+/** Utente in alto a destra: menu con ruolo, tema chiaro/scuro, password, manuale, documentazione API, esci. */
 function UserMenu() {
   const { enabled, user, logout } = useAuth()
+  const version = useVersion()
   const [theme, setTheme] = useTheme()
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState(false)
@@ -108,6 +109,10 @@ function UserMenu() {
               <Icon name="key" /> {t('Cambia password')}
             </button>
           )}
+          <a role="menuitem" className="user-menu__item" href={repoFileUrl(version, LANG === 'en' ? 'docs/manual.md' : 'docs/manuale.md')}
+            target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
+            <Icon name="book" /> {t('Manuale')}
+          </a>
           <a role="menuitem" className="user-menu__item" href="/docs" target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
             <Icon name="open" /> {t('Documentazione API')}
           </a>
