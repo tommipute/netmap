@@ -105,7 +105,12 @@ echo "Sede $site, device $core e $access collegati"
 
 if [ -n "$OLD" ]; then
   say "Immagini del codice attuale: $NEW_VERSION"
+  # L'updater gira sullo stesso Docker: un suo "docker pull" del tag beta tra la build e il push rimetterebbe il
+  # tag locale sulla versione vecchia, che verrebbe ripubblicata. Qui lo fermo; in produzione la build è altrove.
+  sudo systemctl stop netmap-updater.timer
+  while systemctl is-active -q netmap-updater.service; do sleep 2; done
   "$ROOT/deploy/build-images.sh" "$NEW_VERSION" "$LOCAL" --push
+  sudo systemctl start netmap-updater.timer
 
   say "Aggiornamento $OLD → $NEW_VERSION (richiesta come dalla pagina Aggiornamenti)"
   before=$(status '.history[0].finished_at // ""')
