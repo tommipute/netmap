@@ -73,6 +73,11 @@ Ogni voce del menu apre un elenco con:
 - **selezione multipla** con le caselle a sinistra: poi puoi eliminare o modificare in blocco i selezionati (per
   esempio spostare 20 device in un'altra posizione o cambiare il ruolo a tutti).
 
+Device, porte, cavi e IP hanno nella colonna **Origine** un'icona che dice da dove arrivano: la persona = inseriti a
+mano (anche con l'import da CSV o Excel), le onde = trovati dalla scansione SNMP, la spina (viola) = importati da un
+altro programma, per esempio NetBox; il nome è nel tooltip. Con i filtri sulle colonne si vedono solo quelli di
+un'origine. Nella scheda del device la stessa icona è accanto alle porte che non sono state inserite a mano.
+
 ### Moduli
 
 Nei moduli i campi con l'asterisco sono obbligatori. I menu a tendina hanno in fondo la voce **"+ Nuovo …"**: crei

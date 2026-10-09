@@ -56,9 +56,12 @@ export const LENGTH_UNITS = [
   { value: 'ft', label: t('piedi') },
 ]
 
+// Origine dei dati, con l'icona che la mostra negli elenchi (SourceIcon): gli import da altri programmi hanno
+// un valore per programma e la stessa icona
 export const SOURCES = [
-  { value: 'manual', label: t('Inserito a mano') },
-  { value: 'snmp', label: t('Scansione SNMP') },
+  { value: 'manual', label: t('Inserito a mano'), icon: 'user' },
+  { value: 'snmp', label: t('Scansione SNMP'), icon: 'radar' },
+  { value: 'netbox', label: t('Import da NetBox'), icon: 'plug' },
 ]
 
 const ALL = [...DEVICE_STATUS, ...CABLE_STATUS, ...IP_STATUS]

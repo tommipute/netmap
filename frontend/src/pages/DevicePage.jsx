@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
-import { Badge, ErrorBox, LiveStatus, Loading, Mono, PrintFooter } from '../components/Bits'
+import { Badge, ErrorBox, LiveStatus, Loading, Mono, PrintFooter, SourceIcon } from '../components/Bits'
 import BulkPortsDialog from '../components/BulkPortsDialog'
 import CableDialog from '../components/CableDialog'
 import DeleteDialog from '../components/DeleteDialog'
@@ -11,7 +11,7 @@ import { IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
-import { DEVICE_STATUS, INTERFACE_TYPES, SOURCES, formatDateTime, formatSpeed, labelOf } from '../options'
+import { DEVICE_STATUS, INTERFACE_TYPES, formatDateTime, formatSpeed, labelOf } from '../options'
 import { t, tn } from '../i18n'
 
 /** Una VLAN come etichetta: numero e nome (es. "10 UFFICI") */
@@ -272,7 +272,7 @@ export default function DevicePage() {
         </div>
         <div><dt>{t('Numero di serie')}</dt><dd><Mono>{device.serial}</Mono></dd></div>
         <div><dt>{t('Asset tag')}</dt><dd><Mono>{device.asset_tag}</Mono></dd></div>
-        <div><dt>{t('Origine dati')}</dt><dd>{labelOf(SOURCES, device.source)}</dd></div>
+        <div><dt>{t('Origine dati')}</dt><dd><SourceIcon source={device.source} withLabel /></dd></div>
         {device.last_seen_at && <div><dt>{t('Ultima scansione')}</dt><dd>{formatDateTime(device.last_seen_at)}</dd></div>}
         {device.sys_name && device.sys_name !== device.name && <div><dt>{t('sysName')}</dt><dd><Mono>{device.sys_name}</Mono></dd></div>}
         {customEntries.map(([key, value]) => (
@@ -329,12 +329,13 @@ export default function DevicePage() {
               <tbody>
                 {ports.map((p) => (
                   <tr key={p.id} className={p.enabled ? '' : 'is-disabled'}>
-                    <td>
+                    <td className="nowrap">
                       {p.oper_status && (
                         <span className={`oper-dot oper-dot--${p.oper_status === 'up' ? 'up' : 'down'}`}
                           title={p.oper_status === 'up' ? t("Stato all'ultimo controllo: su") : t("Stato all'ultimo controllo: giù")} />
                       )}
                       <Mono>{p.name}</Mono>
+                      {p.source !== 'manual' && <SourceIcon source={p.source} />}
                       {!p.enabled && <span className="tag">{t('disabilitata')}</span>}
                     </td>
                     <td>{labelOf(INTERFACE_TYPES, p.type)}</td>

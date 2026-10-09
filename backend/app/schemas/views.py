@@ -91,6 +91,7 @@ class Port(BaseModel):
     type: str
     enabled: bool
     mgmt_only: bool
+    source: str = "manual"  # a mano / snmp / programma da cui è stata importata
     oper_status: str | None = None  # up/down dall'ultima scansione
     mode: str | None
     speed_mbps: int | None

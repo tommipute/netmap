@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
-import { formatDateTime, formatSince, labelOf } from '../options'
+import { formatDateTime, formatSince, labelOf, SOURCES } from '../options'
+import { Icon } from './Icon'
 import { LOCALE, t } from '../i18n'
 
 const TONE = {
@@ -26,6 +27,17 @@ export function CellLink({ to, children }) {
     <Link to={to} onClick={(e) => e.stopPropagation()}>
       {children}
     </Link>
+  )
+}
+
+/** Icona dell'origine (a mano, scansione, import da un altro programma); il nome nel tooltip */
+export function SourceIcon({ source, withLabel = false }) {
+  const option = SOURCES.find((o) => o.value === source) || { label: source, icon: 'plug' }
+  return (
+    <span className={`source-icon source-icon--${source === 'manual' || source === 'snmp' ? source : 'import'}`} title={option.label}>
+      <Icon name={option.icon} size={14} />
+      {withLabel ? <span>{option.label}</span> : <span className="sr-only">{option.label}</span>}
+    </span>
   )
 }
 

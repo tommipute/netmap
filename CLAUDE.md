@@ -167,7 +167,9 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
   non in `@field_validator`, altrimenti nei PATCH si perdono.
 - Campi di input che non sono colonne (es. `tagged_vlan_ids`, `community`) vengono saltati da `apply_data` e gestiti dall'hook.
 - **Ogni entità principale** ha `custom_fields` (JSON). Device, Interface, Cable, IPAddress hanno anche
-  `source` (`manual`/`snmp`) e `last_seen_at`, usati dalla scansione: non toglierli.
+  `source` (`manual`/`snmp`/nome del programma da cui sono importati, es. `netbox`: `Source` in enums.py) e
+  `last_seen_at`, usati dalla scansione (tutto ciò che non è `snmp` conta come inserito a mano): non toglierli.
+  Nel frontend `SourceIcon` (Bits.jsx) e `sourceColumn` (resources.jsx); un'origine nuova = voce in `O.SOURCES`.
 - **IP**: `address` con maschera (`10.0.0.5/24`), `host` senza, `sort_key` binaria (versione + 16 byte) per ordinare
   correttamente e cercare per intervallo (`between`) sia su Postgres che su SQLite.
 - **IP di management** (= primario): niente FK `devices.primary_ip_id` (creava un ciclo di FK). C'è

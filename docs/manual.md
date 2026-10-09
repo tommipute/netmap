@@ -74,6 +74,11 @@ Every menu item opens a list with:
 - **multiple selection** with the boxes on the left: then delete or edit the selected items in bulk (for example
   move 20 devices to another location or change their role).
 
+Devices, ports, cables and IPs have an icon in the **Source** column telling where they come from: the person =
+entered by hand (also with the CSV or Excel import), the waves = found by the SNMP scan, the plug (purple) = imported
+from another program, for example NetBox; the name is in the tooltip. With the column filters you see only the ones
+of one source. In the device page the same icon is next to the ports that were not entered by hand.
+
 ### Forms
 
 Fields with an asterisk are required. Drop-down menus end with **"+ New …"** (for example "+ New site…"): create a

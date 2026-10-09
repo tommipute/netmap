@@ -4,8 +4,11 @@ from enum import StrEnum
 
 
 class Source(StrEnum):
+    """Da dove arriva un device, una porta, un cavo, un IP: a mano (anche import CSV), scansione, import da un altro
+    programma (un valore per programma)."""
     MANUAL = "manual"
     SNMP = "snmp"
+    NETBOX = "netbox"
 
 
 class DeviceStatus(StrEnum):

@@ -4,7 +4,7 @@
  */
 import { ROLES, USER_SOURCES } from './auth'
 import AlertTestButton from './components/AlertTestButton'
-import { Badge, CellLink, LiveStatus, Mono } from './components/Bits'
+import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
 import RefLabel from './components/RefLabel'
 import * as O from './options'
 import { emailError, targetError, targetsSummary } from './targets'
@@ -12,6 +12,11 @@ import { LANGUAGES, t, tc, tServer } from './i18n'
 
 const description = { name: 'description', label: t('Note'), type: 'textarea' }
 const customFields = { name: 'custom_fields', label: t('Campi personalizzati'), type: 'kv' }
+// Icona dell'origine (a mano, scansione, import da un altro programma), con filtro
+const sourceColumn = {
+  name: 'source', label: t('Origine'), render: (o) => <SourceIcon source={o.source} />,
+  filter: { kind: 'options', options: O.SOURCES }, sortField: 'source',
+}
 const WAIT_SITE = t('Prima scegli la sede')
 
 function LocationName({ location, tree }) {
@@ -81,6 +86,7 @@ export const resources = {
     ],
     // Colonne: hidden = da scegliere in "Colonne della tabella"; filter/sortField per le colonne con render
     columns: [
+      sourceColumn,
       { name: 'name', label: t('Nome'), render: (o) => <strong>{o.name}</strong>, filter: { kind: 'text' }, sortField: 'name' },
       { name: 'status', label: t('Stato'), type: 'badge', options: O.DEVICE_STATUS },
       {
@@ -123,7 +129,6 @@ export const resources = {
       { name: 'serial', label: t('Seriale'), type: 'mono' },
       { name: 'asset_tag', label: t('Asset tag'), type: 'mono', hidden: true },
       { name: 'sys_name', label: t('sysName'), type: 'mono', hidden: true },
-      { name: 'source', label: t('Origine'), type: 'select', options: O.SOURCES, hidden: true },
       {
         name: 'last_seen_at',
         label: t('Ultima scansione'),
@@ -170,6 +175,7 @@ export const resources = {
       { name: 'type', label: t('Tipo'), options: O.INTERFACE_TYPES },
     ],
     columns: [
+      sourceColumn,
       { name: 'device_id', label: t('Device'), render: (o) => <CellLink to={`/devices/${o.device_id}`}>{o.device_name}</CellLink> },
       { name: 'name', label: t('Porta'), type: 'mono' },
       { name: 'type', label: t('Tipo'), type: 'select', options: O.INTERFACE_TYPES },
@@ -216,6 +222,7 @@ export const resources = {
       { name: 'status', label: t('Stato'), options: O.CABLE_STATUS },
     ],
     columns: [
+      sourceColumn,
       {
         name: 'a',
         label: t('Lato A'),
@@ -431,6 +438,7 @@ export const resources = {
       { name: 'vrf_id', label: t('VRF'), ref: 'vrfs' },
     ],
     columns: [
+      sourceColumn,
       { name: 'address', label: t('Indirizzo'), render: (o) => <span className="mono strong">{o.address}</span> },
       {
         name: 'interface_id',

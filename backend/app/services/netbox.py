@@ -42,7 +42,7 @@ from app.models import (
     VLAN, VRF, Cable, Device, DeviceRole, DeviceType, ImportRun, Interface, IPAddress, Location, Manufacturer, Prefix,
     Rack, Site, StackMember,
 )
-from app.models.enums import RunStatus
+from app.models.enums import RunStatus, Source
 from app.schemas import dcim as d
 from app.schemas import ipam as i
 from app.services import rules
@@ -480,6 +480,8 @@ class Importer:
             data = schema(**data).model_dump()
             obj = model()
             apply_data(model, obj, data)
+            if hasattr(obj, "source"):
+                obj.source = Source.NETBOX.value  # icona dell'origine; per la scansione conta come inserito a mano
             self.db.add(obj)
             if hook:
                 with self.db.no_autoflush:  # i controlli non devono trovare l'oggetto stesso

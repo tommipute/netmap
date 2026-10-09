@@ -279,6 +279,9 @@ def test_simulazione_poi_import_di_una_sede(session_factory):
     assert ips["10.1.0.1/24"].is_primary and ips["10.1.0.1/24"].dns_name == "rtr01.prova.lan"
     assert ips["10.1.0.2/24"].is_primary and ips["10.1.0.2/24"].interface.device_id == stack.id
     assert ips["10.1.0.50/24"].status == "reserved" and ips["172.16.0.1/24"].status == "dhcp"
+    # Origine "netbox" per l'icona (device, membri, porte, cavi, IP)
+    for model in (Device, StackMember, Interface, Cable, IPAddress):
+        assert set(db.scalars(select(model.source))) == {"netbox"}, model
 
     # Storico: una riga per device (porte e IP compresi), con l'origine "netbox"
     sources = set(db.scalars(select(AuditEntry.source)))

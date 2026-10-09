@@ -9,6 +9,7 @@
   --line: #d6dce3;
   --line-strong: #b9c2cd;
   --accent: #00808a;
+  --import: #7a5bc2;
   --accent-ink: #ffffff;
   --accent-soft: #dcf1f2;
   --ok: #2f8a57;
@@ -36,6 +37,7 @@
     --line: #2a3542;
     --line-strong: #3a4757;
     --accent: #2bbdc6;
+    --import: #b39ae8;
     --accent-ink: #062a2d;
     --accent-soft: #10373b;
     --ok: #5bc48a;
@@ -57,6 +59,7 @@
   --line: #2a3542;
   --line-strong: #3a4757;
   --accent: #2bbdc6;
+  --import: #b39ae8;
   --accent-ink: #062a2d;
   --accent-soft: #10373b;
   --ok: #5bc48a;
@@ -855,3 +858,9 @@ button.tile:hover { border-color: var(--accent); }
 }
 .chip__remove:hover { background: var(--line); color: var(--ink); }
 .hint--error { color: var(--danger); }
+/* Origine dei dati: a mano (grigia), scansione (accento), import da un altro programma (viola) */
+.source-icon { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; color: var(--muted); }
+.source-icon--snmp { color: var(--accent); }
+.source-icon--import { color: var(--import); }
+td .mono + .source-icon { margin-left: 6px; }
+.nowrap { white-space: nowrap; }

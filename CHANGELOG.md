@@ -15,6 +15,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   GETNEXT, una riga alla volta).
 - Indirizzi delle scansioni e destinatari email degli avvisi a "bolle": Invio, virgola o spazio dopo ognuno, si può
   incollare un elenco, le bolle non valide sono rosse e sotto gli indirizzi c'è quanti ne verranno scansionati.
+- Colonna "Origine" in device, porte, cavi e IP: un'icona dice se sono stati inseriti a mano, trovati dalla
+  scansione o importati da un altro programma (con filtro); la stessa icona nella scheda del device e accanto alle
+  porte. Gli oggetti importati da NetBox d'ora in poi hanno origine "NetBox" (per la scansione contano sempre come
+  inseriti a mano).
 
 ## [1.0.0] - 2026-10-09
 
