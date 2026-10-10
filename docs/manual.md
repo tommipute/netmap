@@ -290,6 +290,8 @@ keep their name clear.
 - **Search the map**: name or IP of a device, or the MAC or IP of a PC: NetMap selects the switch port it is
   connected to.
 - **Highlight a VLAN**: emphasises the cables and devices carrying that VLAN.
+- **Only some cable types**: click a cable type in the legend at the bottom (e.g. Single-mode fiber) and the map shows
+  only those cables; click others to add them, click again to remove one, **All cables** to see them all again.
 - **Live status**: the dot on a device is green if it responds, red if not; the status refreshes by itself every 30 seconds. To see devices or
   cables added from another page straight away, use **Refresh the map** (the two arrows at the top).
 - **Export…**: PNG image, SVG drawing, or print / PDF.
@@ -467,7 +469,8 @@ In **Administration → Backups**:
 - **Back up every night** at the time you choose, kept for the days you choose (14 by default). If the server was
   off at that time, the backup runs as soon as it is back on.
 - **Back up now**: a backup right away, for example before a large import.
-- There is always a backup before every update (how many to keep is set on the Updates page).
+- There is always a backup before every update (how many to keep is set on the Updates page); in the list, under the
+  type, you see from which version to which (for backups made before this feature, only the starting version).
 - **Download** a backup to your PC; **Upload a backup** from your PC (even one made on another server).
 - **Restore this backup**: brings the database back to that moment. NetMap first makes a safety backup of the
   current state; if it doesn't start after the restore, it goes back to the previous state by itself. NetMap does

@@ -313,7 +313,11 @@ function toFlowEdge(edge, levelOf, showLabels, selected, route) {
   }
 }
 
-function Legend({ edges, nodes, racks, locations, vlan }) {
+/**
+ * Legenda in basso. I tipi di cavo sono pulsanti: cliccandone uno la mappa mostra solo i cavi di quel tipo
+ * (cableTypes = tipi scelti, vuoto = tutti); se ne possono scegliere più di uno, un secondo clic lo toglie.
+ */
+function Legend({ edges, nodes, racks, locations, vlan, cableTypes, onCableTypes }) {
   const types = [...new Set(edges.map((e) => e.type || ''))]
   const planned = edges.some((e) => e.status === 'planned')
   const live = nodes.some((n) => n.reachable !== null && n.reachable !== undefined)
@@ -331,13 +335,23 @@ function Legend({ edges, nodes, racks, locations, vlan }) {
       )}
       {types.map((type) => {
         const style = cableStyle(type || null)
+        const chosen = cableTypes.includes(type)
+        const off = cableTypes.length > 0 && !chosen
         return (
-          <span key={type || 'none'} className="map-legend__item">
+          <button key={type || 'none'} type="button" aria-pressed={chosen}
+            className={`map-legend__item map-legend__toggle nodrag nopan${off ? ' map-legend__toggle--off' : ''}`}
+            title={chosen ? t('Clic per togliere questo tipo dai cavi mostrati') : t('Clic per mostrare solo i cavi di questo tipo')}
+            onClick={() => onCableTypes(chosen ? cableTypes.filter((x) => x !== type) : [...cableTypes, type])}>
             <span className="map-legend__line" style={{ background: style.color }} />
             {style.label}
-          </span>
+          </button>
         )
       })}
+      {cableTypes.length > 0 && (
+        <button type="button" className="map-legend__item map-legend__toggle map-legend__all nodrag nopan" onClick={() => onCableTypes([])}>
+          {t('Tutti i cavi')}
+        </button>
+      )}
       {planned && (
         <span className="map-legend__item">
           <span className="map-legend__line map-legend__line--dashed" />
@@ -359,6 +373,7 @@ function Editor() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
+  const [cableTypes, setCableTypes] = useState([]) // tipi di cavo scelti nella legenda, vuoto = tutti
   const [showLocations, setShowLocations] = useState(readLocationsPref)
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
@@ -457,9 +472,11 @@ function Editor() {
   const levelOf = useMemo(() => effectiveLevels(view?.nodes || [], view?.edges || []), [view])
   const baseEdges = useMemo(
     () =>
-      (view?.edges || []).map((e) =>
-        toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, routes[e.id])),
-    [view, levelOf, showLabels, selection, routes],
+      (view?.edges || [])
+        // Filtro della legenda: solo i cavi dei tipi scelti (gli altri non ci sono proprio: più spazio ai nomi)
+        .filter((e) => cableTypes.length === 0 || cableTypes.includes(e.type || ''))
+        .map((e) => toFlowEdge(e, levelOf, showLabels, selection?.kind === 'edge' && selection.id === e.id, routes[e.id])),
+    [view, levelOf, showLabels, selection, routes, cableTypes],
   )
 
   /**
@@ -875,7 +892,7 @@ function Editor() {
           <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' || n.type === 'location' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
             <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)} locations={locationsOn}
-              vlan={view.vlans.find((v) => v.id === vlanId)} />
+              vlan={view.vlans.find((v) => v.id === vlanId)} cableTypes={cableTypes} onCableTypes={setCableTypes} />
           </Panel>
           {canEdit && hint && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">

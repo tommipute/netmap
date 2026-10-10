@@ -432,6 +432,18 @@ function useUpload(onDone) {
 }
 
 /** Backup del database (solo admin): li fa lo script sull'host; qui si vedono, si copiano altrove e si ripristinano. */
+// Backup fatti prima di un aggiornamento: da quale versione a quale (le note le scrive l'updater; per i backup più
+// vecchi c'è solo il commit di partenza, nel nome del file)
+function updateText(f) {
+  const u = f.update
+  const label = (version, commit) => (version && commit ? `${version} (${commit})` : version || commit)
+  if (u && (u.from || u.from_commit) && (u.to || u.to_commit)) {
+    return t('da {from} a {to}', { from: label(u.from, u.from_commit), to: label(u.to, u.to_commit) })
+  }
+  const commit = /^netmap-\d{8}-\d{6}-([0-9a-f]{7})\.dump$/.exec(f.file)?.[1]
+  return commit ? t('da {from}', { from: commit }) : null
+}
+
 export default function BackupPage() {
   const { data, error, offline, waiting, reload, send, sending, actionError } = useUpdater()
   const backups = useApi('/backups')
@@ -560,7 +572,10 @@ export default function BackupPage() {
                 {files.map((f) => (
                   <tr key={f.file}>
                     <td>{formatDateTime(f.date)}</td>
-                    <td>{KINDS[f.kind] || f.kind}</td>
+                    <td>
+                      {KINDS[f.kind] || f.kind}
+                      {f.kind === 'update' && updateText(f) && <div className="hint">{updateText(f)}</div>}
+                    </td>
                     <td><code>{f.file}</code></td>
                     <td>{formatSize(f.size)}</td>
                     {targetList.length > 0 && (

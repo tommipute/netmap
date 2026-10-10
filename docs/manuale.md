@@ -290,6 +290,8 @@ serve perché il loro nome resti libero.
 - **Cerca nella mappa**: nome o IP di un device, oppure il MAC o l'IP di un PC: NetMap seleziona la porta dello
   switch dove è collegato.
 - **Evidenzia una VLAN**: mette in risalto i cavi e i device che portano quella VLAN.
+- **Solo alcuni tipi di cavo**: clicca un tipo di cavo nella legenda in basso (es. Fibra monomodale) e la mappa mostra
+  solo quei cavi; cliccane altri per aggiungerli, di nuovo per toglierli, **Tutti i cavi** per tornare a vederli tutti.
 - **Stato live**: il pallino sul device è verde se risponde, rosso se no; lo stato si aggiorna da solo ogni 30 secondi. Per vedere subito device o
   cavi aggiunti da un'altra pagina usa **Aggiorna la mappa** (le due frecce in alto).
 - **Esporta**: immagine PNG, disegno SVG, oppure stampa / PDF.
@@ -473,7 +475,8 @@ In **Amministrazione → Backup**:
 - **Backup ogni notte** all'ora che scegli, tenuti per i giorni che scegli (14 se non cambi niente). Se il server
   era spento a quell'ora, il backup parte appena si riaccende.
 - **Backup ora**: un backup subito, per esempio prima di un import grosso.
-- Prima di ogni aggiornamento c'è sempre un backup (quanti tenerne si sceglie nella pagina Aggiornamenti).
+- Prima di ogni aggiornamento c'è sempre un backup (quanti tenerne si sceglie nella pagina Aggiornamenti); nell'elenco
+  sotto il tipo c'è da quale versione a quale (per i backup fatti prima di questa funzione solo la versione di partenza).
 - **Scarica** un backup sul PC; **Carica un backup** dal PC (anche fatto su un altro server).
 - **Ripristina questo backup**: riporta il database a quel momento. Prima NetMap fa un backup di sicurezza dello
   stato attuale; se dopo il ripristino non riparte, torna da solo allo stato di prima. Per qualche minuto NetMap

@@ -35,6 +35,7 @@ load_config() {
   APP_DIR=${APP_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}
   DATA_DIR=${DATA_DIR:-$APP_DIR/updater-data}
   BACKUP_DIR=${BACKUP_DIR:-$APP_DIR/backups}
+  BACKUP_NOTES=$DATA_DIR/backup-notes.json # da quale versione a quale, per i backup netmap-*
   REMOTE=${REMOTE:-origin}
   HEALTH_URL=${HEALTH_URL:-http://127.0.0.1:8001/api/health}
   WEB_URL=${WEB_URL-http://127.0.0.1:5174/}
@@ -360,6 +361,7 @@ do_update() {
     return 1
   fi
   log "Backup: ${BACKUP_FILE##*/} ($(du -h "$BACKUP_FILE" | cut -f1)), migration del database: ${DB_REV_BEFORE:-nessuna}"
+  note_backup "${BACKUP_FILE##*/}" "$FROM" "$TO"
   # Tengo solo gli ultimi N backup
   find "$BACKUP_DIR" -maxdepth 1 -name 'netmap-*.dump' -printf '%T@ %p\n' | sort -rn | tail -n +$((KEEP + 1)) | cut -d' ' -f2- |
     while read -r old; do rm -f -- "$old" && log "Backup vecchio eliminato: ${old##*/}"; done
@@ -443,15 +445,31 @@ run_backups() {
   backup_list
 }
 
+# Da quale versione a quale aggiornamento è stato fatto un backup netmap-*: la pagina dei backup lo mostra
+note_backup() { # file, versione di partenza e di arrivo (JSON di commit_info / image_info)
+  local notes='{}'
+  [ -s "$BACKUP_NOTES" ] && notes=$(cat "$BACKUP_NOTES")
+  jq --arg f "$1" --argjson from "${2:-null}" --argjson to "${3:-null}" \
+    '.[$f] = {from: ($from.version // ""), from_commit: ($from.short // ""), to: ($to.version // ""), to_commit: ($to.short // "")}' \
+    <<<"$notes" >"$BACKUP_NOTES.tmp" 2>>"$LOG" && mv -f "$BACKUP_NOTES.tmp" "$BACKUP_NOTES"
+}
+
 # Elenco dei backup per l'app (i 100 più recenti)
 backup_list() {
-  local list
+  local list notes='{}'
+  [ -s "$BACKUP_NOTES" ] && notes=$(cat "$BACKUP_NOTES")
+  jq -e . >/dev/null 2>&1 <<<"$notes" || notes='{}'
   list=$(find "$BACKUP_DIR" -maxdepth 1 -name '*.dump' -printf '%T@\t%s\t%f\n' 2>/dev/null | sort -rn | head -n 100 |
     jq -R -s '[split("\n")[] | select(length > 0) | split("\t") | {
       date: (.[0] | tonumber | floor | todate), size: (.[1] | tonumber), file: .[2],
       kind: (.[2] as $f | if ($f | startswith("daily-")) then "daily" elif ($f | startswith("manual-")) then "manual"
              elif ($f | startswith("before-restore-")) then "restore" elif ($f | startswith("imported-")) then "imported"
-             else "update" end)}]')
+             else "update" end)} | .update = ($notes[.file] // null)]' --argjson notes "$notes")
+  # Le note dei backup che non ci sono più si buttano
+  if [ "$notes" != '{}' ]; then
+    jq --argjson l "${list:-[]}" 'with_entries(select(.key as $k | $l | any(.file == $k)))' <<<"$notes" >"$BACKUP_NOTES.tmp" &&
+      mv -f "$BACKUP_NOTES.tmp" "$BACKUP_NOTES"
+  fi
   status '.backup.files = $l | .backup.dir = $d' --argjson l "${list:-[]}" --arg d "$BACKUP_DIR"
 }
 

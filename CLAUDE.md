@@ -86,7 +86,8 @@ in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf`, 
   UpdatesPage): `run_backups` nello script fa il notturno (`backup_time`, se il server era spento parte dopo; la
   data si segna prima del tentativo, quindi un errore non si ripete ogni minuto) e quello chiesto con
   `request.json` `backup`; tiene `daily-*`/`manual-*`/`before-restore-*`/`imported-*` per `backup_keep_days`, i
-  `netmap-*` (prima degli aggiornamenti) per numero (`keep_backups`). I dump si scrivono in `.part` e poi `mv`.
+  `netmap-*` (prima degli aggiornamenti) per numero (`keep_backups`); `note_backup` scrive in
+  `updater-data/backup-notes.json` da quale versione a quale (`update` nell'elenco, mostrato in BackupPage). I dump si scrivono in `.part` e poi `mv`.
   Elenco (`backup_list`) e ultimo esito in `status.backup`. Priorità delle richieste in attesa:
   restore > update > backup > diagnostics > check. Le due pagine mandano tutto `settings.json` (`{...settings, ...form}`).
 - **Ripristino** (`do_restore` nello script, `request.json` `{"action": "restore", "file"}` da
@@ -581,7 +582,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   la tiene fissa). Su un cavo automatico i tratti sono quelli del percorso calcolato. Con spigoli salvati il
   percorso è `connect` in geometry.js (primo/ultimo spigolo riallineati al lato; se stanno dietro il lato il cavo
   esce dritto e gira attorno). Solo estremità spostate = percorso ancora automatico. Il clic che chiude un trascinamento non arriva alla mappa. "Torna al percorso automatico".
-  **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
+  **Filtro dei cavi**: i tipi nella legenda sono pulsanti (`cableTypes`): i cavi degli altri tipi non entrano in
+  `baseEdges`. **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,
   endpoint; i risultati hanno `interface_id`); il risultato seleziona il cavo della porta trovata (o il device),
   lo centra e scrive "Trovato" nel pannello. **Vista VLAN**: menu con le VLAN della mappa (`view.vlans`); evidenzia i

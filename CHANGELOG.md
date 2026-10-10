@@ -58,6 +58,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   copre niente (prima solo in basso a sinistra o a destra); le bolle delle posizioni comprendono i nomi delle porte
   e dei rack, così il loro nome resta libero, e con i nomi delle porte "Disponi" lascia spazio attorno a ogni posizione.
 - Mappa: il suggerimento su come collegare due device sparisce dopo qualche secondo e ha la × per chiuderlo.
+- Mappa: cliccando un tipo di cavo nella legenda si vedono solo i cavi di quel tipo (anche più tipi insieme; "Tutti i
+  cavi" li rimette tutti).
+- Backup: per quelli fatti prima di un aggiornamento la pagina dice da quale versione a quale (l'updater lo annota in
+  `updater-data/backup-notes.json`; per i backup più vecchi solo la versione di partenza, presa dal nome del file).
 
 ### Correzioni
 
