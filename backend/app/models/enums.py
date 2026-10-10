@@ -9,6 +9,12 @@ class Source(StrEnum):
     MANUAL = "manual"
     SNMP = "snmp"
     NETBOX = "netbox"
+    ZABBIX = "zabbix"
+    LIBRENMS = "librenms"
+    OBSERVIUM = "observium"
+    PRTG = "prtg"
+    GLPI = "glpi"
+    LANSWEEPER = "lansweeper"
 
 
 class DeviceStatus(StrEnum):

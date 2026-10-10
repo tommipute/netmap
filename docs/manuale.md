@@ -179,7 +179,7 @@ i pianificati sono tratteggiati.
 
 ### Device da CSV o Excel
 
-Nell'elenco **Device**:
+Nell'elenco **Device** (oppure in **Amministrazione → Import**, sorgente *CSV o Excel*, che apre la stessa finestra):
 
 - **Esporta in CSV** (si apre con Excel) o **in JSON**: esporta i device con i filtri attivi.
 - **Importa**: carica un file CSV o Excel (`.xlsx`) o incolla il testo. **Scarica modello CSV** ti dà un file
@@ -195,7 +195,7 @@ Nell'elenco **Device**:
 
 ### Da NetBox
 
-Solo per gli amministratori: **Amministrazione → Import da NetBox**. Copia in NetMap quello che c'è in NetBox
+Solo per gli amministratori: **Amministrazione → Import**, sorgente **NetBox**. Copia in NetMap quello che c'è in NetBox
 (versione 3.3 o successiva): sedi, posizioni, rack, produttori, ruoli, modelli, VRF, VLAN, subnet, device con porte
 e stack, cavi e indirizzi IP.
 
@@ -225,6 +225,29 @@ import restano in **Import precedenti**.
   non supera i controlli di NetMap finisce tra i problemi, gli altri vanno avanti.
 - Nello **Storico modifiche** l'import compare con l'origine "Import da NetBox" e il nome di chi l'ha avviato; una
   simulazione non lascia traccia.
+
+### Da Zabbix, LibreNMS, Observium, PRTG, GLPI e Lansweeper
+
+Stessa pagina (**Amministrazione → Import**), stessi passi di NetBox: scegli la sorgente, scrivi indirizzo e
+credenziali, **Prova la connessione**, scegli cosa importare, **Simula l'import** e poi **Importa**. Anche qui si
+crea solo quello che manca (un device con lo stesso nome nella stessa sede resta com'è, con le sue porte), le
+credenziali non restano salvate e nello storico l'import compare con l'origine del programma ("Import da Zabbix"…).
+Questi programmi non hanno sedi, rack e cavi come NetBox: ecco cosa arriva da ognuno.
+
+| Sorgente | Credenziali | Si sceglie | Cosa arriva |
+|---|---|---|---|
+| **Zabbix** (5.0 o successivo) | token API (5.4+) oppure utente e password | gruppi di host | host con IP di management (prima l'interfaccia SNMP, poi l'agente) e i dati dell'inventario: tipo → ruolo, produttore e modello, seriale, asset tag, posizione. Tutti nella sede scelta nella pagina; host disattivati → stato "offline" |
+| **LibreNMS** | token API | posizioni (diventano sedi) | device con produttore (dal sysObjectID), modello, seriale, sistema operativo (campi personalizzati `os` e `os_version`), porte con tipo, velocità, MAC e descrizione, indirizzi IP, e i vicini LLDP/CDP come cavi |
+| **Observium** (edizioni con l'API) | utente e password | posizioni (diventano sedi) | device e porte, senza indirizzi IP né cavi |
+| **PRTG** | chiave API, oppure utente con password o passhash | sonde | device: la sonda è la sede, il gruppo la posizione, l'indirizzo (se è un IP) quello di management, i tag nel campo `prtg_tags`. PRTG non conosce porte e cavi |
+| **GLPI** (9.5 o successivo, API REST attiva) | token dell'utente oppure utente e password, più l'App-Token se il client API lo chiede | sedi (primo livello delle posizioni di GLPI) | apparati di rete con tipo → ruolo, produttore, modello, seriale, numero d'inventario (asset tag), posizioni ad albero, porte, indirizzi IP e collegamenti tra le porte come cavi |
+| **Lansweeper** (cloud) | token personale | siti di Lansweeper (diventano sedi) | solo gli apparati di rete (switch, router, firewall, access point, stampanti, UPS, NAS…) con tipo → ruolo, produttore, modello, seriale, posizione e IP; computer e telefoni no |
+
+- I device senza sede vanno nella **sede per i device senza sede** scritta nella pagina (vuota = una sede con il nome
+  del programma, es. "Zabbix"): se in NetMap non c'è viene creata.
+- L'IP di management va sulla porta che ce l'ha; se il programma non dice su quale porta sta, su una porta "mgmt".
+- Se un elenco non si legge (per esempio i vicini LLDP di una versione vecchia di LibreNMS, o un permesso che
+  manca) l'import va avanti senza e il log lo dice.
 
 ## 10. Mappe
 

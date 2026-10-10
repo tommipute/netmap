@@ -149,8 +149,9 @@ test('active directory: prova con un dominio che non esiste (non salva niente)',
 
 test('import da NetBox: prova con un NetBox che non risponde (non importa niente)', async ({ page }) => {
   await login(page)
-  await page.goto('/import-netbox')
-  await expect(page.getByRole('heading', { name: 'Import da NetBox', level: 1 })).toBeVisible()
+  await page.goto('/import-netbox') // indirizzo di prima: porta alla pagina Import con NetBox già scelto
+  await expect(page.getByRole('heading', { name: 'Import', level: 1 })).toBeVisible()
+  await expect(page.locator('#import-source')).toHaveValue('netbox')
   await page.getByRole('textbox', { name: /^Indirizzo di NetBox/ }).fill('http://127.0.0.1:9')
   await page.getByLabel(/^Token API/).fill('0123456789abcdef0123456789abcdef01234567')
   await page.getByRole('button', { name: 'Prova la connessione' }).click()

@@ -16,7 +16,7 @@ import SearchPage from './pages/SearchPage'
 import UpdatesPage from './pages/UpdatesPage'
 import BackupPage from './pages/BackupPage'
 import DirectoryPage from './pages/DirectoryPage'
-import NetBoxImportPage from './pages/NetBoxImportPage'
+import ImportPage from './pages/ImportPage'
 import { resources } from './resources'
 import { t } from './i18n'
 
@@ -60,7 +60,8 @@ export default function App() {
         <Route path="updates" element={<UpdatesPage />} />
         <Route path="backup" element={<BackupPage />} />
         <Route path="directory" element={<DirectoryPage />} />
-        <Route path="import-netbox" element={<NetBoxImportPage />} />
+        <Route path="import" element={<ImportPage />} />
+        <Route path="import-netbox" element={<Navigate to="/import?source=netbox" replace />} />
         {Object.entries(resources).map(([key, config]) => (
           // key={key}: ogni elenco riparte da zero quando si cambia sezione
           <Route key={key} path={config.path} element={<ResourcePage key={key} resourceKey={key} />} />

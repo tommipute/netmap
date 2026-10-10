@@ -835,6 +835,7 @@ button.tile:hover { border-color: var(--accent); }
 .netbox-sites__list .check { align-items: baseline; }
 .netbox-sites__list .check .muted { font-size: 12px; }
 .netbox-note { max-width: 760px; margin: 0 0 14px; }
+.netbox-default-site { margin-bottom: 14px; }
 .netbox-run .log { margin-bottom: 14px; }
 .netbox-counts { max-width: 640px; margin-bottom: 18px; }
 .netbox-counts .hint { display: block; margin-top: 6px; }

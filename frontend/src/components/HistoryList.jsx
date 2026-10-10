@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, INTERFACE_MODES, INTERFACE_TYPES, IPAM_STATUS, IP_STATUS, formatDateTime } from '../options'
+import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, INTERFACE_MODES, INTERFACE_TYPES, IPAM_STATUS, IP_STATUS, SOURCES as DATA_SOURCES, formatDateTime } from '../options'
 import { ROLES } from '../auth'
 import { t, tData, tServer } from '../i18n'
 
@@ -26,11 +26,13 @@ export const OBJECT_TYPES = [
   { value: 'backup_target', label: t('Destinazione dei backup') },
   { value: 'directory', label: t('Active Directory') },
 ]
+// Import da altri programmi: stesse etichette dell'origine dei dati (options.js)
+const IMPORT_SOURCES = DATA_SOURCES.filter((o) => !['manual', 'snmp'].includes(o.value)).map(({ value, label }) => ({ value, label }))
 export const SOURCES = [
   { value: 'utente', label: t('A mano') },
   { value: 'scansione', label: t('Scansione SNMP') },
   { value: 'import', label: t('Import CSV o Excel') },
-  { value: 'netbox', label: t('Import da NetBox') },
+  ...IMPORT_SOURCES,
   { value: 'directory', label: t('Accesso con Active Directory') },
   { value: 'sistema', label: t('Sistema') },
 ]

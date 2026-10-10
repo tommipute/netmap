@@ -62,6 +62,12 @@ export const SOURCES = [
   { value: 'manual', label: t('Inserito a mano'), icon: 'user' },
   { value: 'snmp', label: t('Scansione SNMP'), icon: 'radar' },
   { value: 'netbox', label: t('Import da NetBox'), icon: 'plug' },
+  { value: 'zabbix', label: t('Import da Zabbix'), icon: 'plug' },
+  { value: 'librenms', label: t('Import da LibreNMS'), icon: 'plug' },
+  { value: 'observium', label: t('Import da Observium'), icon: 'plug' },
+  { value: 'prtg', label: t('Import da PRTG'), icon: 'plug' },
+  { value: 'glpi', label: t('Import da GLPI'), icon: 'plug' },
+  { value: 'lansweeper', label: t('Import da Lansweeper'), icon: 'plug' },
 ]
 
 const ALL = [...DEVICE_STATUS, ...CABLE_STATUS, ...IP_STATUS]

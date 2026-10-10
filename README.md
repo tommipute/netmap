@@ -103,8 +103,9 @@ Nell'elenco **Device**: *Esporta CSV* (apribile in Excel) o *Esporta JSON* rispe
 creati. Con *Simulazione* vedi cosa succederebbe senza scrivere niente; le righe sbagliate vengono elencate e le
 altre importate.
 
-Da **NetBox** (3.3 o successivo) si importa tutto in una volta: *Amministrazione → Import da NetBox*, con un token
-in sola lettura (dettagli nel [manuale](docs/manuale.md#da-netbox)).
+Da **NetBox** (3.3 o successivo) si importa tutto in una volta: *Amministrazione → Import*, con un token in sola
+lettura (dettagli nel [manuale](docs/manuale.md#da-netbox)). Dalla stessa pagina si importano i device da Zabbix,
+LibreNMS, Observium, PRTG, GLPI e Lansweeper.
 
 ### Scansione SNMP
 

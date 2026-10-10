@@ -374,7 +374,7 @@ def test_api(client, anonymous, session_factory, monkeypatch):
     assert body["url"] == "http://netbox.prova.lan" and body["requested_by"] == "admin"
     assert TOKEN not in created.text and "token" not in body
     with session_factory() as db:
-        assert decrypt(db.get(ImportRun, body["id"]).token_enc) == TOKEN
+        assert netbox.read_secrets(db.get(ImportRun, body["id"]).token_enc) == {"token": TOKEN}
     busy = client.post("/api/netbox/imports", json=connection)
     assert busy.status_code == 409 and "in corso" in busy.json()["detail"]
     assert [r["id"] for r in client.get("/api/netbox/imports").json()] == [body["id"]]

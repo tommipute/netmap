@@ -179,7 +179,7 @@ grey; planned cables are dashed.
 
 ### Devices from CSV or Excel
 
-In the **Devices** list:
+In the **Devices** list (or in **Administration → Import**, source *CSV or Excel*, which opens the same window):
 
 - **Export to CSV** (opens in Excel) or **to JSON**: exports the devices with the active filters.
 - **Import**: upload a CSV or Excel (`.xlsx`) file or paste the text. **Download CSV template** gives you a sample
@@ -195,7 +195,7 @@ In the **Devices** list:
 
 ### From NetBox
 
-Administrators only: **Administration → NetBox import**. It copies what is in NetBox (version 3.3 or later) into
+Administrators only: **Administration → Import**, source **NetBox**. It copies what is in NetBox (version 3.3 or later) into
 NetMap: sites, locations, racks, manufacturers, roles, models, VRFs, VLANs, subnets, devices with ports and stacks,
 cables and IP addresses.
 
@@ -226,6 +226,29 @@ the page: the latest imports stay in **Previous imports**.
   NetMap's checks is listed among the problems; the others go ahead.
 - In the **Change history** the import shows up with the origin "NetBox import" and the name of whoever started it;
   a simulation leaves no trace.
+
+### From Zabbix, LibreNMS, Observium, PRTG, GLPI and Lansweeper
+
+Same page (**Administration → Import**), same steps as NetBox: choose the source, enter address and credentials,
+**Test the connection**, choose what to import, **Simulate the import** and then **Import**. Here too only what is
+missing is created (a device with the same name on the same site stays as it is, with its ports), credentials are
+not kept, and in the history the import shows up with the program as origin ("Zabbix import"…). These programs do
+not have sites, racks and cables like NetBox: this is what comes from each one.
+
+| Source | Credentials | You choose | What comes along |
+|---|---|---|---|
+| **Zabbix** (5.0 or later) | API token (5.4+) or user and password | host groups | hosts with the management IP (SNMP interface first, then the agent) and the inventory data: type → role, manufacturer and model, serial, asset tag, location. All in the site chosen on the page; disabled hosts → status "offline" |
+| **LibreNMS** | API token | locations (they become sites) | devices with manufacturer (from the sysObjectID), model, serial, operating system (custom fields `os` and `os_version`), ports with type, speed, MAC and description, IP addresses, and the LLDP/CDP neighbours as cables |
+| **Observium** (editions with the API) | user and password | locations (they become sites) | devices and ports, without IP addresses or cables |
+| **PRTG** | API key, or user with password or passhash | probes | devices: the probe is the site, the group the location, the address (if it is an IP) the management one, the tags in the `prtg_tags` field. PRTG does not know ports and cables |
+| **GLPI** (9.5 or later, REST API enabled) | user token or user and password, plus the App-Token if the API client asks for it | sites (first level of the GLPI locations) | network devices with type → role, manufacturer, model, serial, inventory number (asset tag), nested locations, ports, IP addresses and links between ports as cables |
+| **Lansweeper** (cloud) | personal access token | Lansweeper sites (they become sites) | only network devices (switches, routers, firewalls, access points, printers, UPS, NAS…) with type → role, manufacturer, model, serial, location and IP; no computers or phones |
+
+- Devices without a site go into the **site for devices without a site** written on the page (empty = a site named
+  after the program, e.g. "Zabbix"): it is created if NetMap doesn't have it.
+- The management IP goes on the port that has it; if the program does not say which port, on an "mgmt" port.
+- If a list cannot be read (for example the LLDP neighbours of an old LibreNMS version, or a missing permission) the
+  import goes on without it and the log says so.
 
 ## 10. Maps
 

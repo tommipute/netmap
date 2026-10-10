@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (96 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (113 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -60,7 +60,7 @@ docker compose build api worker                     # dopo aver cambiato require
 |---|---|---|
 | web (Vite + React) | http://localhost:5174 | proxy verso l'API per `/api`, `/docs`, `/openapi.json` |
 | api (FastAPI) | http://localhost:8001/docs | reload automatico, codice montato da `./backend` |
-| worker | — | esegue scansioni, copie dei backup e import da NetBox in coda (un thread ciascuno); `watchfiles` lo riavvia quando cambia il codice |
+| worker | — | esegue scansioni, copie dei backup e import (NetBox e altri programmi) in coda (un thread ciascuno); `watchfiles` lo riavvia quando cambia il codice |
 | monitor | — | stato live: ping + SNMP ifOperStatus ogni `MONITOR_INTERVAL_SECONDS` (0 = spento) |
 | db (Postgres 16) | localhost:5433 | |
 
@@ -231,7 +231,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
 | `GET`/`PUT /api/directory` · `POST /api/directory/test` | Active Directory: impostazioni, prova con un utente (solo admin) |
 | `GET /api/diagnostics` | pacchetto diagnostico zip (solo admin) |
-| `POST /api/netbox/test` · `GET`/`POST /api/netbox/imports` · `GET /api/netbox/imports/{id}` | import da NetBox: prova, coda, stato con log e problemi (solo admin) |
+| `POST /api/imports/test` · `GET`/`POST /api/imports` · `GET /api/imports/{id}` | import da NetBox e dagli altri programmi: prova, coda, stato con log e problemi (solo admin); `/api/netbox/*` resta per compatibilità |
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
 Anche `/snmp-profiles` e `/discovery-jobs` sono CRUD generati.
@@ -394,13 +394,13 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Vite in sviluppo a volte resta con una versione a metà di un file modificato più volte di fila ("does not provide
   an export named 'default'", pagina bianca): `docker compose restart web`.
 
-## Import da NetBox (`services/netbox.py`, `api/netbox.py`, tabella `import_runs`, pagina `/import-netbox`)
+## Import da NetBox e altri programmi (`services/netbox.py`, `services/connectors.py`, `api/netbox.py`, tabella `import_runs`, pagina `/import`)
 
 - Solo admin. Il token (v1 → `Token …`, v2 `nbt_…` → `Bearer …`) sta cifrato in `import_runs.token_enc` (in
   `keys.ENCRYPTED`) solo finché il worker non ha finito, poi `None`. `POST /netbox/test` (versione ≥ 3.3, conteggi,
   sedi) gira nell'API; `POST /netbox/imports` mette in coda (409 se ce n'è già uno in coda o in corso); il worker
   (thread `import_loop`: `claim_next` con SKIP LOCKED, `recover_interrupted` all'avvio) esegue `execute_import`;
-  la pagina (`NetBoxImportPage`) rilegge `GET /netbox/imports/{id}` ogni 2 s. Si tengono gli ultimi 20 (`prune`).
+  la pagina (`ImportPage`) rilegge `GET /imports/{id}` ogni 2 s. Si tengono gli ultimi 20 (`prune`).
 - Lettura (`fetch`): urllib, pagine da 1000 con offset, oggetti ridotti ai campi che servono (`_device`,
   `_interface`…). Con le sedi scelte filtra NetBox (`site_id`) per posizioni, rack, device, porte e cavi e riduce
   il catalogo a quello usato da quei device. Prima si legge tutto (log man mano, con commit), poi si scrive.
@@ -420,6 +420,21 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Test: `tests/test_netbox.py` con `FakeNetBox` (sottoclasse di `Client` che risponde con le forme vere delle API,
   pagine da 3). Provato (9/10/2026) contro il NetBox demo 4.7.2 in container: tutte le sedi = 2149 oggetti in
   ~10 s, seconda volta 0 creati, stack, patch panel, LAG, trunk, primary IP, simulazione dal browser.
+- **Altri programmi** (deciso con l'utente il 9/10/2026): Zabbix, LibreNMS, Observium, PRTG, GLPI, Lansweeper
+  (cloud). Ogni connettore di `services/connectors.py` ha `label`, `version()`, `probe()` → `{version, counts,
+  groups}`, `fetch(group_ids, progress, default_site)` → `Snapshot` (stesso di NetBox, costruito con `Builder`: id
+  finti, sedi/posizioni/produttori/ruoli/modelli riusati per nome, IP di management su una porta "mgmt" se la
+  sorgente non dice dove sta), `group_names()`, `close()`. `NetBoxSource` fa lo stesso per NetBox;
+  `netbox.open_source` sceglie il connettore, `execute_import` è unico (l'Importer filtra le sedi solo per NetBox;
+  `obj.source` = nome della sorgente). Segreti cifrati come JSON `{"token", "app_token"}` in `token_enc`
+  (`read_secrets` legge anche il vecchio token in chiaro); colonne `username`, `default_site`, `source_version`
+  (`netbox_version` è una property). `site_ids` contiene i gruppi scelti (int o stringhe: gruppi di Zabbix, posizioni
+  di LibreNMS, sonde di PRTG, primo livello delle posizioni di GLPI, siti di Lansweeper). Errori come `SourceError`
+  (= `NetBoxError`) con frasi che il frontend traduce (`patterns` "import dagli altri programmi").
+  Frontend `pages/ImportPage.jsx`: `IMPORT_SOURCES` (campi e testi per sorgente; "CSV o Excel" apre
+  `DeviceImportDialog`), `GROUPS` (parole per la scelta), `?source=` nell'indirizzo; `/import-netbox` → `/import?source=netbox`.
+  Test `tests/test_connectors.py` con server finti (`FakeServers` al posto di `HttpSource.http`, risposte nella
+  forma delle API vere). **Non provati contro server veri**: solo con risposte d'esempio e un finto PRTG nel browser.
 
 ## Avvisi (`services/alerts.py`, tabelle `alert_channels`, `alert_states`)
 

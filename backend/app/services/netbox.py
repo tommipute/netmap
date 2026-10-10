@@ -62,7 +62,10 @@ KINDS = ("site", "location", "rack", "manufacturer", "device_role", "device_type
 
 
 class NetBoxError(Exception):
-    """NetBox non raggiungibile o risposta inattesa: il messaggio va all'utente."""
+    """NetBox (o un'altra sorgente) non raggiungibile o risposta inattesa: il messaggio va all'utente."""
+
+
+SourceError = NetBoxError  # nome generico, per i connettori delle altre sorgenti (services/connectors.py)
 
 
 def now() -> datetime:
@@ -365,8 +368,13 @@ CABLE_STATUS = {"connected": "connected", "planned": "planned", "decommissioning
 WIRELESS = ("ieee802.11", "ieee802.15", "other-wireless", "gsm", "cdma", "lte", "4g", "5g")
 
 
+NETMAP_INTERFACE_TYPES = ("copper", "fiber", "wireless", "virtual", "lag", "other")
+
+
 def interface_type(value: str) -> str:
     value = (value or "").lower()
+    if value in NETMAP_INTERFACE_TYPES:  # già tradotto dal connettore di un'altra sorgente
+        return value
     if value in ("virtual", "bridge"):
         return "virtual"
     if value == "lag":
@@ -448,8 +456,8 @@ class Missing(Exception):
 
 # ---------------------------------------------------------------- scrittura
 class Importer:
-    def __init__(self, db: Session, snap: Snapshot, site_ids: set[int] | None):
-        self.db, self.snap, self.site_ids = db, snap, site_ids
+    def __init__(self, db: Session, snap: Snapshot, site_ids: set[int] | None, source: str = Source.NETBOX.value):
+        self.db, self.snap, self.site_ids, self.source = db, snap, site_ids, source
         self.counts = {kind: {"created": 0, "existing": 0, "failed": 0, "skipped": 0} for kind in KINDS}
         self.problems: list[dict] = []
         self.lost_problems = 0
@@ -481,7 +489,7 @@ class Importer:
             obj = model()
             apply_data(model, obj, data)
             if hasattr(obj, "source"):
-                obj.source = Source.NETBOX.value  # icona dell'origine; per la scansione conta come inserito a mano
+                obj.source = self.source  # icona dell'origine; per la scansione conta come inserito a mano
             self.db.add(obj)
             if hook:
                 with self.db.no_autoflush:  # i controlli non devono trovare l'oggetto stesso
@@ -949,40 +957,93 @@ class RunLog:
         self.run.log = "".join(self.lines)
 
 
-def execute_import(db: Session, run_id: int, client_factory: Callable[..., Client] = Client) -> ImportRun:
+class NetBoxSource:
+    """NetBox come le altre sorgenti (services/connectors.py): versione, prova, lettura in uno Snapshot."""
+
+    key, label = "netbox", "NetBox"
+
+    def __init__(self, client: Client):
+        self.client = client
+
+    def version(self) -> str:
+        return self.client.version()
+
+    def probe(self) -> dict:
+        result = probe(self.client)
+        return {"version": result["version"], "counts": result["counts"], "groups": result["sites"]}
+
+    def fetch(self, group_ids: set | None, progress: Callable[[str], None], default_site: str) -> Snapshot:
+        snap = fetch(self.client, group_ids, progress)
+        if group_ids:
+            missing = group_ids - {s["id"] for s in snap.sites}
+            if missing:
+                raise NetBoxError(f"Sedi non trovate in NetBox: {', '.join(map(str, sorted(missing)))}")
+        return snap
+
+    def group_names(self, snap: Snapshot, group_ids: set) -> list[str]:
+        return sorted(s["name"] for s in snap.sites)
+
+    def close(self) -> None:
+        pass
+
+
+def read_secrets(token_enc: str | None) -> dict:
+    """Segreti di un import: {"token": …, "app_token": …} (prima c'era solo il token di NetBox, in chiaro)."""
+    try:
+        text = decrypt(token_enc) if token_enc else ""
+    except SecretError as exc:
+        raise NetBoxError("Il token non si legge più (chiave dei segreti cambiata): rilancia l'import") from exc
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = None
+    return data if isinstance(data, dict) else {"token": text}
+
+
+def open_source(source: str, url: str, secrets: dict, username: str | None, verify_tls: bool,
+                client_factory: Callable[..., Client] | None = None):
+    """Connettore della sorgente (non si collega ancora: controlla solo l'indirizzo)."""
+    if source == Source.NETBOX.value:
+        return NetBoxSource((client_factory or Client)(normalize_url(url or ""), secrets.get("token") or "", verify_tls))
+    from app.services import connectors  # importa questo modulo: niente import circolare
+
+    return connectors.build(source, url, secrets, username, verify_tls)
+
+
+def source_for(run: ImportRun, secrets: dict, client_factory: Callable[..., Client] | None = None):
+    return open_source(run.source, run.url, secrets, run.username, run.verify_tls, client_factory)
+
+
+def execute_import(db: Session, run_id: int, client_factory: Callable[..., Client] | None = None) -> ImportRun:
     run = db.get(ImportRun, run_id)
     run.status, run.started_at = RunStatus.RUNNING.value, run.started_at or now()
     log = RunLog(run)
+    source = None
     try:
-        try:
-            token = decrypt(run.token_enc) if run.token_enc else ""
-        except SecretError as exc:
-            raise NetBoxError("Il token non si legge più (chiave dei segreti cambiata): rilancia l'import") from exc
-        if not token:
+        secrets = read_secrets(run.token_enc)
+        if not secrets.get("token"):
             raise NetBoxError("Manca il token: rilancia l'import dalla pagina")
-        client = client_factory(run.url, token, run.verify_tls)
-        run.netbox_version = client.version()
-        log(f"Connessione a NetBox {run.netbox_version}")
+        source = source_for(run, secrets, client_factory)
+        run.source_version = source.version()
+        log(f"Connessione a {source.label} {run.source_version}")
         db.commit()
 
         def progress(message: str) -> None:
             log(message)
             db.commit()
 
-        site_ids = set(run.site_ids or []) or None
-        snap = fetch(client, site_ids, progress)
-        if site_ids:
-            run.site_names = sorted(s["name"] for s in snap.sites)
-            missing = site_ids - {s["id"] for s in snap.sites}
-            if missing:
-                raise NetBoxError(f"Sedi non trovate in NetBox: {', '.join(map(str, sorted(missing)))}")
+        group_ids = set(run.site_ids or []) or None
+        snap = source.fetch(group_ids, progress, run.default_site or source.label)
+        if group_ids:
+            run.site_names = source.group_names(snap, group_ids)
         log("Simulazione: scrittura di prova nel database…" if run.dry_run else "Scrittura nel database…")
         db.commit()
 
-        db.info["audit_source"] = "netbox"  # storico delle modifiche
+        db.info["audit_source"] = run.source  # storico delle modifiche
         if run.requested_by_id:
             db.info["audit_user"] = (run.requested_by_id, run.requested_by)
-        importer = Importer(db, snap, site_ids)
+        # NetBox filtra le sedi anche scrivendo (VLAN e subnet globali, IP liberi); le altre sorgenti leggendo
+        importer = Importer(db, snap, group_ids if run.source == Source.NETBOX.value else None, run.source)
         importer.run()
         if run.dry_run:
             db.rollback()  # la simulazione non lascia niente (neanche lo storico)
@@ -1001,12 +1062,17 @@ def execute_import(db: Session, run_id: int, client_factory: Callable[..., Clien
         log(f"Import non eseguito: {exc}")
     except Exception as exc:
         db.rollback()
-        logger.exception("Import da NetBox %s fallito", run_id)
+        logger.exception("Import %s da %s fallito", run_id, run.source)
         run.status = RunStatus.FAILED.value
         log(f"Errore inatteso: {exc}")
     finally:
         db.info.pop("audit_source", None)
         db.info.pop("audit_user", None)
+        if source is not None:
+            try:
+                source.close()  # es. chiude la sessione di GLPI o di Zabbix
+            except Exception:  # noqa: BLE001 - la chiusura non deve far fallire l'import
+                logger.warning("Chiusura della connessione a %s non riuscita", run.source)
     run.log = "".join(log.lines)
     run.token_enc = None  # il token serve solo per questo import
     run.finished_at = now()
@@ -1056,18 +1122,18 @@ def import_loop(session_factory) -> None:
             with session_factory() as db:
                 if not recovered:
                     if count := recover_interrupted(db):
-                        logger.warning("%s import da NetBox interrotti segnati come falliti", count)
+                        logger.warning("%s import interrotti segnati come falliti", count)
                     recovered = True
                 run_id = claim_next(db)
             if run_id is not None:
-                logger.info("Import da NetBox %s avviato", run_id)
+                logger.info("Import %s avviato", run_id)
                 with session_factory() as db:
                     run = execute_import(db, run_id)
-                    logger.info("Import da NetBox %s finito: %s", run_id, run.status)
+                    logger.info("Import %s finito: %s", run_id, run.status)
                 continue
         except (OperationalError, ProgrammingError):
             time.sleep(30)  # database non pronto o migration non ancora applicata
             continue
         except Exception:
-            logger.exception("Errore inatteso negli import da NetBox")
+            logger.exception("Errore inatteso negli import")
         time.sleep(POLL_SECONDS)

@@ -27,11 +27,18 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   (testo, testo lungo, numero, sì/no, data, scelta da un elenco, link), oggetti a cui si applicano, se sono
   obbligatori e l'ordine. Nei moduli hanno il controllo adatto; negli elenchi sono colonne con filtro e ordinamento;
   si trovano con la ricerca ed escono nell'export dei device. I campi liberi nome/valore restano.
+- Pagina **Import** unica (Amministrazione → Import, al posto di "Import da NetBox"): si sceglie la sorgente tra
+  CSV o Excel, NetBox, Zabbix, LibreNMS, Observium, PRTG, GLPI e Lansweeper. Dagli altri programmi arrivano i
+  device con IP di management, produttore, modello, ruolo, seriale e posizione e, dove il programma li conosce,
+  porte, indirizzi IP e cavi (vicini LLDP/CDP di LibreNMS, collegamenti tra porte di GLPI); con prova della
+  connessione, scelta di gruppi o sedi, simulazione, log e "crea solo quello che manca", come per NetBox.
 
 ### Modifiche
 
 - Active Directory: la prova con un utente è in fondo alla pagina, chiusa ("Prova (facoltativa)"): serve solo se si
   conosce la password di un utente del dominio.
+- API degli import: `/api/imports` (prova, coda, stato) vale per tutte le sorgenti; `/api/netbox/*` resta. Nella
+  risposta `source_version` prende il posto di `netbox_version` (che c'è ancora per gli import da NetBox).
 
 ## [1.0.0] - 2026-10-09
 
