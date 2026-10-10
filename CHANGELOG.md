@@ -53,6 +53,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   intero passando sopra col mouse), un device con tanti cavi su un lato si allunga oltre che allargarsi, così i nomi
   non si sovrappongono più, e "Disponi" lascia più spazio tra le colonne.
 - Mappa: pulsante "Aggiorna la mappa" per ricaricare subito device e cavi.
+- Mappa: i nomi delle porte stanno sopra tutti i cavi (cliccandone uno si seleziona il cavo); i nomi di rack e
+  posizioni sopra cavi e nomi delle porte. Il nome del rack sceglie tra i quattro angoli della bolla quello dove non
+  copre niente (prima solo in basso a sinistra o a destra); le bolle delle posizioni comprendono i nomi delle porte
+  e dei rack, così il loro nome resta libero, e con i nomi delle porte "Disponi" lascia spazio attorno a ogni posizione.
+- Mappa: il suggerimento su come collegare due device sparisce dopo qualche secondo e ha la × per chiuderlo.
 
 ### Correzioni
 

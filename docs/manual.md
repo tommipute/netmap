@@ -267,6 +267,9 @@ and rooms become coloured boxes nested in each other.
 
 Drag devices where you want them and press **Save layout**. **Arrange automatically** recalculates everything.
 Clicking the name of a rack or location selects all its devices, to move them together.
+Rack and location names sit above the cables, so nothing covers them: the rack name goes in the first of the four
+corners of the bubble where it does not cover devices, port names or cables, and location boxes grow as needed to
+keep their name clear.
 
 ### Cables on the map
 
@@ -275,7 +278,8 @@ Clicking the name of a rack or location selects all its devices, to move them to
 - Cables run at right angles and never pass under a device. **Port names** writes the port name where the cable
   enters the device, in the short form Cisco uses (Te1/1/1 for TenGigabitEthernet1/1/1: the full name appears
   when you hover over it). A device with many cables on the same side gets wider or taller as needed so that the
-  names do not overlap, and **Arrange automatically** leaves more room between devices.
+  names do not overlap, and **Arrange automatically** leaves more room between devices. Port names sit above the
+  cables; clicking one selects its cable.
 - To **adjust a cable by hand**, click it: the small bars on its segments can be dragged sideways, the dots at the
   ends slide along the device border. Then **Save layout**. **Back to the automatic route** undoes it.
 - Click a cable to see its details (ports, type, VLANs) and delete it; click a device to see its details and open

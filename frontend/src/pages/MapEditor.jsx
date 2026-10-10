@@ -24,11 +24,12 @@ import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
 import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
-import { cableGeometry, nodeSizes } from '../map/geometry'
+import { cableGeometry, labelBox, nodeSizes } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
 import MapSearch from '../map/MapSearch'
 import { shortPortName } from '../map/ports'
 import LocationNode from '../map/LocationNode'
+import MapLabels from '../map/MapLabels'
 import RackNode from '../map/RackNode'
 import { LOC_PAD, X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout, locationLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
@@ -36,6 +37,7 @@ import { t } from '../i18n'
 
 const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode }
 const edgeTypes = { cable: CableEdge }
+const HINT_MS = 6000 // il suggerimento in alto resta per qualche secondo
 const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
 const EXPORT_PADDING = 40
 
@@ -117,15 +119,49 @@ const overlaps = (box, n) =>
 const crosses = (p, q, box) =>
   Math.max(p.x, q.x) >= box.l && Math.min(p.x, q.x) <= box.r && Math.max(p.y, q.y) >= box.t && Math.min(p.y, q.y) <= box.b
 
-/** Nome del rack in basso a sinistra; se lì passa un cavo e a destra no, va a destra. */
-function labelSide(bubble, geometry) {
-  const zone = (left) => {
-    const width = Math.min(bubble.width / 2, 120)
-    const l = left ? bubble.position.x + 6 : bubble.position.x + bubble.width - 6 - width
-    return { l, r: l + width, t: bubble.position.y + bubble.height - 26, b: bubble.position.y + bubble.height }
-  }
-  const busy = (box) => Object.values(geometry).some((g) => g.points.some((p, i) => i > 0 && crosses(g.points[i - 1], p, box)))
-  return busy(zone(true)) && !busy(zone(false)) ? 'right' : 'left'
+const RACK_NAME_H = 20
+const boxesHit = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b
+
+/**
+ * Nome di ogni bolla dei rack: nel primo dei quattro angoli dove non copre niente (in basso a sinistra, in basso a
+ * destra, in alto appena fuori dalla bolla a sinistra e a destra), altrimenti dove copre meno (device, nomi delle
+ * porte e degli altri rack contano più dei cavi). Sta sopra i cavi (MapLabels): non lo copre niente.
+ * -> [{ bubble, text, box: { l, t, r, b } }]
+ */
+function rackNames(bubbles, geometry, nodes) {
+  const devices = nodes.filter((n) => n.measured?.width).map((n) => ({
+    l: n.position.x, t: n.position.y, r: n.position.x + n.measured.width, b: n.position.y + n.measured.height,
+  }))
+  const parts = Object.values(geometry)
+  const labels = parts.flatMap((g) => g.labels.map(labelBox))
+  const segments = parts.flatMap((g) => g.points.slice(1).map((q, i) => [g.points[i], q]))
+  const placed = []
+  return bubbles.map((bubble) => {
+    const text = `Rack ${bubble.data.name}`
+    const width = text.length * 6.6 + 12
+    const { x, y } = bubble.position
+    const bottom = y + bubble.height - RACK_NAME_H - 4
+    const top = y - RACK_NAME_H - 2
+    const right = x + bubble.width - 10 - width
+    const corners = [[x + 10, bottom], [right, bottom], [x + 10, top], [right, top]]
+      .map(([l, t]) => ({ l, t, r: l + width, b: t + RACK_NAME_H }))
+    const cost = (c) =>
+      10 * (devices.filter((d) => boxesHit(c, d)).length + placed.filter((d) => boxesHit(c, d)).length) +
+      3 * labels.filter((d) => boxesHit(c, d)).length +
+      segments.filter(([p, q]) => crosses(p, q, c)).length
+    let box = corners[0]
+    let best = cost(box)
+    for (const c of corners.slice(1)) {
+      if (best === 0) break
+      const k = cost(c)
+      if (k < best) {
+        box = c
+        best = k
+      }
+    }
+    placed.push(box)
+    return { bubble, text, box }
+  })
 }
 
 function rackBubbles(nodes, onSelect) {
@@ -186,10 +222,11 @@ function rackBubbles(nodes, onSelect) {
 
 /**
  * Bolle delle posizioni: per ogni posizione un riquadro attorno ai suoi device e alle posizioni che contiene
- * (quindi una dentro l'altra: edificio › piano › stanza), ricalcolato a ogni spostamento. Sotto le bolle dei rack;
+ * (quindi una dentro l'altra: edificio › piano › stanza), ricalcolato a ogni spostamento. extras: { nodeId: [box] }
+ * = altro che appartiene al device (nomi delle porte, nome del rack), così il nome della posizione in alto resta libero. Sotto le bolle dei rack;
  * a differenza di quelle i cavi le attraversano.
  */
-function locationBubbles(nodes, locations, onSelect) {
+function locationBubbles(nodes, locations, onSelect, extras = new Map()) {
   if (!locations.length) return []
   const measured = nodes.filter((n) => n.measured?.width)
   const known = new Map(locations.map((l) => [l.id, l]))
@@ -205,8 +242,7 @@ function locationBubbles(nodes, locations, onSelect) {
     const ids = []
     for (const n of measured) {
       if (n.data.location_id !== loc.id) continue
-      const box = bubbleBox([n])
-      boxes.push(box)
+      boxes.push(bubbleBox([n]), ...(extras.get(n.id) || []))
       ids.push(n.id)
     }
     for (const child of children.get(loc.id) || []) {
@@ -381,6 +417,13 @@ function Editor() {
     }
   }, [devicesMeasured])
 
+  // Suggerimento su come collegare due device: sparisce da solo dopo qualche secondo (o con la x)
+  const [hint, setHint] = useState(true)
+  useEffect(() => {
+    const timer = setTimeout(() => setHint(false), HINT_MS)
+    return () => clearTimeout(timer)
+  }, [])
+
   // Pulsante "Aggiorna": come l'aggiornamento automatico, ma subito (device o cavi aggiunti da un'altra pagina)
   const [reloading, setReloading] = useState(false)
   const reload = useCallback(async () => {
@@ -456,10 +499,6 @@ function Editor() {
     ({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) }), [])
   const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
   const locationsOn = showLocations && (view?.locations.length || 0) > 0
-  const places = useMemo(
-    () => (locationsOn ? locationBubbles(nodes, view.locations, selectRack) : []),
-    [locationsOn, nodes, view, selectRack],
-  )
   // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni. Mentre si trascina ricalcolo solo i cavi dei
   // device che si muovono (con centinaia di cavi rifarli tutti a ogni movimento del mouse rallenta la mappa); al
   // rilascio si ricalcolano tutti (map/routing.js ricorda i percorsi che non cambiano).
@@ -471,6 +510,19 @@ function Editor() {
     lastGeometry.current = next
     return next
   }, [nodes, bubbles, baseEdges, moving])
+  const rackLabels = useMemo(() => rackNames(bubbles, geometry, nodes), [bubbles, geometry, nodes])
+  const places = useMemo(() => {
+    if (!locationsOn) return []
+    // Le bolle delle posizioni comprendono anche i nomi delle porte e dei rack dei loro device
+    const extras = new Map()
+    const add = (nodeId, box) => {
+      if (!extras.has(nodeId)) extras.set(nodeId, [])
+      extras.get(nodeId).push(box)
+    }
+    for (const g of Object.values(geometry)) for (const l of g.labels) add(l.node, labelBox(l))
+    for (const { bubble, box } of rackLabels) add(bubble.data.ids[0], box)
+    return locationBubbles(nodes, view.locations, selectRack, extras)
+  }, [locationsOn, nodes, view, selectRack, geometry, rackLabels])
   // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga (o si allunga) quanto serve
   const sizes = useMemo(() => nodeSizes(nodes, baseEdges), [nodes, baseEdges])
   const widths = useMemo(() => Object.fromEntries(Object.entries(sizes).filter(([, s]) => s.width).map(([id, s]) => [id, s.width])), [sizes])
@@ -552,18 +604,33 @@ function Editor() {
     }
     return [
       ...places.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
-      ...bubbles.map((b) => {
-        const side = labelSide(b, geometry)
-        const placed = side === 'left' ? b : { ...b, data: { ...b.data, labelSide: side } }
-        return faded(placed, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))
-      }),
+      ...bubbles.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
       ...nodes.map((n) => {
         const { width, height: minHeight } = sizes[n.id] || {}
         const sized = width === n.data.width && minHeight === n.data.minHeight ? n : { ...n, data: { ...n.data, width, minHeight } }
         return faded(sized, focus?.devices.has(n.id))
       }),
     ]
-  }, [places, bubbles, nodes, focus, sizes, geometry])
+  }, [places, bubbles, nodes, focus, sizes])
+  // Nomi di rack e posizioni, sopra cavi e device (MapLabels)
+  const names = useMemo(() => {
+    const inFocus = (ids) => !focus || ids.some((nodeId) => focus.devices.has(nodeId))
+    return [
+      ...places.map((b) => ({
+        id: b.id, kind: 'location', x: b.position.x + 12, y: b.position.y + 8, text: b.data.name, depth: b.data.depth,
+        title: t('{name}: clic per selezionare i suoi device e spostarli insieme', { name: b.data.path }),
+        faded: !inFocus(b.data.ids), onSelect: b.data.onSelect,
+      })),
+      ...rackLabels.map(({ bubble: b, box }) => ({
+        id: b.id, kind: 'rack', x: box.l, y: box.t, text: b.data.name,
+        title: t('Rack {name}, {what}: clic per selezionarli e spostarli insieme', {
+          name: b.data.name, what: b.data.count === 1 ? t('1 device') : t('{n} device', { n: b.data.count }),
+        }),
+        faded: !inFocus(b.data.ids), onSelect: b.data.onSelect,
+      })),
+    ]
+  }, [places, rackLabels, focus])
+  const selectCable = useCallback((cableId) => setSelection({ kind: 'edge', id: cableId }), [])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -803,15 +870,17 @@ function Editor() {
           colorMode={theme}
         >
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
+          <MapLabels edges={edges} geometry={geometry} names={names} onSelectEdge={selectCable} />
           <Controls showInteractive={false} />
           <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' || n.type === 'location' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
             <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)} locations={locationsOn}
               vlan={view.vlans.find((v) => v.id === vlanId)} />
           </Panel>
-          {canEdit && view.nodes.length > 0 && (
+          {canEdit && hint && view.nodes.length > 0 && (
             <Panel position="top-left" className="map-hint">
               {t("Per collegare due device passa sopra uno dei due e trascina da un suo pallino all'altro.")}
+              <button type="button" className="map-hint__close" onClick={() => setHint(false)} aria-label={t('Chiudi')} title={t('Chiudi')}>×</button>
             </Panel>
           )}
         </ReactFlow>

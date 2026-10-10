@@ -15,7 +15,7 @@
 import { OUTWARD, assignAnchors, rectOf } from './anchors'
 import { MARGIN, STUB, routeOrthogonal } from './routing'
 
-const LABEL_H = 16 // altezza del riquadro del nome (font mono 11 px)
+export const LABEL_H = 16 // altezza del riquadro del nome (font mono 11 px)
 const CHAR_W = 6.6
 export const PLUG = 7 // sporgenza del connettore disegnato dove il cavo entra nel device
 const LABEL_GAP = PLUG + 3 // distanza del nome dal bordo del device: dopo il connettore
@@ -23,6 +23,14 @@ const AFTER_LABEL = 10 // tratto dritto dopo il nome, prima della prima curva
 const BUS_GAP = 14 // la riga orizzontale preferita sta questo oltre il tratto dritto del device di arrivo
 
 export const labelLength = (text) => String(text).length * CHAR_W + 10
+
+/** Riquadro occupato dal nome di una porta: { l, t, r, b } */
+export function labelBox(label) {
+  const half = labelLength(label.text) / 2
+  return label.vertical
+    ? { l: label.x - LABEL_H / 2, r: label.x + LABEL_H / 2, t: label.y - half, b: label.y + half }
+    : { l: label.x - half, r: label.x + half, t: label.y - LABEL_H / 2, b: label.y + LABEL_H / 2 }
+}
 
 /** Distanza tra due lati che si guardano (null se non si guardano). */
 function facingGap(from, to) {
@@ -232,7 +240,7 @@ export function cableGeometry(nodes, bubbles, edges, { only = null, previous = {
     const labels = []
     if (sourceText && targetText) {
       const place = tight ? besideLabel : edgeLabel
-      labels.push(place(from, sourceText, e.data.sourceTitle), place(to, targetText, e.data.targetTitle))
+      labels.push({ ...place(from, sourceText, e.data.sourceTitle), node: e.source }, { ...place(to, targetText, e.data.targetTitle), node: e.target })
     }
     result[e.id] = { points, labels, edit, ends: [from, to] }
   }

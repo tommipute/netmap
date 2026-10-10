@@ -192,6 +192,9 @@ export const LOC_PAD = { top: 44, side: 26, bottom: 24 }
 const LOC_GAP = 70
 // Spazio attorno ai device per le bolle dei rack (come RACK_PAD in MapEditor)
 const DEVICE_PAD = { top: 10, side: 16, bottom: 30 }
+// Con i nomi delle porte i nomi sopra e sotto i device escono dalla fila: la bolla della posizione li comprende
+// (MapEditor), quindi lascio il loro spazio attorno ai device di ogni posizione
+const PORT_ROOM = { top: 70, side: 40, bottom: 70 }
 
 /** Posizioni sorelle: piano più alto in cima (quota), poi senza quota in ordine di nome. */
 const byFloor = (a, b) =>
@@ -222,6 +225,9 @@ export function locationLayout(nodes, edges, locations, heights = {}, options = 
   }
 
   // Riquadro: { positions (relative all'angolo in alto a sinistra), w, h }
+  const pad = options.withPorts
+    ? { top: DEVICE_PAD.top + PORT_ROOM.top, side: DEVICE_PAD.side + PORT_ROOM.side, bottom: DEVICE_PAD.bottom + PORT_ROOM.bottom }
+    : DEVICE_PAD
   const devicesBox = (list) => {
     if (!list.length) return null
     const pos = hierarchicalLayout(list, edges, heights, options)
@@ -230,10 +236,10 @@ export function locationLayout(nodes, edges, locations, heights = {}, options = 
       const p = pos[String(n.id)]
       const w = widths[String(n.id)] || NODE_HALF * 2
       const h = heights[String(n.id)] || estimatedHeight(n)
-      l = Math.min(l, p.x - DEVICE_PAD.side)
-      t = Math.min(t, p.y - DEVICE_PAD.top)
-      r = Math.max(r, p.x + w + DEVICE_PAD.side)
-      b = Math.max(b, p.y + h + DEVICE_PAD.bottom)
+      l = Math.min(l, p.x - pad.side)
+      t = Math.min(t, p.y - pad.top)
+      r = Math.max(r, p.x + w + pad.side)
+      b = Math.max(b, p.y + h + pad.bottom)
     }
     const positions = Object.fromEntries(Object.entries(pos).map(([id, p]) => [id, { x: p.x - l, y: p.y - t }]))
     return { positions, w: r - l, h: b - t }

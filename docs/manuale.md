@@ -267,6 +267,9 @@ core), sotto gli altri; i device dello stesso rack stanno insieme dentro una **b
 
 Trascina i device dove vuoi e premi **Salva disposizione**. **Disponi automaticamente** ricalcola tutto da capo.
 Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device, per spostarli insieme.
+I nomi di rack e posizioni stanno sopra i cavi, così non li copre niente: quello del rack va nel primo dei quattro
+angoli della bolla dove non copre device, nomi delle porte o cavi, e le bolle delle posizioni si allargano quanto
+serve perché il loro nome resti libero.
 
 ### Cavi in mappa
 
@@ -275,7 +278,8 @@ Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device, p
 - I cavi girano ad angolo retto e non passano mai sotto un device. **Nomi delle porte** scrive il nome della
   porta dove il cavo entra nel device, in forma corta come la scrive Cisco (Te1/1/1 per TenGigabitEthernet1/1/1:
   il nome intero compare passando sopra col mouse). Un device con tanti cavi sullo stesso lato si allarga o si
-  allunga quanto serve perché i nomi non si sovrappongano, e **Disponi** lascia più spazio tra i device.
+  allunga quanto serve perché i nomi non si sovrappongano, e **Disponi** lascia più spazio tra i device. I nomi
+  delle porte stanno sopra i cavi; cliccandone uno selezioni il suo cavo.
 - Per **sistemare un cavo a mano** cliccalo: le barrette sui tratti si trascinano di traverso, i pallini alle
   estremità scorrono sul bordo del device. Poi **Salva disposizione**. **Torna al percorso automatico** annulla.
 - Cliccando un cavo vedi i dettagli (porte, tipo, VLAN) e puoi eliminarlo; cliccando un device vedi i dettagli e

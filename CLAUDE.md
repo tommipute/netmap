@@ -542,7 +542,12 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   (< 24 px) tra lati che si guardano → si sposta il capo con meno cavi sul suo lato, se resta a ≥ 18 px dagli altri.
   **Connettore** (`Plug` in CableEdge): blocchetto del colore del cavo sul bordo del device dove entra il cavo
   (`geometry.ends`), così un cavo che passa vicino non sembra collegato; i nomi delle porte partono dopo di lui.
-  Il nome del rack nella bolla va a destra se in basso a sinistra passa un cavo (`labelSide` in MapEditor).
+  **Nomi sopra tutto** (`map/MapLabels.jsx`, in un `ViewportPortal` con z-index sopra cavi e device): nomi delle
+  porte (prima stavano nel cavo e i cavi disegnati dopo li coprivano; clic = cavo selezionato), nomi dei rack e
+  delle posizioni (le bolle `RackNode`/`LocationNode` ora disegnano solo il riquadro). Il nome del rack va nel primo
+  dei quattro angoli che non copre device, nomi o cavi (`rackNames` in MapEditor); le bolle delle posizioni
+  comprendono nomi delle porte (`labelBox`, `label.node`) e dei rack dei loro device, e con i nomi delle porte
+  `locationLayout` lascia `PORT_ROOM` attorno ai device di ogni posizione.
   **Bolle delle posizioni** (`map/LocationNode.jsx`, `locationBubbles()` in MapEditor, `view.locations` = posizioni
   dei device in mappa più quelle che le contengono): riquadri uno dentro l'altro (edificio › piano › stanza), colore
   per profondità (`.loc-bubble--d0..3`), `zIndex` -10 + profondità (sotto i rack); i cavi le attraversano (non sono
