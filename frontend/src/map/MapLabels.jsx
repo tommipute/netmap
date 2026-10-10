@@ -30,9 +30,10 @@ const CableLabels = memo(function CableLabels({ cableId, labels, faded, onSelect
  * Nomi sopra tutto il resto della mappa: i nomi delle porte sopra i cavi (prima ogni cavo poteva coprire i nomi
  * di quelli disegnati prima), i nomi dei rack e delle posizioni sopra cavi e nomi delle porte. Posizioni calcolate
  * da MapEditor (map/geometry.js per le porte, rackNames/locationBubbles per gli altri).
- * edges: i cavi della mappa (className con cable--faded), names: [{ id, kind, x, y, text, title, depth, faded, onSelect }]
+ * edges: i cavi della mappa (className con cable--faded), names: [{ id, kind, x, y, text, title, depth, faded, ids, onSelect }];
+ * onDragGroup(ids, evento): tenendo premuto sul nome e trascinando si spostano insieme tutti i device (ids).
  */
-function MapLabels({ edges, geometry, names, onSelectEdge }) {
+function MapLabels({ edges, geometry, names, onSelectEdge, onDragGroup }) {
   return (
     <ViewportPortal>
       <svg className="map-labels" aria-hidden="true">
@@ -45,7 +46,8 @@ function MapLabels({ edges, geometry, names, onSelectEdge }) {
       {names.map((n) => (
         <button key={n.id} type="button"
           className={`map-name map-name--${n.kind} nodrag nopan${n.kind === 'location' ? ` loc-bubble--d${Math.min(n.depth, 3)}` : ''}${n.faded ? ' map-name--faded' : ''}`}
-          style={{ transform: `translate(${n.x}px, ${n.y}px)` }} title={n.title} onClick={(e) => {
+          style={{ transform: `translate(${n.x}px, ${n.y}px)` }} title={n.title}
+          onPointerDown={(e) => onDragGroup(n.ids, e)} onClick={(e) => {
             e.stopPropagation()
             n.onSelect()
           }}>

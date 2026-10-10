@@ -207,6 +207,7 @@ function rackBubbles(nodes, onSelect) {
           name: members[0].data.rack_name,
           count: members.length,
           ids: cluster.map((n) => n.id),
+          allIds,
           onSelect: () => onSelect(allIds),
         },
         selectable: false,
@@ -366,7 +367,7 @@ function Editor() {
   const { id } = useParams()
   const { canEdit } = useAuth()
   const [theme] = useTheme()
-  const { fitView, getNodes, getZoom, setCenter } = useReactFlow()
+  const { fitView, getNodes, getZoom, setCenter, screenToFlowPosition } = useReactFlow()
   const [view, setView] = useState(null)
   const [error, setError] = useState(null)
   const [nodes, setNodes, onNodesChange] = useNodesState([])
@@ -635,18 +636,53 @@ function Editor() {
     return [
       ...places.map((b) => ({
         id: b.id, kind: 'location', x: b.position.x + 12, y: b.position.y + 8, text: b.data.name, depth: b.data.depth,
-        title: t('{name}: clic per selezionare i suoi device e spostarli insieme', { name: b.data.path }),
-        faded: !inFocus(b.data.ids), onSelect: b.data.onSelect,
+        title: t('{name}: trascina il nome per spostare tutto insieme, clic per selezionare i suoi device', { name: b.data.path }),
+        faded: !inFocus(b.data.ids), onSelect: b.data.onSelect, ids: b.data.ids,
       })),
       ...rackLabels.map(({ bubble: b, box }) => ({
         id: b.id, kind: 'rack', x: box.l, y: box.t, text: b.data.name,
-        title: t('Rack {name}, {what}: clic per selezionarli e spostarli insieme', {
+        title: t('Rack {name}, {what}: trascina il nome per spostarli insieme, clic per selezionarli', {
           name: b.data.name, what: b.data.count === 1 ? t('1 device') : t('{n} device', { n: b.data.count }),
         }),
-        faded: !inFocus(b.data.ids), onSelect: b.data.onSelect,
+        faded: !inFocus(b.data.ids), onSelect: b.data.onSelect, ids: b.data.allIds,
       })),
     ]
   }, [places, rackLabels, focus])
+  // Nome di un rack o di una posizione trascinato: si spostano insieme tutti i suoi device (sotto i 4 px è un clic,
+  // che li seleziona). Durante il movimento i device hanno dragging, così si ricalcolano solo i loro cavi.
+  const dragGroup = useCallback((ids, event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    const group = new Set(ids)
+    const origin = new Map(nodesRef.current.filter((n) => group.has(n.id)).map((n) => [n.id, n.position]))
+    const start = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    let moved = false
+    const move = (e) => {
+      if (!moved && Math.hypot(e.clientX - event.clientX, e.clientY - event.clientY) < 4) return
+      moved = true
+      const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      const dx = p.x - start.x
+      const dy = p.y - start.y
+      setNodes((current) => current.map((n) => {
+        const o = origin.get(n.id)
+        return o ? { ...n, position: { x: o.x + dx, y: o.y + dy }, dragging: true } : n
+      }))
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      if (!moved) return
+      setNodes((current) => current.map((n) => (origin.has(n.id) ? { ...n, dragging: false } : n)))
+      setDirty(true)
+      // Il clic che chiude il trascinamento non deve selezionare i device
+      const swallow = (e) => e.stopPropagation()
+      window.addEventListener('click', swallow, { capture: true, once: true })
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }, [screenToFlowPosition, setNodes])
   const selectCable = useCallback((cableId) => setSelection({ kind: 'edge', id: cableId }), [])
 
   const savePositions = async (list) => {
@@ -887,7 +923,7 @@ function Editor() {
           colorMode={theme}
         >
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
-          <MapLabels edges={edges} geometry={geometry} names={names} onSelectEdge={selectCable} />
+          <MapLabels edges={edges} geometry={geometry} names={names} onSelectEdge={selectCable} onDragGroup={dragGroup} />
           <Controls showInteractive={false} />
           <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' || n.type === 'location' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
           <Panel position="bottom-center">

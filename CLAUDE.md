@@ -545,7 +545,8 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   (`geometry.ends`), così un cavo che passa vicino non sembra collegato; i nomi delle porte partono dopo di lui.
   **Nomi sopra tutto** (`map/MapLabels.jsx`, in un `ViewportPortal` con z-index sopra cavi e device): nomi delle
   porte (prima stavano nel cavo e i cavi disegnati dopo li coprivano; clic = cavo selezionato), nomi dei rack e
-  delle posizioni (le bolle `RackNode`/`LocationNode` ora disegnano solo il riquadro). Il nome del rack va nel primo
+  delle posizioni (clic = seleziona i device, trascinati = `dragGroup` in MapEditor sposta tutti i device del rack o
+  della posizione, con `dragging` durante il movimento; le bolle `RackNode`/`LocationNode` ora disegnano solo il riquadro). Il nome del rack va nel primo
   dei quattro angoli che non copre device, nomi o cavi (`rackNames` in MapEditor); le bolle delle posizioni
   comprendono nomi delle porte (`labelBox`, `label.node`) e dei rack dei loro device, e con i nomi delle porte
   `locationLayout` lascia `PORT_ROOM` attorno ai device di ogni posizione.

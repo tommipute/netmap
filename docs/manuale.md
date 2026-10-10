@@ -266,7 +266,8 @@ core), sotto gli altri; i device dello stesso rack stanno insieme dentro una **b
 **Posizioni** acceso, edifici, piani e stanze diventano riquadri colorati uno dentro l'altro.
 
 Trascina i device dove vuoi e premi **Salva disposizione**. **Disponi automaticamente** ricalcola tutto da capo.
-Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device, per spostarli insieme.
+Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device; **tenendo premuto sul nome e
+trascinando** sposti insieme il rack o la posizione con tutto quello che contiene (poi **Salva disposizione**).
 I nomi di rack e posizioni stanno sopra i cavi, così non li copre niente: quello del rack va nel primo dei quattro
 angoli della bolla dove non copre device, nomi delle porte o cavi, e le bolle delle posizioni si allargano quanto
 serve perché il loro nome resti libero.

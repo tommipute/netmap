@@ -563,7 +563,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 .port-labels { pointer-events: all; cursor: pointer; }
 .port-labels--faded { opacity: 0.12; }
 .map-name {
-  position: absolute; left: 0; top: 0; pointer-events: all; cursor: pointer; white-space: nowrap;
+  position: absolute; left: 0; top: 0; pointer-events: all; cursor: grab; white-space: nowrap; touch-action: none;
   font-family: inherit; border: 0; border-radius: 4px; line-height: 16px;
 }
 .map-name--faded { opacity: 0.22; }

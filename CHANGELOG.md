@@ -58,6 +58,7 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   copre niente (prima solo in basso a sinistra o a destra); le bolle delle posizioni comprendono i nomi delle porte
   e dei rack, così il loro nome resta libero, e con i nomi delle porte "Disponi" lascia spazio attorno a ogni posizione.
 - Mappa: il suggerimento su come collegare due device sparisce dopo qualche secondo e ha la × per chiuderlo.
+- Mappa: tenendo premuto sul nome di un rack o di una posizione e trascinando si sposta tutto quello che contiene.
 - Mappa: cliccando un tipo di cavo nella legenda si vedono solo i cavi di quel tipo (anche più tipi insieme; "Tutti i
   cavi" li rimette tutti).
 - Backup: per quelli fatti prima di un aggiornamento la pagina dice da quale versione a quale (l'updater lo annota in

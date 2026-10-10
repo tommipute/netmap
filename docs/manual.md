@@ -266,7 +266,8 @@ others below; devices in the same rack are grouped in a **rack bubble**. With **
 and rooms become coloured boxes nested in each other.
 
 Drag devices where you want them and press **Save layout**. **Arrange automatically** recalculates everything.
-Clicking the name of a rack or location selects all its devices, to move them together.
+Clicking the name of a rack or location selects all its devices; **pressing on the name and dragging** moves the
+rack or location together with everything in it (then **Save layout**).
 Rack and location names sit above the cables, so nothing covers them: the rack name goes in the first of the four
 corners of the bubble where it does not cover devices, port names or cables, and location boxes grow as needed to
 keep their name clear.
