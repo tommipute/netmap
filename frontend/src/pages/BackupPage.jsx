@@ -431,7 +431,6 @@ function useUpload(onDone) {
   return { upload, progress, error }
 }
 
-/** Backup del database (solo admin): li fa lo script sull'host; qui si vedono, si copiano altrove e si ripristinano. */
 // Backup fatti prima di un aggiornamento: da quale versione a quale (le note le scrive l'updater; per i backup più
 // vecchi c'è solo il commit di partenza, nel nome del file)
 function updateText(f) {
@@ -444,6 +443,7 @@ function updateText(f) {
   return commit ? t('da {from}', { from: commit }) : null
 }
 
+/** Backup del database (solo admin): li fa lo script sull'host; qui si vedono, si copiano altrove e si ripristinano. */
 export default function BackupPage() {
   const { data, error, offline, waiting, reload, send, sending, actionError } = useUpdater()
   const backups = useApi('/backups')

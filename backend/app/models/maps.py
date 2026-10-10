@@ -1,7 +1,9 @@
 """Mappe di rete: ogni mappa riguarda una sede (ed eventualmente una posizione)
 e salva la posizione dei device disegnati."""
-from sqlalchemy import JSON, Boolean, Float, ForeignKey, String, Text, true
-from sqlalchemy.orm import Mapped, mapped_column
+from datetime import datetime
+
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, true
+from sqlalchemy.orm import Mapped, deferred, mapped_column
 
 from app.models.base import Base, TimestampMixin
 
@@ -43,3 +45,25 @@ class MapCableRoute(Base):
     cable_id: Mapped[int] = mapped_column(ForeignKey("cables.id", ondelete="CASCADE"), primary_key=True)
     points: Mapped[list] = mapped_column(JSON)  # [{"x": .., "y": ..}] nell'ordine dal lato A al lato B del cavo
     ends: Mapped[dict | None] = mapped_column(JSON)
+
+
+class MapBackground(Base):
+    """Immagine di sfondo di una mappa (una per mappa: planimetria, schema del CED…).
+
+    Sta nel database, così finisce nei backup. x, y e width sono in coordinate della mappa; l'altezza segue le
+    proporzioni dell'immagine (width_px × height_px). uploaded_at cambia a ogni immagine nuova: fa da versione
+    nell'indirizzo, così il browser può tenerla in cache.
+    """
+
+    __tablename__ = "map_backgrounds"
+
+    map_id: Mapped[int] = mapped_column(ForeignKey("maps.id", ondelete="CASCADE"), primary_key=True)
+    content_type: Mapped[str] = mapped_column(String(30))
+    data: Mapped[bytes] = deferred(mapped_column(LargeBinary, nullable=False))
+    width_px: Mapped[int] = mapped_column(Integer)
+    height_px: Mapped[int] = mapped_column(Integer)
+    x: Mapped[float] = mapped_column(Float, default=0)
+    y: Mapped[float] = mapped_column(Float, default=0)
+    width: Mapped[float] = mapped_column(Float)
+    opacity: Mapped[float] = mapped_column(Float, default=0.5)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -26,7 +26,7 @@ from app.models.dcim import (
 from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
 from app.models.imports import ImportRun
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
-from app.models.maps import MapCableRoute, MapNode, NetworkMap
+from app.models.maps import MapBackground, MapCableRoute, MapNode, NetworkMap
 from app.models.monitoring import Endpoint
 
 
@@ -92,6 +92,7 @@ __all__ = [
     "IPAddress",
     "Location",
     "Manufacturer",
+    "MapBackground",
     "MapCableRoute",
     "MapNode",
     "NetworkMap",

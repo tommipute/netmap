@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
@@ -5,10 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.api.crud import apply_column_filters
 from app.database import get_db
-from app.models import Device, NetworkMap, Prefix, Rack
+from app.models import Device, MapBackground, NetworkMap, Prefix, Rack
 from app.schemas.common import Page
 from app.schemas.ipam import IPAddressRead
-from app.schemas.maps import CableRoute, MapRead, MapView, NodePosition
+from app.schemas.maps import CableRoute, MapBackgroundRead, MapBackgroundUpdate, MapRead, MapView, NodePosition
 from app.schemas.views import (
     CheckResult,
     DeviceImportRequest,
@@ -23,7 +25,7 @@ from app.schemas.views import (
     Topology,
     XlsxConverted,
 )
-from app.services import custom_fields
+from app.services import custom_fields, images
 from app.services.device_import_export import (
     export_devices,
     generate_device_csv_template,
@@ -38,6 +40,7 @@ from app.services.topology import (
     device_neighbors,
     device_ports,
     global_search,
+    map_background,
     map_view,
     rack_elevation,
     save_map_positions,
@@ -186,6 +189,73 @@ def put_map_routes(map_id: int, routes: list[CableRoute], db: Session = Depends(
 def put_map_nodes(map_id: int, positions: list[NodePosition], db: Session = Depends(get_db)):
     saved = save_map_positions(db, _get_or_404(db, NetworkMap, map_id), positions)
     return {"saved": saved}
+
+
+@router.get("/maps/{map_id}/background", tags=["Mappe"], summary="Immagine di sfondo della mappa",
+            response_class=Response)
+def get_map_background(map_id: int, db: Session = Depends(get_db)):
+    bg = db.get(MapBackground, map_id)
+    if bg is None:
+        raise HTTPException(404, "Questa mappa non ha uno sfondo")
+    # L'indirizzo usato dalla mappa contiene la versione (?v=): un'immagine nuova ha un indirizzo nuovo
+    return Response(bg.data, media_type=bg.content_type, headers={"Cache-Control": "private, max-age=31536000"})
+
+
+def _save_background(db: Session, map_id: int, data: bytes, x: float | None, y: float | None,
+                     width: float | None) -> dict:
+    network_map = _get_or_404(db, NetworkMap, map_id)
+    try:
+        content_type, width_px, height_px = images.image_info(data)
+    except images.ImageError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    bg = db.get(MapBackground, network_map.id)
+    if bg is None:
+        # Senza indicazioni l'immagine parte da 0,0 con la sua larghezza (al massimo 2000)
+        bg = MapBackground(map_id=network_map.id, x=0, y=0, opacity=0.5)
+        db.add(bg)
+    bg.data, bg.content_type, bg.width_px, bg.height_px = data, content_type, width_px, height_px
+    bg.uploaded_at = datetime.now(timezone.utc)
+    if x is not None:
+        bg.x = x
+    if y is not None:
+        bg.y = y
+    bg.width = width or bg.width or min(width_px, 2000)
+    db.commit()
+    return map_background(db, network_map.id)
+
+
+@router.put("/maps/{map_id}/background", response_model=MapBackgroundRead, tags=["Mappe"],
+            summary="Carica l'immagine di sfondo (corpo della richiesta = il file PNG, JPG o WebP)")
+async def put_map_background(request: Request, map_id: int, x: float | None = None, y: float | None = None,
+                             width: float | None = Query(None, gt=10, le=1_000_000), db: Session = Depends(get_db)):
+    data = bytearray()
+    async for chunk in request.stream():
+        data.extend(chunk)
+        if len(data) > images.MAX_IMAGE_BYTES:
+            break  # image_info lo rifiuta: inutile leggere il resto
+    return await run_in_threadpool(_save_background, db, map_id, bytes(data), x, y, width)
+
+
+@router.patch("/maps/{map_id}/background", response_model=MapBackgroundRead, tags=["Mappe"],
+              summary="Sposta o ridimensiona lo sfondo, ne cambia la trasparenza")
+def patch_map_background(map_id: int, change: MapBackgroundUpdate, db: Session = Depends(get_db)):
+    bg = db.get(MapBackground, map_id)
+    if bg is None:
+        raise HTTPException(404, "Questa mappa non ha uno sfondo")
+    for key, value in change.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(bg, key, value)
+    db.commit()
+    return map_background(db, map_id)
+
+
+@router.delete("/maps/{map_id}/background", status_code=204, tags=["Mappe"], summary="Toglie lo sfondo")
+def delete_map_background(map_id: int, db: Session = Depends(get_db)):
+    bg = db.get(MapBackground, map_id)
+    if bg is not None:
+        db.delete(bg)
+        db.commit()
+    return Response(status_code=204)
 
 
 # ---------- Ricerca ----------

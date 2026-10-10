@@ -378,6 +378,12 @@ textarea.input { resize: vertical; min-height: 72px; }
 .map-panel .modal__close { position: absolute; top: 10px; right: 10px; }
 .map-panel h2 { padding-right: 28px; }
 .map-panel__actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+/* Immagine di sfondo: lascia passare i clic alla mappa, tranne quando la si modifica */
+.react-flow__node-background { pointer-events: none !important; }
+.react-flow__node-background.is-editing { pointer-events: all !important; cursor: move; outline: 2px dashed var(--accent); outline-offset: 2px; }
+.map-background { width: 100%; height: 100%; display: block; user-select: none; }
+.map-bg-opacity { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; }
+.map-bg-opacity input { flex: 1; min-width: 0; }
 .cable-ends { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
 .cable-ends__line { display: block; width: 3px; height: 26px; margin-left: 10px; border-radius: 2px; }
 

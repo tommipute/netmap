@@ -14,14 +14,15 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import { toPng, toSvg } from 'html-to-image'
-import { api } from '../api'
+import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import { Badge, LiveStatus } from '../components/Bits'
 import CableDialog from '../components/CableDialog'
-import { IconButton, IconLink } from '../components/Icon'
+import { Icon, IconButton, IconLink } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
+import BackgroundNode from '../map/BackgroundNode'
 import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
 import { cableGeometry, labelBox, nodeSizes } from '../map/geometry'
@@ -35,7 +36,7 @@ import { LOC_PAD, X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout, locationLay
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
 import { t } from '../i18n'
 
-const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode }
+const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode, background: BackgroundNode }
 const edgeTypes = { cable: CableEdge }
 const HINT_MS = 6000 // il suggerimento in alto resta per qualche secondo
 const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
@@ -50,13 +51,21 @@ function download(dataUrl, filename) {
   a.remove()
 }
 
-// Bolle delle posizioni accese o spente (scelta ricordata nel browser)
+// Bolle delle posizioni e immagine di sfondo accese o spente (scelta ricordata nel browser)
 const LOCATIONS_PREF = 'netmap.map.locations'
-function readLocationsPref() {
+const BACKGROUND_PREF = 'netmap.map.background'
+function readPref(key) {
   try {
-    return localStorage.getItem(LOCATIONS_PREF) !== '0'
+    return localStorage.getItem(key) !== '0'
   } catch {
     return true
+  }
+}
+function writePref(key, on) {
+  try {
+    localStorage.setItem(key, on ? '1' : '0')
+  } catch {
+    // senza localStorage la scelta vale solo per questa pagina
   }
 }
 
@@ -81,7 +90,7 @@ function buildFlowNodes(view, previous) {
 
   if (missing.length === nodes.length) {
     // Con le posizioni accese i device si raggruppano per edificio/piano/stanza, altrimenti righe per ruolo
-    const layout = readLocationsPref() && view.locations.length
+    const layout = readPref(LOCATIONS_PREF) && view.locations.length
       ? locationLayout(view.nodes, view.edges, view.locations)
       : hierarchicalLayout(view.nodes, view.edges)
     return { nodes: nodes.map((n) => ({ ...n, position: layout[n.id] })), changed: true }
@@ -375,7 +384,7 @@ function Editor() {
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
   const [cableTypes, setCableTypes] = useState([]) // tipi di cavo scelti nella legenda, vuoto = tutti
-  const [showLocations, setShowLocations] = useState(readLocationsPref)
+  const [showLocations, setShowLocations] = useState(() => readPref(LOCATIONS_PREF))
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
   // Cavi sistemati a mano: { cableId: { points: spigoli dal lato A al lato B, a_end, b_end: { side, f } | null } }
@@ -384,6 +393,14 @@ function Editor() {
   routesRef.current = routes
   const [connecting, setConnecting] = useState(null) // { a, b } id device
   const [checking, setChecking] = useState(false)
+  // Immagine di sfondo (una per mappa). bg è quella disegnata: con "Sfondo della mappa" aperto cambia subito mentre
+  // la si sposta, poi si salva da sola; il resto del tempo segue la vista caricata.
+  const [showBackground, setShowBackground] = useState(() => readPref(BACKGROUND_PREF))
+  const [bgEditing, setBgEditing] = useState(false)
+  const [bg, setBg] = useState(null)
+  const [bgBusy, setBgBusy] = useState(false)
+  const bgFile = useRef(null)
+  const opacityTimer = useRef(null)
 
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
@@ -421,6 +438,7 @@ function Editor() {
     setDirty(false)
     setSelection(null)
     setVlanId(null)
+    setBgEditing(false)
     fitPending.current = true
     load(false)
   }, [load])
@@ -469,6 +487,91 @@ function Editor() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [dirty, canEdit])
 
+  useEffect(() => {
+    if (!bgEditing) setBg(view?.background ?? null)
+  }, [view?.background, bgEditing])
+
+  const saveBackground = useCallback(async (change) => {
+    try {
+      const saved = await api.patch(`/maps/${id}/background`, change)
+      setView((current) => current && { ...current, background: saved })
+    } catch (err) {
+      setError(err.message)
+    }
+  }, [id])
+  const resizeBackground = useCallback(
+    (x, y, width) => saveBackground({ x: Math.round(x), y: Math.round(y), width: Math.round(width) }), [saveBackground])
+
+  /** Carica (o sostituisce) l'immagine: la prima volta copre i device, sostituendola resta dov'era. */
+  const uploadBackground = async (file) => {
+    let place = bg && { x: Math.round(bg.x), y: Math.round(bg.y), width: Math.round(bg.width) }
+    const list = nodesRef.current
+    if (!place && list.length) {
+      const b = getNodesBounds(list)
+      place = { x: Math.round(b.x - 60), y: Math.round(b.y - 60), width: Math.round(Math.max(b.width + 120, 400)) }
+    }
+    setBgBusy(true)
+    try {
+      const saved = await api.put(`/maps/${id}/background${qs(place || {})}`, file)
+      setBg(saved)
+      setView((current) => current && { ...current, background: saved })
+      setShowBackground(true)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBgBusy(false)
+    }
+  }
+
+  const removeBackground = async () => {
+    if (!window.confirm(t("Togliere l'immagine di sfondo da questa mappa?"))) return
+    try {
+      await api.del(`/maps/${id}/background`)
+      setBg(null)
+      setView((current) => current && { ...current, background: null })
+      setBgEditing(false)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const changeOpacity = (opacity) => {
+    setBg((current) => ({ ...current, opacity }))
+    clearTimeout(opacityTimer.current)
+    opacityTimer.current = setTimeout(() => saveBackground({ opacity }), 400)
+  }
+
+  // Lo sfondo non è tra i device: i suoi spostamenti cambiano solo bg
+  const handleNodesChange = useCallback((changes) => {
+    const others = []
+    for (const c of changes) {
+      if (c.id !== 'background') others.push(c)
+      else if (c.type === 'position' && c.position) setBg((b) => b && { ...b, x: c.position.x, y: c.position.y })
+      else if (c.type === 'dimensions' && c.resizing && c.dimensions) {
+        setBg((b) => b && { ...b, width: c.dimensions.width, height: c.dimensions.height })
+      }
+    }
+    if (others.length) onNodesChange(others)
+  }, [onNodesChange])
+
+  const backgroundNode = useMemo(() => {
+    if (!bg || (!showBackground && !bgEditing)) return null
+    return {
+      id: 'background',
+      type: 'background',
+      position: { x: bg.x, y: bg.y },
+      width: bg.width,
+      height: bg.height,
+      draggable: bgEditing,
+      selectable: false,
+      focusable: false,
+      zIndex: -100, // sotto le bolle delle posizioni (da -10 in su)
+      className: bgEditing ? 'is-editing' : '',
+      data: { url: `/api/maps/${id}/background?v=${bg.version}`, opacity: bg.opacity, editing: bgEditing, onResizeEnd: resizeBackground },
+    }
+  }, [bg, showBackground, bgEditing, id, resizeBackground])
+
   // Livelli anche per i device senza ruolo (ricavati dai collegamenti): il cavo parte dal device più in alto
   const levelOf = useMemo(() => effectiveLevels(view?.nodes || [], view?.edges || []), [view])
   const baseEdges = useMemo(
@@ -508,7 +611,10 @@ function Editor() {
   )
   // Gestori stabili: React Flow li passa a ogni device e cavo, una funzione nuova a ogni render li ridisegnerebbe
   // tutti (in una mappa grande, a ogni movimento del mouse mentre si trascina)
-  const onNodeDragStop = useCallback(() => setDirty(true), [])
+  const onNodeDragStop = useCallback((_, node) => {
+    if (node.id === 'background') saveBackground({ x: Math.round(node.position.x), y: Math.round(node.position.y) })
+    else setDirty(true)
+  }, [saveBackground])
   const onNodeClick = useCallback(
     (_, node) => node.type === 'device' && setSelection({ kind: 'node', id: Number(node.id) }), [])
   const onEdgeClick = useCallback((_, edge) => setSelection({ kind: 'edge', id: edge.data.id }), [])
@@ -621,6 +727,7 @@ function Editor() {
       return fadedMemo.current.get(node)
     }
     return [
+      ...(backgroundNode ? [backgroundNode] : []),
       ...places.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
       ...bubbles.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
       ...nodes.map((n) => {
@@ -629,7 +736,7 @@ function Editor() {
         return faded(sized, focus?.devices.has(n.id))
       }),
     ]
-  }, [places, bubbles, nodes, focus, sizes])
+  }, [backgroundNode, places, bubbles, nodes, focus, sizes])
   // Nomi di rack e posizioni, sopra cavi e device (MapLabels)
   const names = useMemo(() => {
     const inFocus = (ids) => !focus || ids.some((nodeId) => focus.devices.has(nodeId))
@@ -771,8 +878,8 @@ function Editor() {
     const background = getComputedStyle(document.body).getPropertyValue('--surface-2').trim() || '#ffffff'
     const options = {
       backgroundColor: background,
-      // I pallini per collegare i device servono solo a modificare la mappa
-      filter: (node) => !node.classList?.contains('react-flow__handle') && !node.classList?.contains('cable-handles'),
+      // I pallini per collegare i device (e le maniglie dello sfondo) servono solo a modificare la mappa
+      filter: (node) => !['react-flow__handle', 'cable-handles', 'react-flow__resize-control'].some((c) => node.classList?.contains(c)),
       width,
       height,
       style: {
@@ -871,13 +978,18 @@ function Editor() {
             <label className="check check--inline" title={t('Edifici, piani e stanze come riquadri colorati; "Disponi" raggruppa i device per posizione')}>
               <input type="checkbox" checked={showLocations} onChange={(e) => {
                   setShowLocations(e.target.checked)
-                  try {
-                    localStorage.setItem(LOCATIONS_PREF, e.target.checked ? '1' : '0')
-                  } catch {
-                    // senza localStorage la scelta vale solo per questa pagina
-                  }
+                  writePref(LOCATIONS_PREF, e.target.checked)
                 }} />
               {t('Posizioni')}
+            </label>
+          )}
+          {view.background && (
+            <label className="check check--inline" title={t("L'immagine sotto la mappa (planimetria, foto…)")}>
+              <input type="checkbox" checked={showBackground} onChange={(e) => {
+                  setShowBackground(e.target.checked)
+                  writePref(BACKGROUND_PREF, e.target.checked)
+                }} />
+              {t('Sfondo')}
             </label>
           )}
           <IconButton icon="refresh" label={reloading ? t('Aggiornamento…') : t('Aggiorna la mappa (device, cavi e stato)')} small
@@ -891,6 +1003,11 @@ function Editor() {
           </select>
           {canEdit && (
             <>
+              <IconButton icon="image" label={t('Sfondo della mappa')} small aria-pressed={bgEditing}
+                className={bgEditing ? 'btn--primary' : ''} onClick={() => {
+                  setSelection(null)
+                  setBgEditing((on) => !on)
+                }} />
               <IconButton icon="layout" label={t('Disponi automaticamente')} small onClick={arrange} disabled={view.nodes.length === 0} />
               <IconButton icon="save" label={saving ? t('Salvataggio…') : dirty ? t('Salva disposizione') : t('Disposizione salvata')} small
                 className="btn--primary" onClick={() => savePositions(nodesRef.current)} disabled={!dirty || saving}>
@@ -909,7 +1026,7 @@ function Editor() {
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodesChange={onNodesChange}
+          onNodesChange={handleNodesChange}
           onNodeDragStop={onNodeDragStop}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
@@ -925,7 +1042,7 @@ function Editor() {
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
           <MapLabels edges={edges} geometry={geometry} names={names} onSelectEdge={selectCable} onDragGroup={dragGroup} />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'rack' || n.type === 'location' ? 'transparent' : n.data.color)} nodeStrokeWidth={2} />
+          <MiniMap pannable zoomable nodeColor={(n) => (n.type === 'device' ? n.data.color : 'transparent')} nodeStrokeWidth={2} />
           <Panel position="bottom-center">
             <Legend edges={view.edges} nodes={view.nodes} racks={view.nodes.some((n) => n.rack_id)} locations={locationsOn}
               vlan={view.vlans.find((v) => v.id === vlanId)} cableTypes={cableTypes} onCableTypes={setCableTypes} />
@@ -950,7 +1067,39 @@ function Editor() {
           </div>
         )}
 
-        {selectedNode && (
+        {bgEditing && (
+          <aside className="map-panel" aria-label={t('Sfondo della mappa')}>
+            <button type="button" className="modal__close" onClick={() => setBgEditing(false)} aria-label={t('Chiudi')}>{t('×')}</button>
+            <h2>{t('Sfondo della mappa')}</h2>
+            {bg ? (
+              <>
+                <p className="hint map-panel__hint">
+                  {t("Trascina l'immagine per spostarla e i suoi angoli per ingrandirla. Le modifiche si salvano da sole; chiuso questo riquadro lo sfondo resta fermo.")}
+                </p>
+                <label className="map-bg-opacity">
+                  <span>{t('Opacità')}</span>
+                  <input type="range" min="0.05" max="1" step="0.05" value={bg.opacity}
+                    onChange={(e) => changeOpacity(Number(e.target.value))} />
+                  <span className="mono">{Math.round(bg.opacity * 100)}%</span>
+                </label>
+              </>
+            ) : (
+              <p className="hint map-panel__hint">{t('Una planimetria o una foto da mettere sotto i device, una per mappa.')}</p>
+            )}
+            <p className="hint map-panel__hint">{t('PNG, JPG o WebP, al massimo 15 MB.')}</p>
+            <input ref={bgFile} type="file" accept="image/png,image/jpeg,image/webp" hidden
+              onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) uploadBackground(f) }} />
+            <div className="map-panel__actions">
+              <button type="button" className="btn btn--sm btn--primary" disabled={bgBusy} onClick={() => bgFile.current?.click()}>
+                <Icon name="upload" /> {bgBusy ? t('Caricamento…') : bg ? t('Sostituisci immagine') : t('Carica immagine')}
+              </button>
+              {bg && <IconButton icon="trash" label={t('Togli sfondo')} small danger className="btn--ghost" onClick={removeBackground} />}
+              <button type="button" className="btn btn--sm" onClick={() => setBgEditing(false)}>{t('Fatto')}</button>
+            </div>
+          </aside>
+        )}
+
+        {!bgEditing && selectedNode && (
           <aside className="map-panel" aria-label={t('Dettagli device')}>
             <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label={t('Chiudi dettagli')}>{t('×')}</button>
             <h2>{selectedNode.name}</h2>
@@ -981,7 +1130,7 @@ function Editor() {
           </aside>
         )}
 
-        {selectedEdge && (
+        {!bgEditing && selectedEdge && (
           <aside className="map-panel" aria-label={t('Dettagli collegamento')}>
             <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label={t('Chiudi dettagli')}>{t('×')}</button>
             <h2>{t('Collegamento')}</h2>

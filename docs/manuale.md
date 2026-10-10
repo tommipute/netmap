@@ -293,6 +293,12 @@ serve perché il loro nome resti libero.
 - **Evidenzia una VLAN**: mette in risalto i cavi e i device che portano quella VLAN.
 - **Solo alcuni tipi di cavo**: clicca un tipo di cavo nella legenda in basso (es. Fibra monomodale) e la mappa mostra
   solo quei cavi; cliccane altri per aggiungerli, di nuovo per toglierli, **Tutti i cavi** per tornare a vederli tutti.
+- **Sfondo**: sotto la mappa puoi mettere un'immagine, per esempio la planimetria del piano (una per mappa, PNG,
+  JPG o WebP fino a 15 MB). Premi **Sfondo della mappa** (l'icona con l'immagine in alto), **Carica immagine**, poi
+  trascina l'immagine per spostarla e i suoi angoli per ingrandirla; il cursore **Opacità** la rende più o meno
+  trasparente. Le modifiche si salvano da sole; con **Fatto** l'immagine resta ferma e si torna a spostare i device.
+  La casella **Sfondo** la nasconde senza toglierla; **Togli sfondo** la elimina. Lo sfondo entra nell'esportazione
+  e nella stampa, e nei backup del database.
 - **Stato live**: il pallino sul device è verde se risponde, rosso se no; lo stato si aggiorna da solo ogni 30 secondi. Per vedere subito device o
   cavi aggiunti da un'altra pagina usa **Aggiorna la mappa** (le due frecce in alto).
 - **Esporta**: immagine PNG, disegno SVG, oppure stampa / PDF.

@@ -10,6 +10,7 @@ const PATHS = {
   trash: <><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M5 7l1 13h12l1-13" /><path d="M9 7V4h6v3" /></>,
   upload: <><path d="M12 15V4" /><path d="m7 9 5-5 5 5" /><path d="M4 15v5h16v-5" /></>,
   download: <><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M4 15v5h16v-5" /></>,
+  image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-9 9" /></>,
   print: <><path d="M7 9V3h10v6" /><path d="M7 17H4v-8h16v8h-3" /><path d="M7 14h10v7H7z" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
   unlink: <><path d="M15 9.5 18.7 6M9 14.5 5.3 18" /><path d="M13 5.3l.3-.3a4 4 0 0 1 5.7 5.7l-1.6 1.6" /><path d="M11 18.7l-.3.3A4 4 0 0 1 5 13.3l1.6-1.6" /><path d="M3 3l18 18" /></>,

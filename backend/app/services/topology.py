@@ -1,6 +1,7 @@
 """Topologia (base per le mappe), porte di un device, mappe salvate e ricerca globale."""
 import re
 from collections import defaultdict
+from datetime import timezone
 
 from fastapi import HTTPException
 from sqlalchemy import delete, func, or_, select
@@ -16,6 +17,7 @@ from app.models import (
     Interface,
     IPAddress,
     Location,
+    MapBackground,
     MapCableRoute,
     MapNode,
     NetworkMap,
@@ -225,7 +227,7 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
     ]
     return {
         "map": network_map, "nodes": nodes, "edges": edges, "available": available, "vlans": vlans, "routes": routes,
-        "locations": locations,
+        "locations": locations, "background": map_background(db, network_map.id),
     }
 
 
@@ -501,4 +503,19 @@ def rack_elevation(db: Session, rack: Rack) -> dict:
         "used_units": len([u for u in occupied if u <= rack.u_height]),
         "devices": placed,
         "unplaced": unplaced,
+    }
+
+
+def map_background(db: Session, map_id: int) -> dict | None:
+    """Posizione e misure dello sfondo della mappa (senza l'immagine), None se non c'è."""
+    bg = db.get(MapBackground, map_id)
+    if bg is None:
+        return None
+    uploaded = bg.uploaded_at
+    if uploaded.tzinfo is None:  # SQLite (test) restituisce date senza fuso
+        uploaded = uploaded.replace(tzinfo=timezone.utc)
+    return {
+        "x": bg.x, "y": bg.y, "width": bg.width, "height": bg.width * bg.height_px / bg.width_px,
+        "opacity": bg.opacity, "width_px": bg.width_px, "height_px": bg.height_px,
+        "version": int(uploaded.timestamp() * 1000),
     }

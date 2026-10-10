@@ -59,6 +59,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   e dei rack, così il loro nome resta libero, e con i nomi delle porte "Disponi" lascia spazio attorno a ogni posizione.
 - Mappa: il suggerimento su come collegare due device sparisce dopo qualche secondo e ha la × per chiuderlo.
 - Mappa: tenendo premuto sul nome di un rack o di una posizione e trascinando si sposta tutto quello che contiene.
+- Mappa: immagine di sfondo, una per mappa (planimetria, foto…): PNG, JPG o WebP fino a 15 MB, salvata nel
+  database (quindi anche nei backup). Con "Sfondo della mappa" la si carica, la si sposta, la si ridimensiona e se
+  ne sceglie l'opacità; chiuso il riquadro resta ferma sotto device e cavi. La casella "Sfondo" la nasconde; entra
+  nell'esportazione PNG/SVG e nella stampa.
 - Mappa: cliccando un tipo di cavo nella legenda si vedono solo i cavi di quel tipo (anche più tipi insieme; "Tutti i
   cavi" li rimette tutti).
 - Backup: per quelli fatti prima di un aggiornamento la pagina dice da quale versione a quale (l'updater lo annota in

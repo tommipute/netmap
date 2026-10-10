@@ -219,6 +219,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/topology?site_id=&location_id=` | nodi + cavi di un ambito |
 | `GET /api/maps/{id}/view` | device in mappa con posizioni salvate (o `null`), cavi, device aggiungibili |
 | `PUT /api/maps/{id}/nodes` | sostituisce l'elenco `[{device_id, x, y}]` della mappa |
+| `GET/PUT/PATCH/DELETE /api/maps/{id}/background` | immagine di sfondo: GET = i byte; PUT (corpo = file, `?x=&y=&width=`) carica o sostituisce; PATCH `{x, y, width, opacity}` |
 | `GET /api/search?q=` | device (nome, seriale, asset tag), MAC anche parziale/formato Cisco, IP, DNS |
 | `GET /api/devices/export?format=csv\|json&<filtri>` · `GET /api/devices/import/template` · `POST /api/devices/import` | import/export dei device |
 | `POST /api/devices/import/xlsx` (corpo = file) | converte un `.xlsx` nel CSV da importare (`{csv_data, sheet, rows}`) |
@@ -583,6 +584,15 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   la tiene fissa). Su un cavo automatico i tratti sono quelli del percorso calcolato. Con spigoli salvati il
   percorso è `connect` in geometry.js (primo/ultimo spigolo riallineati al lato; se stanno dietro il lato il cavo
   esce dritto e gira attorno). Solo estremità spostate = percorso ancora automatico. Il clic che chiude un trascinamento non arriva alla mappa. "Torna al percorso automatico".
+  **Sfondo** (tabella `map_backgrounds`, una riga per mappa, immagine in `data` deferred: niente file su disco,
+  così finisce nei backup): solo PNG/JPEG/WebP, tipo e misure letti dall'intestazione in `services/images.py`
+  (niente SVG: può contenere script), max 15 MB. `view.background` = posizione/larghezza in coordinate della mappa,
+  altezza dal rapporto dei pixel, `version` (ms del caricamento) nell'URL dell'`<img>` per la cache. In MapEditor è
+  il nodo `background` (`map/BackgroundNode.jsx`, `zIndex` -100) fuori da `nodes`: `handleNodesChange` gira le sue
+  modifiche a `bg`, che si salva da solo (PATCH a fine trascinamento/ridimensionamento, opacità dopo 400 ms).
+  Fuori da "Sfondo della mappa" ha `pointer-events: none` e i clic passano alla mappa. Il NodeResizer va dopo
+  l'`<img>` (altrimenti le maniglie stanno sotto); con `keepAspectRatio` l'angolo trascinato solo in orizzontale
+  non ridimensiona (React Flow), in diagonale o dai bordi sì.
   **Filtro dei cavi**: i tipi nella legenda sono pulsanti (`cableTypes`): i cavi degli altri tipi non entrano in
   `baseEdges`. **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,

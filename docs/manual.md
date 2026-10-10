@@ -293,6 +293,12 @@ keep their name clear.
 - **Highlight a VLAN**: emphasises the cables and devices carrying that VLAN.
 - **Only some cable types**: click a cable type in the legend at the bottom (e.g. Single-mode fiber) and the map shows
   only those cables; click others to add them, click again to remove one, **All cables** to see them all again.
+- **Background**: you can put an image under the map, for example the floor plan (one per map, PNG, JPG or WebP up
+  to 15 MB). Press **Map background** (the picture icon at the top), **Upload image**, then drag the image to move
+  it and its corners to resize it; the **Opacity** slider makes it more or less transparent. Changes are saved
+  automatically; with **Done** the image stays put and you go back to moving devices. The **Background** checkbox
+  hides it without removing it; **Remove background** deletes it. The background is included in exports, printing
+  and database backups.
 - **Live status**: the dot on a device is green if it responds, red if not; the status refreshes by itself every 30 seconds. To see devices or
   cables added from another page straight away, use **Refresh the map** (the two arrows at the top).
 - **Export…**: PNG image, SVG drawing, or print / PDF.

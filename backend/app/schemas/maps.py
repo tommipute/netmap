@@ -60,6 +60,25 @@ class MapLocation(BaseModel):
     floor: int | None
 
 
+class MapBackgroundRead(BaseModel):
+    """Sfondo della mappa: l'immagine si legge da /maps/{id}/background?v={version}."""
+    x: float
+    y: float
+    width: float
+    height: float  # dalle proporzioni dell'immagine
+    opacity: float
+    width_px: int
+    height_px: int
+    version: int
+
+
+class MapBackgroundUpdate(InputSchema):
+    x: float | None = Field(None, ge=-1_000_000, le=1_000_000)
+    y: float | None = Field(None, ge=-1_000_000, le=1_000_000)
+    width: float | None = Field(None, gt=10, le=1_000_000)
+    opacity: float | None = Field(None, ge=0.05, le=1)
+
+
 class MapView(BaseModel):
     map: MapRead
     nodes: list[MapViewNode]
@@ -68,6 +87,7 @@ class MapView(BaseModel):
     vlans: list[MapVLAN] = []  # VLAN delle porte dei device in mappa
     routes: list[CableRoute] = []  # cavi con i punti di ancoraggio disegnati a mano
     locations: list[MapLocation] = []  # posizioni dei device in mappa con quelle che le contengono (bolle)
+    background: MapBackgroundRead | None = None  # immagine di sfondo
 
 
 class NodePosition(BaseModel):
