@@ -273,7 +273,9 @@ Clicking the name of a rack or location selects all its devices, to move them to
 - To **create a cable**, hover over a device: four dots appear. Drag from one of them to another device and choose
   the ports.
 - Cables run at right angles and never pass under a device. **Port names** writes the port name where the cable
-  enters the device.
+  enters the device, in the short form Cisco uses (Te1/1/1 for TenGigabitEthernet1/1/1: the full name appears
+  when you hover over it). A device with many cables on the same side gets wider or taller as needed so that the
+  names do not overlap, and **Arrange automatically** leaves more room between devices.
 - To **adjust a cable by hand**, click it: the small bars on its segments can be dragged sideways, the dots at the
   ends slide along the device border. Then **Save layout**. **Back to the automatic route** undoes it.
 - Click a cable to see its details (ports, type, VLANs) and delete it; click a device to see its details and open
@@ -284,7 +286,8 @@ Clicking the name of a rack or location selects all its devices, to move them to
 - **Search the map**: name or IP of a device, or the MAC or IP of a PC: NetMap selects the switch port it is
   connected to.
 - **Highlight a VLAN**: emphasises the cables and devices carrying that VLAN.
-- **Live status**: the dot on a device is green if it responds, red if not; the map refreshes every 30 seconds.
+- **Live status**: the dot on a device is green if it responds, red if not; the status refreshes by itself every 30 seconds. To see devices or
+  cables added from another page straight away, use **Refresh the map** (the two arrows at the top).
 - **Export…**: PNG image, SVG drawing, or print / PDF.
 
 ## 11. Rack view

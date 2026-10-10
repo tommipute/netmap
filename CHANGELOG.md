@@ -49,6 +49,15 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   conosce la password di un utente del dominio.
 - API degli import: `/api/imports` (prova, coda, stato) vale per tutte le sorgenti; `/api/netbox/*` resta. Nella
   risposta `source_version` prende il posto di `netbox_version` (che c'è ancora per gli import da NetBox).
+- Mappa: con "Nomi delle porte" i nomi sono corti come li scrive Cisco (Te1/1/1, Twe1/0/12, Hu1/0/25; quello
+  intero passando sopra col mouse), un device con tanti cavi su un lato si allunga oltre che allargarsi, così i nomi
+  non si sovrappongono più, e "Disponi" lascia più spazio tra le colonne.
+- Mappa: pulsante "Aggiorna la mappa" per ricaricare subito device e cavi.
+
+### Correzioni
+
+- Mappa: ogni 30 secondi, quando si aggiornava lo stato, la mappa diventava per un attimo vuota (cavi e riquadri
+  sparivano). Ora l'aggiornamento cambia solo quello che è cambiato.
 
 ## [1.0.0] - 2026-10-09
 

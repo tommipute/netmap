@@ -24,9 +24,10 @@ import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
 import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
-import { cableGeometry, nodeWidths } from '../map/geometry'
+import { cableGeometry, nodeSizes } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
 import MapSearch from '../map/MapSearch'
+import { shortPortName } from '../map/ports'
 import LocationNode from '../map/LocationNode'
 import RackNode from '../map/RackNode'
 import { LOC_PAD, X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout, locationLayout } from '../map/layout'
@@ -57,12 +58,20 @@ function readLocationsPref() {
   }
 }
 
-/** Nodi per React Flow: posizione attuale > posizione salvata > calcolata. */
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * Nodi per React Flow: posizione attuale > posizione salvata > calcolata. Un device già in mappa tiene il suo
+ * oggetto (con le misure di React Flow): ricreandolo i device restavano un attimo senza misure, cavi e bolle
+ * sparivano e la mappa lampeggiava a ogni aggiornamento dello stato live.
+ */
 function buildFlowNodes(view, previous) {
-  const known = new Map(previous.map((n) => [n.id, n.position]))
+  const known = new Map(previous.map((n) => [n.id, n]))
   const nodes = view.nodes.map((n) => {
     const id = String(n.id)
-    const position = known.get(id) ?? (n.x !== null && n.y !== null ? { x: n.x, y: n.y } : null)
+    const prev = known.get(id)
+    if (prev) return same(prev.data, n) ? prev : { ...prev, data: n }
+    const position = n.x !== null && n.y !== null ? { x: n.x, y: n.y } : null
     return { id, type: 'device', position, data: n }
   })
   const missing = nodes.filter((n) => !n.position)
@@ -251,9 +260,11 @@ function toFlowEdge(edge, levelOf, showLabels, selected, route) {
       waypoints,
       sourceEnd: (flip ? route?.b_end : route?.a_end) || null,
       targetEnd: (flip ? route?.a_end : route?.b_end) || null,
-      // Nomi delle porte, ognuno vicino al suo device
-      sourceLabel: showLabels ? (flip ? edge.target_interface : edge.source_interface) : null,
-      targetLabel: showLabels ? (flip ? edge.source_interface : edge.target_interface) : null,
+      // Nomi delle porte, ognuno vicino al suo device: corti (Te1/1/1), quello intero passando sopra
+      sourceLabel: showLabels ? shortPortName(flip ? edge.target_interface : edge.source_interface) : null,
+      targetLabel: showLabels ? shortPortName(flip ? edge.source_interface : edge.target_interface) : null,
+      sourceTitle: flip ? edge.target_interface : edge.source_interface,
+      targetTitle: flip ? edge.source_interface : edge.target_interface,
     },
     labelBgPadding: [5, 2],
     labelBgBorderRadius: 3,
@@ -338,7 +349,10 @@ function Editor() {
         const { nodes: built, changed } = buildFlowNodes(data, keepPositions ? nodesRef.current : [])
         // Ricaricando (stato live ogni 30 s) restano i punti che si stanno modificando
         if (!keepPositions) setRoutes(Object.fromEntries(data.routes.map(({ cable_id: cableId, ...route }) => [cableId, route])))
-        setView(data)
+        // Le parti della vista che non cambiano restano gli stessi oggetti: niente ricalcolo di cavi e bolle
+        setView((prev) => (prev && keepPositions
+          ? Object.fromEntries(Object.entries(data).map(([key, value]) => [key, same(prev[key], value) ? prev[key] : value]))
+          : data))
         setNodes(built)
         setError(null)
         if (changed) setDirty(true)
@@ -366,6 +380,14 @@ function Editor() {
       requestAnimationFrame(() => fitRef.current({ padding: 0.25 }))
     }
   }, [devicesMeasured])
+
+  // Pulsante "Aggiorna": come l'aggiornamento automatico, ma subito (device o cavi aggiunti da un'altra pagina)
+  const [reloading, setReloading] = useState(false)
+  const reload = useCallback(async () => {
+    setReloading(true)
+    await load(true)
+    setReloading(false)
+  }, [load])
 
   // Stato live: ricarico i dati dei device senza toccare le posizioni
   const connectingRef = useRef(connecting)
@@ -449,8 +471,9 @@ function Editor() {
     lastGeometry.current = next
     return next
   }, [nodes, bubbles, baseEdges, moving])
-  // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga quanto serve
-  const widths = useMemo(() => nodeWidths(nodes, baseEdges), [nodes, baseEdges])
+  // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga (o si allunga) quanto serve
+  const sizes = useMemo(() => nodeSizes(nodes, baseEdges), [nodes, baseEdges])
+  const widths = useMemo(() => Object.fromEntries(Object.entries(sizes).filter(([, s]) => s.width).map(([id, s]) => [id, s.width])), [sizes])
 
   // Evidenza: con un device, un cavo o un rack selezionato restano in primo piano lui, i suoi cavi e i device
   // collegati; il resto va in dissolvenza
@@ -535,12 +558,12 @@ function Editor() {
         return faded(placed, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))
       }),
       ...nodes.map((n) => {
-        const width = widths[n.id]
-        const sized = width === n.data.width ? n : { ...n, data: { ...n.data, width } }
+        const { width, height: minHeight } = sizes[n.id] || {}
+        const sized = width === n.data.width && minHeight === n.data.minHeight ? n : { ...n, data: { ...n.data, width, minHeight } }
         return faded(sized, focus?.devices.has(n.id))
       }),
     ]
-  }, [places, bubbles, nodes, focus, widths, geometry])
+  }, [places, bubbles, nodes, focus, sizes, geometry])
 
   const savePositions = async (list) => {
     setSaving(true)
@@ -737,6 +760,8 @@ function Editor() {
               {t('Posizioni')}
             </label>
           )}
+          <IconButton icon="refresh" label={reloading ? t('Aggiornamento…') : t('Aggiorna la mappa (device, cavi e stato)')} small
+            onClick={reload} disabled={reloading} />
           <select className="input input--sm" value="" onChange={(e) => exportAs(e.target.value)} aria-label={t('Esporta o stampa la mappa')}
             disabled={view.nodes.length === 0}>
             <option value="">{t('Esporta…')}</option>

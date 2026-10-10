@@ -1,4 +1,5 @@
 export const X_GAP = 240
+const X_GAP_WITH_PORTS = 320 // con i nomi delle porte i nomi orizzontali tra device vicini hanno bisogno di spazio
 export const Y_GAP = 170
 const Y_GAP_WITH_PORTS = 260 // con i nomi delle porte sui cavi serve più spazio tra le righe
 const NODE_H = 64 // altezza di riferimento di un device in mappa per lo spazio tra le righe
@@ -10,14 +11,14 @@ const NODE_HALF = 86 // metà della larghezza di un device in mappa (.dnode)
 const CORRIDOR = 40 // spazio libero tra un cavo verticale e i device accanto
 
 /** Posizioni x per una fila che va a capo, ordinate dal centro verso l'esterno, lontane dai cavi verticali. */
-function wrappedSlots(trunks, count) {
+function wrappedSlots(trunks, count, gap = X_GAP) {
   const center = trunks.length ? trunks.reduce((a, b) => a + b, 0) / trunks.length : 0
-  const first = trunks.length ? NODE_HALF + CORRIDOR : X_GAP / 2
+  const first = trunks.length ? NODE_HALF + CORRIDOR : gap / 2
   const free = (x) => trunks.every((t) => Math.abs(x - t) >= NODE_HALF + CORRIDOR)
   const slots = []
   for (let k = 0; slots.length < count && k < count * 4; k++) {
     for (const side of [-1, 1]) {
-      const x = center + side * (first + k * X_GAP)
+      const x = center + side * (first + k * gap)
       if (free(x) && slots.length < count) slots.push(x)
     }
   }
@@ -109,7 +110,7 @@ function buildBlocks(nodes, heights, levels) {
  * Dentro una riga i blocchi stanno vicino ai device a cui sono collegati sopra
  * (media delle x dei vicini già posizionati). Righe troppo lunghe vanno a capo.
  * nodes: [{ id, name, level, rack_id, rack_name, rack_position, primary_ip }], edges: [{ source, target }],
- * heights: { id: altezza misurata } se disponibili; withPorts: righe più distanti per i nomi delle porte;
+ * heights: { id: altezza misurata } se disponibili; withPorts: righe e colonne più distanti per i nomi delle porte;
  * widths: { id: larghezza } dei device allargati per i nomi delle porte (stanno centrati sul loro posto e
  * allontanano i vicini nella fila)
  * -> { "id": { x, y } }
@@ -118,6 +119,7 @@ export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = fal
   const widthOf = (id) => widths[id] || NODE_HALF * 2
   const blockWidth = (block) => Math.max(...block.ids.map(widthOf))
   const rowGap = (withPorts ? Y_GAP_WITH_PORTS : Y_GAP) - NODE_H
+  const xGap = withPorts ? X_GAP_WITH_PORTS : X_GAP
   const neighbors = new Map(nodes.map((n) => [String(n.id), []]))
   for (const e of edges) {
     const s = String(e.source)
@@ -162,11 +164,11 @@ export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = fal
       return a.name.localeCompare(b.name, 'it', { numeric: true })
     })
     if (row.length <= MAX_PER_ROW) {
-      // Passo normale X_GAP; un device allargato spinge più in là i vicini
+      // Passo normale xGap; un device allargato spinge più in là i vicini
       const xs = [0]
       for (let j = 1; j < row.length; j++) {
         const extra = (blockWidth(row[j - 1]) + blockWidth(row[j])) / 2 - NODE_HALF * 2
-        xs.push(xs[j - 1] + X_GAP + Math.max(0, extra))
+        xs.push(xs[j - 1] + xGap + Math.max(0, extra))
       }
       const width = xs[xs.length - 1]
       place(row, xs.map((x) => x - width / 2))
@@ -175,7 +177,7 @@ export function hierarchicalLayout(nodes, edges, heights = {}, { withPorts = fal
     // Fila che va a capo: i cavi verso le file più in basso scendono in verticale sotto i device sopra,
     // quindi lascio libero un corridoio sotto ognuno di loro
     const trunks = [...new Set(row.flatMap(placedNeighbors))]
-    const slots = wrappedSlots(trunks, MAX_PER_ROW)
+    const slots = wrappedSlots(trunks, MAX_PER_ROW, xGap)
     for (let i = 0; i < row.length; i += MAX_PER_ROW) {
       const chunk = row.slice(i, i + MAX_PER_ROW)
       // Le file incomplete usano gli slot più vicini al centro

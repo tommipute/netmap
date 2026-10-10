@@ -148,19 +148,19 @@ export function endOnRect(r, p) {
 }
 
 /** Nome della porta lungo il tratto dritto che esce dal device (in verticale se esce da sopra/sotto). */
-function edgeLabel(end, text) {
+function edgeLabel(end, text, title) {
   const out = OUTWARD[end.side]
   const along = LABEL_GAP + labelLength(text) / 2
-  return { x: end.x + out.x * along, y: end.y + out.y * along, text, vertical: out.y !== 0 }
+  return { x: end.x + out.x * along, y: end.y + out.y * along, text, title, vertical: out.y !== 0 }
 }
 
 /** Device vicini: il nome in orizzontale accanto al cavo, appena fuori dal bordo del device. */
-function besideLabel(end, text) {
+function besideLabel(end, text, title) {
   const out = OUTWARD[end.side]
   if (out.y !== 0) {
-    return { x: end.x + labelLength(text) / 2 + 4, y: end.y + out.y * (LABEL_H / 2 + 2), text, vertical: false }
+    return { x: end.x + labelLength(text) / 2 + 4, y: end.y + out.y * (LABEL_H / 2 + 2), text, title, vertical: false }
   }
-  return { x: end.x + out.x * (labelLength(text) / 2 + 2), y: end.y - LABEL_H / 2 - 3, text, vertical: false }
+  return { x: end.x + out.x * (labelLength(text) / 2 + 2), y: end.y - LABEL_H / 2 - 3, text, title, vertical: false }
 }
 
 /**
@@ -232,7 +232,7 @@ export function cableGeometry(nodes, bubbles, edges, { only = null, previous = {
     const labels = []
     if (sourceText && targetText) {
       const place = tight ? besideLabel : edgeLabel
-      labels.push(place(from, sourceText), place(to, targetText))
+      labels.push(place(from, sourceText, e.data.sourceTitle), place(to, targetText, e.data.targetTitle))
     }
     result[e.id] = { points, labels, edit, ends: [from, to] }
   }
@@ -241,12 +241,14 @@ export function cableGeometry(nodes, bubbles, edges, { only = null, previous = {
 
 const BASE_WIDTH = 172 // larghezza normale di un device (.dnode)
 const SLOT = LABEL_H + 6 // spazio per un nome verticale, con un po' di aria tra uno e l'altro
+const SIDE_SLOT = LABEL_H + 4 // spazio per un nome orizzontale (cavo che esce di lato)
 
 /**
- * Larghezza che serve a ogni device perché i nomi verticali delle porte (cavi che escono da sopra o da sotto)
- * non si tocchino: { nodeId: larghezza } solo per quelli più larghi del normale. Senza nomi nessuno.
+ * Misure che servono a ogni device perché i nomi delle porte non si tocchino: più largo per i cavi che escono da
+ * sopra o da sotto (nomi in verticale, uno accanto all'altro), più alto per quelli che escono di lato (nomi in
+ * orizzontale, uno sopra l'altro). { nodeId: { width, height } } solo per i device da ingrandire; senza nomi nessuno.
  */
-export function nodeWidths(nodes, edges) {
+export function nodeSizes(nodes, edges) {
   if (!edges.some((e) => e.data?.sourceLabel)) return {}
   const anchors = assignAnchors(nodes, edges, { separate: true })
   const counts = {}
@@ -254,16 +256,22 @@ export function nodeWidths(nodes, edges) {
     const anchor = anchors[e.id]
     if (!anchor) continue
     for (const [nodeId, end] of [[e.source, anchor.source], [e.target, anchor.target]]) {
-      if (end.side !== 'top' && end.side !== 'bottom') continue
+      if (end.fixed) continue
       const key = `${nodeId}|${end.side}`
       counts[key] = (counts[key] || 0) + 1
     }
   }
-  const widths = {}
+  const sizes = {}
   for (const [key, n] of Object.entries(counts)) {
-    const nodeId = key.split('|')[0]
-    const width = (n + 1) * SLOT
-    if (width > BASE_WIDTH && width > (widths[nodeId] || 0)) widths[nodeId] = Math.ceil(width)
+    const [nodeId, side] = key.split('|')
+    const size = sizes[nodeId] || (sizes[nodeId] = {})
+    if (side === 'top' || side === 'bottom') {
+      const width = Math.ceil((n + 1) * SLOT)
+      if (width > BASE_WIDTH && width > (size.width || 0)) size.width = width
+    } else {
+      const height = Math.ceil((n + 1) * SIDE_SLOT)
+      if (height > (size.height || 0)) size.height = height
+    }
   }
-  return widths
+  return sizes
 }

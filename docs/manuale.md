@@ -273,7 +273,9 @@ Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device, p
 - Per **creare un cavo**, passa sopra un device: compaiono quattro pallini. Trascina da uno di questi a un altro
   device e scegli le porte.
 - I cavi girano ad angolo retto e non passano mai sotto un device. **Nomi delle porte** scrive il nome della
-  porta dove il cavo entra nel device.
+  porta dove il cavo entra nel device, in forma corta come la scrive Cisco (Te1/1/1 per TenGigabitEthernet1/1/1:
+  il nome intero compare passando sopra col mouse). Un device con tanti cavi sullo stesso lato si allarga o si
+  allunga quanto serve perché i nomi non si sovrappongano, e **Disponi** lascia più spazio tra i device.
 - Per **sistemare un cavo a mano** cliccalo: le barrette sui tratti si trascinano di traverso, i pallini alle
   estremità scorrono sul bordo del device. Poi **Salva disposizione**. **Torna al percorso automatico** annulla.
 - Cliccando un cavo vedi i dettagli (porte, tipo, VLAN) e puoi eliminarlo; cliccando un device vedi i dettagli e
@@ -284,7 +286,8 @@ Cliccando il nome di un rack o di una posizione selezioni tutti i suoi device, p
 - **Cerca nella mappa**: nome o IP di un device, oppure il MAC o l'IP di un PC: NetMap seleziona la porta dello
   switch dove è collegato.
 - **Evidenzia una VLAN**: mette in risalto i cavi e i device che portano quella VLAN.
-- **Stato live**: il pallino sul device è verde se risponde, rosso se no; la mappa si aggiorna ogni 30 secondi.
+- **Stato live**: il pallino sul device è verde se risponde, rosso se no; lo stato si aggiorna da solo ogni 30 secondi. Per vedere subito device o
+  cavi aggiunti da un'altra pagina usa **Aggiorna la mappa** (le due frecce in alto).
 - **Esporta**: immagine PNG, disegno SVG, oppure stampa / PDF.
 
 ## 11. Vista del rack

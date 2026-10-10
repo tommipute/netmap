@@ -393,6 +393,8 @@ const strings = {
   'Disegno SVG': 'SVG drawing',
   'Stampa o PDF': 'Print or PDF',
   'Disponi automaticamente': 'Arrange automatically',
+  'Aggiornamento…': 'Refreshing…',
+  'Aggiorna la mappa (device, cavi e stato)': 'Refresh the map (devices, cables and status)',
   'Salva disposizione': 'Save layout',
   'Disposizione salvata': 'Layout saved',
   "Per collegare due device passa sopra uno dei due e trascina da un suo pallino all'altro.": 'To connect two devices, hover over one of them and drag from one of its dots to the other.',

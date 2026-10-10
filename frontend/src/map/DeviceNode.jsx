@@ -13,7 +13,8 @@ function DeviceNode({ data, selected }) {
     <span className={`status-dot status-dot--${data.status}`} title={labelOf(DEVICE_STATUS, data.status)} />
   )
   return (
-    <div className={`dnode${selected ? ' dnode--selected' : ''}`} style={{ '--role': data.color, width: data.width }}>
+    <div className={`dnode${selected ? ' dnode--selected' : ''}${data.minHeight ? ' dnode--tall' : ''}`}
+      style={{ '--role': data.color, width: data.width, minHeight: data.minHeight }}>
       {/* Pallini per collegare due device trascinando: i cavi invece si attaccano dove serve (map/anchors.js) */}
       <Handle type="target" id="t" position={Position.Top} className="dnode__handle" />
       <Handle type="source" id="l" position={Position.Left} className="dnode__handle" />

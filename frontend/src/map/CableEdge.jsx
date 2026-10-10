@@ -12,10 +12,11 @@ const SNAP = 5 // i tratti spostati a mano si allineano a una griglia di 5 px
 const snap = (p) => ({ x: Math.round(p.x / SNAP) * SNAP, y: Math.round(p.y / SNAP) * SNAP })
 
 /** Nome di una porta: riquadro con il testo, ruotato se il cavo esce da sopra o da sotto il device. */
-function PortLabel({ x, y, text, vertical }) {
+function PortLabel({ x, y, text, title, vertical }) {
   const width = labelLength(text)
   return (
     <g className="port-label" transform={`translate(${x} ${y})${vertical ? ' rotate(-90)' : ''}`}>
+      {title && title !== text && <title>{title}</title>}
       <rect className="react-flow__edge-textbg" x={-width / 2} y={-LABEL_H / 2} width={width} height={LABEL_H} rx={3} />
       <text className="react-flow__edge-text" textAnchor="middle" dominantBaseline="central">{text}</text>
     </g>

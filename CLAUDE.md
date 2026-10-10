@@ -361,7 +361,9 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   occupate rifiutate) o in "Nel rack senza unità" (unità tolta); X nell'elenco = fuori dal rack. Per i membri
   di uno stack si salva `rack_position` del membro (`member_id` nella vista rack). Uscendo dal rack (o cambiando
   rack) `device_hook` svuota le unità dei membri.
-  Mappa: aggiornamento ogni 30 s (senza toccare le posizioni), export PNG/SVG con `html-to-image` (tutta la mappa,
+  Mappa: aggiornamento ogni 30 s (senza toccare le posizioni; `buildFlowNodes` riusa gli oggetti dei device già in
+  mappa e `load` le parti della vista uguali: ricreandoli i device perdevano `measured` e la mappa lampeggiava) e
+  pulsante "Aggiorna la mappa", export PNG/SVG con `html-to-image` (tutta la mappa,
   senza pallini di collegamento; il CSS di Google Fonts ha `crossorigin` apposta per incorporare i font), stampa.
 - Verifica nel browser (6/10/2026, Playwright): login admin e sola lettura, filtro "non rispondono",
   "Dov'è collegato?", rack, utenti, export PNG/SVG, logout, schermo da telefono. Corretti: filtro `reachable`
@@ -552,8 +554,10 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   **Nomi delle porte** (`map/geometry.js`): sul bordo del device, non a metà cavo. Con i nomi attivi ogni cavo ha il
   suo punto di attacco; il tratto dritto in uscita si allunga quanto il nome, scritto lungo il tratto (verticale se
   il cavo esce da sopra/sotto, `CableEdge` lo ruota). Tra due device vicini e allineati i nomi vanno in orizzontale
-  accanto al cavo, solo se in fila non ci stanno. Un device con tanti cavi sopra o sotto si allarga quanto serve (`nodeWidths` in geometry.js ->
-  `data.width`); "Disponi" lo tiene centrato e allontana i vicini nella fila. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
+  accanto al cavo, solo se in fila non ci stanno. Un device con tanti cavi sopra o sotto si allarga quanto serve, con
+  tanti cavi di lato si allunga (`nodeSizes` in geometry.js -> `data.width` / `data.minHeight`); "Disponi" lo tiene
+  centrato, allontana i vicini nella fila e con i nomi accesi usa colonne più distanti (`X_GAP_WITH_PORTS`).
+  Nomi corti in stile Cisco (`map/ports.js`, `shortPortName`), quello intero come `<title>` dell'etichetta. Se sopra/sotto un device c'è subito un altro device (rack impilati) il cavo esce di lato
   (`sideIfBlocked` in anchors.js).
   **Velocità della mappa** (mappa da 291 device e 540 cavi: trascinamento da 2,3 s a ~80 ms per movimento nella
   build di produzione, "Disponi" da 6,6 a 1,3 s): `routing.js` ricorda i percorsi (chiave = capi, lati, ostacoli
