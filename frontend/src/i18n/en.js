@@ -741,7 +741,7 @@ const strings = {
   'Intervallo non valido': 'Invalid range',
   'Subnet non valida': 'Invalid subnet',
   'Non è un indirizzo IP, una subnet o un intervallo': 'Not an IP address, a subnet or a range',
-  '{n} indirizzi: il massimo per scansione è {max}': '{n} addresses: the maximum per scan is {max}',
+  '{n} indirizzi: il massimo è {max}': '{n} addresses: the maximum is {max}',
   '1 indirizzo da scansionare': '1 address to scan',
   '{n} indirizzi da scansionare': '{n} addresses to scan',
   'Indirizzo email non valido': 'Invalid email address',
@@ -1435,16 +1435,84 @@ const strings = {
   "Risposta inattesa: l'indirizzo è quello di Zabbix?": 'Unexpected answer: is this the Zabbix address?',
   "Risposta inattesa: l'indirizzo è quello di PRTG?": 'Unexpected answer: is this the PRTG address?',
   "Risposta inattesa: l'indirizzo è quello dell'API di Lansweeper?": 'Unexpected answer: is this the Lansweeper API address?',
+  // ---------- Prova indirizzi (components/ProbeDialog.jsx) ----------
+  'Prova indirizzi': 'Test addresses',
+  'Prova indirizzi: cosa succede su ognuno, senza salvare niente': 'Test addresses: what happens on each one, without saving anything',
+  'Interroga subito pochi indirizzi (al massimo {max}) con i profili scelti e dice cosa succede su ognuno, senza salvare niente: serve a sistemare community, utenti e ACL prima della scansione.':
+    'Queries a few addresses (at most {max}) right away with the chosen profiles and tells what happens on each one, without saving anything: use it to fix communities, users and ACLs before the scan.',
+  '10.0.99.1, 10.0.99.10-20, 10.0.99.0/28': '10.0.99.1, 10.0.99.10-20, 10.0.99.0/28',
+  'Letto': 'Read',
+  'Solo ping': 'Ping only',
+  'Nessuna risposta': 'No answer',
+  'Ping': 'Ping',
+  '1 letto': '1 read',
+  '{n} letti': '{n} read',
+  '1 risponde con un errore': '1 answers with an error',
+  '{n} rispondono con un errore': '{n} answer with an error',
+  '1 risponde solo al ping': '1 answers ping only',
+  '{n} rispondono solo al ping': '{n} answer ping only',
+  '1 non risponde': '1 does not answer',
+  '{n} non rispondono': '{n} do not answer',
+  'Mostra anche gli indirizzi che non rispondono': 'Also show the addresses that do not answer',
+  '1 vicino': '1 neighbor',
+  '{n} vicini': '{n} neighbors',
+  '1 membro dello stack': '1 stack member',
+  '{n} membri dello stack': '{n} stack members',
+  '1 MAC': '1 MAC',
+  '{n} MAC': '{n} MACs',
+  '(senza sysName)': '(no sysName)',
+  'modello nuovo': 'new model',
+  'Profilo {name}': 'Profile {name}',
+  'in NetMap:': 'in NetMap:',
+  'device nuovo': 'new device',
+  'Non letto': 'Not read',
+  'Lettura SNMP fallita: {error}': 'SNMP read failed: {error}',
+  "Risponde al ping: c'è un apparato, ma non accetta questi profili. Controlla community o utente, che SNMP sia attivo e che l'ACL ammetta l'indirizzo di NetMap.":
+    "It answers ping: there is a device, but it does not accept these profiles. Check the community or user, that SNMP is enabled and that the ACL allows the NetMap address.",
+  '{n} su {total}': '{n} of {total}',
+  // motivi degli errori SNMP (discovery/snmp.py, _ERRORS)
+  'nessuna risposta': 'no answer',
+  'nessuna risposta (SNMP spento, ACL che non ammette NetMap o porta UDP chiusa)': 'no answer (SNMP disabled, ACL not allowing NetMap or UDP port closed)',
+  'nessuna risposta (community sbagliata, SNMP spento, ACL che non ammette NetMap o porta UDP chiusa)': 'no answer (wrong community, SNMP disabled, ACL not allowing NetMap or UDP port closed)',
+  "utente SNMPv3 sconosciuto sull'apparato": 'SNMPv3 user unknown on the device',
+  'password di autenticazione o protocollo (MD5/SHA) sbagliati': 'wrong authentication password or protocol (MD5/SHA)',
+  'password di cifratura o protocollo (DES/AES) sbagliati': 'wrong privacy password or protocol (DES/AES)',
+  "livello di sicurezza diverso da quello dell'apparato (con o senza autenticazione e cifratura)": "security level different from the device's (with or without authentication and privacy)",
+  'orologio SNMPv3 non sincronizzato (riprova)': 'SNMPv3 clock not synchronised (try again)',
+  'engine ID SNMPv3 non riconosciuto': 'SNMPv3 engine ID not recognised',
+  'context SNMPv3 sconosciuto': 'unknown SNMPv3 context',
+  "l'utente non può leggere questi dati (vista SNMP)": 'the user cannot read this data (SNMP view)',
+  'protocollo di autenticazione non supportato': 'authentication protocol not supported',
+  'protocollo di cifratura non supportato': 'privacy protocol not supported',
+}
+
+// Parti delle righe del log delle scansioni (discovery/runner.py e snmp.py)
+const SNMP_SECTIONS = {
+  porte: 'ports', 'indirizzi IP': 'IP addresses', 'seriale e stack': 'serial and stack', 'vicini LLDP': 'LLDP neighbors',
+  'vicini CDP': 'CDP neighbors', VLAN: 'VLANs', 'tabella MAC': 'MAC table', 'tabella ARP': 'ARP table',
+}
+const hostList = (text) => text.replace(/ e altri (\d+)$/, ' and $1 more')
+function snmpProblem(text) {
+  const match = /^(.+?): (.+)$/.exec(text)
+  return match ? `${SNMP_SECTIONS[match[1]] || match[1]}: ${inner(match[2])}` : inner(text)
 }
 
 // Messaggi del server con nomi o numeri: si traducono con un modello ($1, $2... = le parti tra parentesi)
 const patterns = [
+  // scansione: perché un indirizzo non si legge
+  [/^l'apparato ha risposto con un errore \((.+)\)$/, 'the device answered with an error ($1)'],
+  [/^(\d\d:\d\d:\d\d )?Rispondono con un errore \(profilo (.+?): (.+)\): (.+)$/,
+    (m, time, profile, reason, hosts) => `${time || ''}Answer with an error (profile ${profile}: ${inner(reason)}): ${hostList(hosts)}`],
+  [/^(\d\d:\d\d:\d\d )?Rispondono al ping ma non a SNMP \((\d+)\): (.+)\. Controlla community o utente, che SNMP sia attivo e che l'ACL ammetta l'indirizzo di NetMap$/,
+    (m, time, n, hosts) => `${time || ''}Answer ping but not SNMP (${n}): ${hostList(hosts)}. Check the community or user, that SNMP is enabled and that the ACL allows the NetMap address`],
+  [/^(\d\d:\d\d:\d\d )?Non rispondono né al ping né a SNMP: (\d+) indirizzi$/, '$1No answer to ping or SNMP: $2 addresses'],
+  [/^(\d\d:\d\d:\d\d )?(\S+): lettura SNMP fallita \((.*)\)$/, '$1$2: SNMP read failed ($3)'],
+  [/^(porte|indirizzi IP|seriale e stack|vicini LLDP|vicini CDP|VLAN|tabella MAC|tabella ARP): (.+)$/, (m) => snmpProblem(m)],
   // import da NetBox (anche le righe del log, che iniziano con l'ora)
   [/^(\d\d:\d\d:\d\d )?Connessione a (\S+) (.+)$/, '$1Connected to $2 $3'],
   // scansione: tipo di apparato riconosciuto (services/roles.py) e ruolo o modello nuovo nelle proposte
   [/^(Firewall|Controller wireless|Telefono|Telecamera|Stampante|UPS|PDU|NAS|Access point|Router|Switch|Server) \((Printer-MIB|UPS-MIB|descrizione SNMP|produttore|LLDP|sysServices)\)$/,
     (m, kind, reason) => `${{ 'Controller wireless': 'Wireless controller', Telefono: 'Phone', Telecamera: 'Camera', Stampante: 'Printer' }[kind] || kind} (${{ 'descrizione SNMP': 'SNMP description', produttore: 'manufacturer' }[reason] || reason})`],
-  [/^(.+) \(nuovo modello\)$/, '$1 (new model)'],
   [/^(.+) \(nuovo\)$/, '$1 (new)'],
   // import dagli altri programmi (services/connectors.py)
   [/^(\d\d:\d\d:\d\d )?Letti da (\S+): (\d+) (host|device|apparati di rete)$/, (m, time, src, n, what) => `${time || ''}Read from ${src}: ${n} ${{ host: 'hosts', device: 'devices', 'apparati di rete': 'network devices' }[what]}`],
@@ -1558,7 +1626,7 @@ const patterns = [
   [/^Indirizzo IP non valido: (.*)$/, 'Invalid IP address: $1'],
   [/^Intervallo non valido: (.*)$/, 'Invalid range: $1'],
   [/^Indirizzo o subnet non valida: (.*)$/, 'Invalid address or subnet: $1'],
-  [/^Troppi indirizzi da scansionare \((\d+)\): il massimo per job è (\d+)$/, 'Too many addresses to scan ($1): the maximum per job is $2'],
+  [/^Troppi indirizzi da scansionare \((\d+)\): il massimo è (\d+)$/, 'Too many addresses to scan ($1): the maximum is $2'],
   [/^L'IP (.+) è già assegnato a (.+)$/, 'IP $1 is already assigned to $2'],
   [/^La VLAN (.+) esiste già per questa sede$/, 'VLAN $1 already exists for this site'],
   [/^Il prefisso (.+) esiste già in questa VRF$/, 'Prefix $1 already exists in this VRF'],
@@ -1614,7 +1682,9 @@ const patterns = [
   [/^(\d\d:\d\d:\d\d )?Fine: (\d+) modifiche da approvare, (\d+) applicate in automatico$/, '$1Done: $2 changes to approve, $3 applied automatically'],
   [/^(\d\d:\d\d:\d\d )?Scansione non eseguita: (.*)$/, '$1Scan not run: $2'],
   [/^(\d\d:\d\d:\d\d )?Tabelle MAC e ARP: (\d+) endpoint localizzati su porte di accesso$/, '$1MAC and ARP tables: $2 endpoints located on access ports'],
-  [/^(\d\d:\d\d:\d\d )?(.+) \[(.*)\]: (\d+) porte, (\d+) IP, (\d+) vicini -> (\d+) da approvare, (\d+) applicate$/, '$1$2 [$3]: $4 ports, $5 IPs, $6 neighbors -> $7 to approve, $8 applied'],
+  [/^(\d\d:\d\d:\d\d )?(.+) \[(.*)\]: (\d+) porte, (\d+) IP, (\d+) vicini -> (\d+) da approvare, (\d+) applicate(?:; non lette: (.+))?$/,
+    (m, time, host, profile, ports, ips, nb, todo, applied, problems) => `${time || ''}${host} [${profile}]: ${ports} ports, ${ips} IPs, ${nb} neighbors -> ${todo} to approve, ${applied} applied`
+      + (problems ? `; not read: ${problems.split('; ').map(snmpProblem).join('; ')}` : '')],
   [/^(\d\d:\d\d:\d\d )?(.+): errore durante l'elaborazione \((.*)\)$/, '$1$2: error while processing ($3)'],
   [/^(\d\d:\d\d:\d\d )?Interrotta: il worker è stato riavviato durante la scansione$/, '$1Interrupted: the worker was restarted during the scan'],
   [/^(\d\d:\d\d:\d\d )?Il job non ha profili SNMP validi$/, '$1The job has no valid SNMP profiles'],

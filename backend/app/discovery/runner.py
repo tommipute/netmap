@@ -18,7 +18,8 @@ from app.services.endpoints import update_endpoints
 
 logger = logging.getLogger(__name__)
 
-Collector = Callable[[list[str], list[snmp.Credentials]], list[snmp.HostData]]
+# Restituisce l'esito di ogni indirizzo (HostProbe) o solo gli host che rispondono (HostData, nei test)
+Collector = Callable[[list[str], list[snmp.Credentials]], list[snmp.HostProbe] | list[snmp.HostData]]
 PENDING, APPLIED, REJECTED, FAILED = (s.value for s in ChangeStatus)
 
 
@@ -40,6 +41,42 @@ class RunError(Exception):
 def _log(run: DiscoveryRun, message: str) -> None:
     stamp = datetime.now().astimezone().strftime("%H:%M:%S")  # ora locale del container (variabile TZ)
     run.log = f"{run.log or ''}{stamp} {message}\n"
+
+
+def _short_list(hosts: list[str], limit: int = 30) -> str:
+    text = ", ".join(hosts[:limit])
+    return f"{text} e altri {len(hosts) - limit}" if len(hosts) > limit else text
+
+
+def summary(probes: list[snmp.HostProbe]) -> list[str]:
+    """Righe del log per gli indirizzi che non si sono letti: perché, raggruppati per motivo."""
+    lines = []
+    silent = [p for p in probes if p.data is None and p.error is None]
+    errors: dict[str, list[str]] = {}  # "profilo: motivo" -> host (l'apparato ha risposto con un errore)
+    ping_only = []
+    for p in silent:
+        answers = [a for a in p.attempts if a.answered]
+        if answers:
+            for a in answers:
+                errors.setdefault(f"profilo {a.profile}: {a.error}", []).append(p.host)
+        elif p.pinged:
+            ping_only.append(p.host)
+    for reason, hosts in errors.items():
+        lines.append(f"Rispondono con un errore ({reason}): {_short_list(hosts)}")
+    if ping_only:
+        lines.append(f"Rispondono al ping ma non a SNMP ({len(ping_only)}): {_short_list(ping_only)}. Controlla "
+                     "community o utente, che SNMP sia attivo e che l'ACL ammetta l'indirizzo di NetMap")
+    nothing = len(silent) - len(ping_only) - sum(1 for p in silent if any(a.answered for a in p.attempts))
+    if nothing:
+        lines.append(f"Non rispondono né al ping né a SNMP: {nothing} indirizzi")
+    for p in probes:
+        if p.error:
+            lines.append(f"{p.host}: lettura SNMP fallita ({p.error})")
+    return lines
+
+
+def _as_probes(results: list) -> list[snmp.HostProbe]:
+    return [r if isinstance(r, snmp.HostProbe) else snmp.HostProbe(r.host, data=r) for r in results]
 
 
 def load_credentials(db: Session, profile_ids: list[int]) -> list[snmp.Credentials]:
@@ -170,10 +207,13 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
         _log(run, f"Scansione di {len(hosts)} indirizzi con i profili: {', '.join(c.name for c in credentials)}")
         db.commit()
 
-        collect = collector or (lambda h, c: snmp.collect_all(h, c, settings.discovery_concurrency))
-        results = collect(hosts, credentials)
+        collect = collector or (lambda h, c: snmp.probe_all(h, c, settings.discovery_concurrency))
+        probes = _as_probes(collect(hosts, credentials))
+        results = [p.data for p in probes if p.data]
         run.hosts_responded = len(results)
         _log(run, f"Hanno risposto {len(results)} host su {len(hosts)}")
+        for line in summary(probes):
+            _log(run, line)
 
         for hd in sorted(results, key=lambda r: r.host):
             savepoint = db.begin_nested()
@@ -185,7 +225,8 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
                 proposed, applied = run.changes_proposed - before[0], run.changes_applied - before[1]
                 _log(run, f"{hd.host} {hd.sys_name or '(senza sysName)'} [{hd.profile_name}]: "
                           f"{len(hd.interfaces)} porte, {len(hd.ips)} IP, {len(hd.neighbors)} vicini "
-                          f"-> {proposed} da approvare, {applied} applicate")
+                          f"-> {proposed} da approvare, {applied} applicate"
+                          + (f"; non lette: {'; '.join(hd.problems)}" if hd.problems else ""))
             except Exception as exc:  # un host con dati strani non deve fermare gli altri
                 savepoint.rollback()
                 logger.exception("Elaborazione di %s fallita", hd.host)

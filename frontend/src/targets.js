@@ -37,10 +37,10 @@ export function parseTarget(text) {
 export const targetError = (text) => parseTarget(text).error
 
 /** Riga sotto le bolle: quanti indirizzi, in rosso oltre il massimo */
-export function targetsSummary(targets) {
+export function targetsSummary(targets, max = MAX_HOSTS) {
   if (!targets.length) return null
   const total = targets.reduce((sum, target) => sum + (parseTarget(target).count ?? 0), 0)
-  if (total > MAX_HOSTS) return { error: true, text: t('{n} indirizzi: il massimo per scansione è {max}', { n: total.toLocaleString(LOCALE), max: MAX_HOSTS }) }
+  if (total > max) return { error: true, text: t('{n} indirizzi: il massimo è {max}', { n: total.toLocaleString(LOCALE), max }) }
   return { text: tn(total, '1 indirizzo da scansionare', '{n} indirizzi da scansionare') }
 }
 

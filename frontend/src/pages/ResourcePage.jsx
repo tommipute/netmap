@@ -6,6 +6,7 @@ import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import BulkEditDialog from '../components/BulkEditDialog'
 import { customColumns, useCustomFields } from '../components/CustomFields'
 import DeleteDialog from '../components/DeleteDialog'
+import ProbeDialog from '../components/ProbeDialog'
 import DeviceImportDialog from '../components/DeviceImportDialog'
 import { IconButton } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
@@ -83,6 +84,7 @@ export default function ResourcePage({ resourceKey }) {
   useEffect(() => setOffset(0), [filtersKey])
   const [editing, setEditing] = useState(null) // null | 'new' | elemento
   const [importing, setImporting] = useState(false)
+  const [probing, setProbing] = useState(false)
   const [selected, setSelected] = useState(() => new Map()) // id -> elemento, solo nella pagina visibile
   const [bulkEditing, setBulkEditing] = useState(false)
   const [deleting, setDeleting] = useState(null) // elementi da eliminare con le opzioni della risorsa
@@ -223,6 +225,9 @@ export default function ResourcePage({ resourceKey }) {
               </IconButton>
               {canEdit && <IconButton icon="upload" label={t('Importa device da un file CSV')} onClick={() => setImporting(true)} />}
             </>
+          )}
+          {resourceKey === 'discovery-jobs' && canEdit && (
+            <IconButton icon="search" label={t('Prova indirizzi: cosa succede su ognuno, senza salvare niente')} onClick={() => setProbing(true)} />
           )}
           {canEdit && (
             <IconButton icon="plus" label={config.newLabel} className="btn--primary" onClick={() => setEditing('new')} />
@@ -417,6 +422,7 @@ export default function ResourcePage({ resourceKey }) {
         <BulkEditDialog resourceKey={resourceKey} items={[...selected.values()]} onClose={() => setBulkEditing(false)} onDone={bulkDone} />
       )}
 
+      {probing && <ProbeDialog onClose={() => setProbing(false)} />}
       {importing && (
         <DeviceImportDialog
           onClose={() => setImporting(false)}

@@ -67,7 +67,7 @@ def validate_targets(targets: list[str], max_hosts: int) -> list[str]:
     normalized = [normalize_target(t) for t in targets]
     total = sum(count_hosts(t) for t in normalized)
     if total > max_hosts:
-        raise TargetError(f"Troppi indirizzi da scansionare ({total}): il massimo per job è {max_hosts}")
+        raise TargetError(f"Troppi indirizzi da scansionare ({total}): il massimo è {max_hosts}")
     return normalized
 
 

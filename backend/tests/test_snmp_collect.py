@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from app.discovery.snmp import Credentials, collect_all
+from app.discovery.runner import summary
+from app.discovery.snmp import Credentials, collect_all, probe_all
 from tests.snmp_devices import SW1, SW2, host_data, snmprec
 
 PORT = 11161
@@ -93,3 +94,30 @@ def test_snmpv3_con_autenticazione_e_cifratura(agents):
     wrong = Credentials(profile_id=4, name="v3 sbagliato", version="v3", port=PORT, context="public", timeout=0.5,
                         retries=0, **{**V3, "auth_key": "chiavesbagliata"})
     assert collect_all(["127.0.0.1"], [wrong]) == []
+
+
+def test_esito_di_ogni_indirizzo(agents):
+    """Per gli indirizzi che non si leggono si sa perché: profilo per profilo, con il ping."""
+    wrong_v2 = Credentials(profile_id=1, name="sbagliato", community="nope", port=PORT, timeout=0.3, retries=0)
+    wrong_v3 = Credentials(profile_id=4, name="v3 sbagliato", version="v3", port=PORT, context="public", timeout=0.5,
+                           retries=0, **{**V3, "auth_key": "chiavesbagliata"})
+    wrong_user = Credentials(profile_id=6, name="v3 utente", version="v3", port=PORT, context="public", timeout=0.5,
+                             retries=0, **{**V3, "username": "nessuno"})
+    probes = {p.host: p for p in probe_all(["127.0.0.1", "127.0.0.3"], [wrong_v2, wrong_v3, wrong_user])}
+
+    sw1 = probes["127.0.0.1"]
+    assert sw1.data is None and sw1.pinged
+    assert [(a.profile, a.answered) for a in sw1.attempts] == [
+        ("sbagliato", False), ("v3 sbagliato", True), ("v3 utente", True)]
+    assert sw1.attempts[0].error.startswith("nessuna risposta (community sbagliata")
+    assert "password di autenticazione" in sw1.attempts[1].error
+    assert "utente SNMPv3 sconosciuto" in sw1.attempts[2].error
+
+    lines = summary(list(probes.values()))
+    assert any(line.startswith("Rispondono con un errore (profilo v3 sbagliato: password") and "127.0.0.1" in line
+               for line in lines)
+
+    right = Credentials(profile_id=2, name="giusto", community="public", port=PORT, timeout=1, retries=0)
+    [ok] = probe_all(["127.0.0.2"], [wrong_v2, right])
+    assert ok.data.sys_name and ok.data.problems == []
+    assert [(a.profile, a.error) for a in ok.attempts][1] == ("giusto", None)

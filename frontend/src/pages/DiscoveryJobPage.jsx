@@ -4,11 +4,13 @@ import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
 import { IconButton } from '../components/Icon'
+import ProbeDialog, { PROBE_MAX_HOSTS } from '../components/ProbeDialog'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi, useOptions } from '../hooks'
 import { RUN_STATUS, formatDateTime, formatDuration } from '../options'
 import { t, tn, tServer } from '../i18n'
+import { parseTarget } from '../targets'
 
 const RUN_TONE = { queued: 'muted', running: 'info', done: 'ok', failed: 'danger' }
 
@@ -26,6 +28,7 @@ export default function DiscoveryJobPage() {
   const { data: pending, reload: reloadPending } = useApi(`/discovery-changes?job_id=${id}&limit=1`)
   const profiles = useOptions('snmp-profiles')
   const [editing, setEditing] = useState(false)
+  const [probing, setProbing] = useState(false)
   const [openLog, setOpenLog] = useState(null)
   const [actionError, setActionError] = useState(null)
 
@@ -88,6 +91,7 @@ export default function DiscoveryJobPage() {
             <>
               <IconButton icon={active ? 'refresh' : 'play'} label={active ? t('Scansione in corso…') : t('Avvia scansione')}
                 className={`btn--primary${active ? ' is-spinning' : ''}`} onClick={start} disabled={active} />
+              <IconButton icon="search" label={t('Prova indirizzi: cosa succede su ognuno, senza salvare niente')} onClick={() => setProbing(true)} />
               <IconButton icon="edit" label={t('Modifica scansione')} onClick={() => setEditing(true)} />
               <IconButton icon="trash" label={t('Elimina scansione')} danger className="btn--ghost" onClick={remove} />
             </>
@@ -148,7 +152,7 @@ export default function DiscoveryJobPage() {
                       <td>{formatDateTime(run.started_at || run.requested_at)}</td>
                       <td><RunStatus status={run.status} /></td>
                       <td>{formatDuration(run.started_at, run.finished_at)}</td>
-                      <td>{run.status === 'queued' ? '—' : `${run.hosts_responded} su ${run.hosts_total}`}</td>
+                      <td>{run.status === 'queued' ? '—' : t('{n} su {total}', { n: run.hosts_responded, total: run.hosts_total })}</td>
                       <td>{run.changes_proposed}</td>
                       <td>{run.changes_applied}</td>
                       <td className="table__actions">
@@ -171,6 +175,15 @@ export default function DiscoveryJobPage() {
           </div>
         )}
       </section>
+
+      {probing && (
+        <ProbeDialog
+          onClose={() => setProbing(false)}
+          profileIds={job.profile_ids}
+          // gli indirizzi della scansione, se sono pochi abbastanza
+          targets={job.targets.reduce((n, x) => n + (parseTarget(x).count ?? Infinity), 0) <= PROBE_MAX_HOSTS ? job.targets : []}
+        />
+      )}
 
       {editing && (
         <ResourceForm

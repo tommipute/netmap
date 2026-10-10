@@ -233,6 +233,79 @@ class HostData:
     port_vlans: dict[int, int] = field(default_factory=dict)  # ifIndex -> VLAN untagged (PVID / access / nativa)
     port_tagged: dict[int, list[int]] = field(default_factory=dict)  # ifIndex -> VLAN tagged (trunk)
     members: list[MemberData] = field(default_factory=list)  # stack: un elemento per switch (vuoto se non è uno stack)
+    problems: list[str] = field(default_factory=list)  # tabelle che non si sono lette, con il motivo
+
+
+@dataclass
+class Attempt:
+    """Un profilo provato su un host: error None = ha risposto."""
+    profile: str
+    error: str | None = None
+    answered: bool = False  # l'apparato ha risposto, anche se con un errore (v3: utente o chiave sbagliati)
+
+
+@dataclass
+class HostProbe:
+    """Tutto quello che si sa di un indirizzo dopo la scansione, anche se SNMP non risponde."""
+    host: str
+    ping_ms: float | None = None  # None = non risponde al ping (o il ping non è stato fatto)
+    attempts: list[Attempt] = field(default_factory=list)
+    data: HostData | None = None
+    error: str | None = None  # errore inatteso durante la lettura
+
+    @property
+    def pinged(self) -> bool:
+        return self.ping_ms is not None
+
+    @property
+    def answered(self) -> bool:
+        return any(a.answered for a in self.attempts)
+
+
+# ---------------------------------------------------------------- errori
+# Motivi degli errori di pysnmp in parole semplici (errind.*). Con v1/v2c una community sbagliata non ha risposta:
+# l'apparato scarta la richiesta in silenzio, come se SNMP fosse spento.
+_ERRORS = {
+    "requestTimedOut": "nessuna risposta",
+    "unknownUserName": "utente SNMPv3 sconosciuto sull'apparato",
+    "unknownSecurityName": "utente SNMPv3 sconosciuto sull'apparato",
+    "wrongDigest": "password di autenticazione o protocollo (MD5/SHA) sbagliati",
+    "authenticationFailure": "password di autenticazione o protocollo (MD5/SHA) sbagliati",
+    "decryptionError": "password di cifratura o protocollo (DES/AES) sbagliati",
+    "authenticationError": "password di cifratura o protocollo (DES/AES) sbagliati",
+    "unsupportedSecurityLevel": "livello di sicurezza diverso da quello dell'apparato (con o senza autenticazione e cifratura)",
+    "notInTimeWindow": "orologio SNMPv3 non sincronizzato (riprova)",
+    "unknownEngineID": "engine ID SNMPv3 non riconosciuto",
+    "noSuchContext": "context SNMPv3 sconosciuto",
+    "noAccessEntry": "l'utente non può leggere questi dati (vista SNMP)",
+    "notInView": "l'utente non può leggere questi dati (vista SNMP)",
+    "unsupportedAuthProtocol": "protocollo di autenticazione non supportato",
+    "unsupportedPrivProtocol": "protocollo di cifratura non supportato",
+}
+_TIMEOUT_HINT = {
+    "v3": "nessuna risposta (SNMP spento, ACL che non ammette NetMap o porta UDP chiusa)",
+    "other": "nessuna risposta (community sbagliata, SNMP spento, ACL che non ammette NetMap o porta UDP chiusa)",
+}
+
+
+def error_text(error: Any, version: str = "v2c") -> str:
+    """Errore di pysnmp (errorIndication o errorStatus) in italiano."""
+    name = type(error).__name__
+    key = name[0].lower() + name[1:]
+    if key == "requestTimedOut":
+        return _TIMEOUT_HINT["v3" if version == "v3" else "other"]
+    if key in _ERRORS:
+        return _ERRORS[key]
+    if hasattr(error, "prettyPrint"):  # errorStatus della risposta (noSuchName, genErr…)
+        return f"l'apparato ha risposto con un errore ({error.prettyPrint()})"
+    return str(error)
+
+
+def _answered(error: Any) -> bool:
+    """L'errore viene da una risposta dell'apparato (non da un timeout o da un problema locale)."""
+    name = type(error).__name__
+    return name not in ("RequestTimedOut", "SerializationError", "EncryptionError", "NoAuthentication",
+                        "NoEncryption")
 
 
 # ---------------------------------------------------------------- conversioni
@@ -316,6 +389,9 @@ class _Session:
         self.engine, self.host, self.creds, self.transport = engine, host, creds, transport
         self.auth = _auth_data(creds)
         self.context = ContextData(contextName=creds.context or "")
+        self.last_error: Any = None  # ultimo errore di get (per dire perché un profilo non va)
+        self.section = ""  # parte che si sta leggendo, per i problemi
+        self.problems: list[str] = []
 
     async def get(self, *oids: str) -> dict[str, Any] | None:
         error, status, _index, var_binds = await get_cmd(
@@ -324,6 +400,7 @@ class _Session:
             lookupMib=False,
         )
         if error or status:
+            self.last_error = error or status
             return None
         return {str(vb[0]): _py(vb[1]) for vb in var_binds}
 
@@ -340,6 +417,11 @@ class _Session:
         async for error, status, _index, var_binds in rows:
             if error or status:
                 logger.debug("%s: walk %s interrotto (%s)", self.host, oid, error or status.prettyPrint())
+                # in v1 la fine della MIB è un noSuchName: non è un problema
+                if error or not (self.creds.version == "v1" and int(status) == 2):
+                    problem = f"{self.section or oid}: {error_text(error or status, self.creds.version)}"
+                    if problem not in self.problems:
+                        self.problems.append(problem)
                 break
             for vb in var_binds:
                 name = tuple(vb[0])
@@ -699,50 +781,96 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
         sys_location=_text(system.get(SYS_LOCATION)),
     )
     data.sys_services, data.lldp_caps, data.mibs = await _kind_signals(s)
+    s.section = "porte"
     data.interfaces = await _interfaces(s)
+    s.section = "indirizzi IP"
     data.ips = await _ips(s)
+    s.section = "seriale e stack"
     data.serial, data.model, data.members = await _chassis(s)
-    data.neighbors = await _lldp(s, data.interfaces) + await _cdp(s)
+    s.section = "vicini LLDP"
+    lldp = await _lldp(s, data.interfaces)
+    s.section = "vicini CDP"
+    data.neighbors = lldp + await _cdp(s)
+    s.section = "VLAN"
     cisco_names, cisco_untagged, cisco_tagged = await _cisco_vlans(s)
+    s.section = "tabella MAC"
     base_ports = await _base_ports(s)
     data.fdb, pvids = await _bridge(s, base_ports, cisco_untagged)
+    s.section = "VLAN"
     data.port_vlans = {**cisco_untagged, **pvids}
     data.port_tagged = {**cisco_tagged, **await _qbridge_tagged(s, base_ports)}
     data.vlans = {**cisco_names, **await _vlan_names(s)}
+    s.section = "tabella ARP"
     data.arp = await _arp(s)
+    data.problems = s.problems
     return data
 
 
-async def collect_host(engine: SnmpEngine, host: str, credentials: list[Credentials]) -> HostData | None:
-    """Prova i profili in ordine; None se nessuno risponde."""
+async def collect_host(engine: SnmpEngine, host: str, credentials: list[Credentials],
+                       attempts: list[Attempt] | None = None) -> HostData | None:
+    """Prova i profili in ordine; None se nessuno risponde. In `attempts` l'esito di ogni profilo provato."""
     for creds in credentials:
         transport = await UdpTransportTarget.create((host, creds.port), timeout=creds.timeout, retries=creds.retries)
         session = _Session(engine, host, creds, transport)
         system = await session.get(SYS_NAME, SYS_DESCR, SYS_OBJECT_ID, SYS_LOCATION)
+        if system is None and creds.version == "v1" and session.last_error is not None and _answered(session.last_error):
+            system = await session.get(SYS_NAME, SYS_DESCR, SYS_OBJECT_ID)  # v1: la GET fallisce se manca sysLocation
         if system is None:
+            if attempts is not None:
+                error = session.last_error
+                attempts.append(Attempt(creds.name, error_text(error, creds.version) if error is not None else
+                                        "nessuna risposta", answered=error is not None and _answered(error)))
             continue
+        if attempts is not None:
+            attempts.append(Attempt(creds.name, None, answered=True))
         return await _read_host(session, system)
     return None
 
 
-async def collect_all_async(hosts: list[str], credentials: list[Credentials], concurrency: int) -> list[HostData]:
+async def probe_host(engine: SnmpEngine, host: str, credentials: list[Credentials], ping: bool = True) -> HostProbe:
+    """SNMP e ping insieme: il ping dice se all'indirizzo c'è qualcosa quando SNMP non risponde."""
+    from app.services.monitor import ping as ping_host  # monitor importa questo modulo
+
+    probe = HostProbe(host)
+
+    async def read() -> None:
+        try:
+            probe.data = await collect_host(engine, host, credentials, probe.attempts)
+        except Exception as exc:  # un host problematico non deve fermare gli altri
+            logger.warning("%s: lettura SNMP fallita: %s", host, exc)
+            probe.error = str(exc) or type(exc).__name__
+
+    async def check() -> None:
+        try:
+            probe.ping_ms = await ping_host(host, 1.0)
+        except Exception as exc:
+            logger.debug("%s: ping fallito: %s", host, exc)
+
+    await asyncio.gather(read(), check() if ping else asyncio.sleep(0))
+    return probe
+
+
+async def probe_all_async(hosts: list[str], credentials: list[Credentials], concurrency: int,
+                          ping: bool = True) -> list[HostProbe]:
     engine = SnmpEngine()
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def one(host: str) -> HostData | Exception | None:
+    async def one(host: str) -> HostProbe:
         async with semaphore:
-            try:
-                return await collect_host(engine, host, credentials)
-            except Exception as exc:  # un host problematico non deve fermare gli altri
-                logger.warning("%s: lettura SNMP fallita: %s", host, exc)
-                return exc
+            return await probe_host(engine, host, credentials, ping)
 
     try:
-        results = await asyncio.gather(*(one(h) for h in hosts))
+        return list(await asyncio.gather(*(one(h) for h in hosts)))
     finally:
         engine.close_dispatcher()
-    return [r for r in results if isinstance(r, HostData)]
+
+
+def probe_all(hosts: list[str], credentials: list[Credentials], concurrency: int = 50,
+              ping: bool = True) -> list[HostProbe]:
+    """Esito di ogni indirizzo: ping, profili provati, dati letti."""
+    return asyncio.run(probe_all_async(hosts, credentials, concurrency, ping))
 
 
 def collect_all(hosts: list[str], credentials: list[Credentials], concurrency: int = 50) -> list[HostData]:
-    return asyncio.run(collect_all_async(hosts, credentials, concurrency))
+    """Solo gli host che rispondono a SNMP."""
+    return [p.data for p in probe_all(hosts, credentials, concurrency, ping=False) if p.data]

@@ -36,6 +36,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   access point, controller wireless, firewall, router, switch, server) dalle MIB delle stampanti e degli UPS, dalla
   descrizione SNMP, dal produttore, dalle capacità LLDP e da sysServices, e lo mostra nella proposta con il motivo.
   Se non c'è un ruolo adatto ne propone uno nuovo, che si crea (con colore e livello in mappa) approvando il device.
+- Il log delle scansioni dice perché un indirizzo non si è letto: risponde al ping ma non a SNMP, risponde con un
+  errore SNMP v3 (utente sconosciuto, password o protocollo sbagliati) o non risponde a niente; per gli apparati
+  letti, le tabelle che non si sono lette.
+- **Prova indirizzi** (lente nelle Scansioni): interroga subito fino a 256 indirizzi con i profili scelti, senza
+  salvare niente, e per ognuno mostra ping, esito di ogni profilo con il motivo e, per chi risponde, modello, tipo,
+  quante porte, IP e vicini si leggerebbero e se il device c'è già in NetMap.
 
 ### Modifiche
 

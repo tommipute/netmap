@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (115 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (117 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -246,8 +246,16 @@ Per la mappa vedi "Velocità della mappa" nella sezione del frontend.
 ## Scansione SNMP (fase 3, `backend/app/discovery/`)
 
 Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, niente Redis/ARQ) → il worker la prende
-(`FOR UPDATE SKIP LOCKED`) → `snmp.collect_all` legge gli host → `Planner` confronta col database →
+(`FOR UPDATE SKIP LOCKED`) → `snmp.probe_all` legge gli host → `Planner` confronta col database →
 `runner.record` salva le modifiche → l'utente approva in "Da approvare" → `apply.apply_change`.
+
+- Esito per indirizzo: `snmp.probe_all` → `HostProbe` (ping in parallelo con `monitor.ping`, `Attempt` per profilo
+  con il motivo da `error_text`/`_ERRORS`, `answered` = l'apparato ha risposto anche se con errore v3, `data`);
+  `HostData.problems` = tabelle interrotte (sezione impostata in `_read_host`, in v1 il noSuchName di fine MIB non
+  conta). `runner.summary` scrive nel log i raggruppamenti; `collect_all` resta (solo HostData, senza ping).
+  I `collector` dei test possono restituire HostData o HostProbe. Prova senza salvare: `POST
+  /api/discovery/probe` (`discovery/probe.py`, max 256 indirizzi) → `components/ProbeDialog.jsx`. Le righe nuove
+  del log e i motivi hanno modelli in en.js (`snmpProblem`, `SNMP_SECTIONS`).
 
 - `targets.py`: `10.0.0.0/24`, `10.0.0.5`, `10.0.0.1-10.0.0.20`, `10.0.0.1-20`; massimo `discovery_max_hosts` (4096).
 - `snmp.py`: pysnmp **7.x** (lextudio), `pysnmp.hlapi.v3arch.asyncio`: `get_cmd`, `bulk_walk_cmd` (in v1 `walk_cmd`: niente GETBULK)

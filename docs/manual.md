@@ -323,7 +323,25 @@ In **Scans** create a scan with:
 - two switches to add **new ports** and **new IPs** of devices already in NetMap without asking.
 
 Open the scan and press **Start scan**: in a few seconds (a few minutes for large networks) you get the result and
-the log in the run history.
+the log in the run history. The log also says why the other addresses were not read: those that **answer ping but
+not SNMP** (usually a wrong community or user, SNMP disabled or an ACL that doesn't allow NetMap), those that
+**answer with an error** (SNMP v3: unknown user, wrong password or protocol, with the profile), how many answer
+nothing at all and, for each device read, the tables that could not be read (ports, VLANs, MAC table…).
+
+### Test addresses
+
+The magnifier button (in the list of scans and on the page of a scan) queries a few addresses right away, at most
+256, with the chosen profiles, **without saving anything**: use it to fix communities, users and ACLs before the
+real scan. For each address it tells:
+
+- whether it answers ping and how fast;
+- the outcome of each profile tried, with the reason when it fails;
+- for those that answer: name, manufacturer and model (and whether the model is new), the recognised type, how many
+  ports, IPs, neighbours, VLANs and MACs the scan would read, the tables that can't be read and whether the device
+  is already in NetMap.
+
+Addresses that answer nothing are hidden: a checkbox shows them. From the page of a scan the test starts with its
+profiles and, if they are no more than 256, with its addresses.
 
 ### To approve
 
@@ -498,9 +516,10 @@ certificate on the PCs (instructions in the README, "Certificato" section), or u
 **I lost the administrator password.** On the server, in the NetMap folder:
 `docker compose exec -it api python -m app.users password admin` (replace `admin` with your user name).
 
-**The scan finds nothing.** The run log says how many hosts answered. A device that doesn't answer usually has a
+**The scan finds nothing.** The run log says how many hosts answered and why the others didn't; to look at one
+address at a time use **Test addresses** (section 12). A device that answers ping but not SNMP usually has a
 community or v3 credentials different from the profile, an SNMP ACL that doesn't allow the NetMap server, or UDP
-port 161 blocked by a firewall. Try from a PC with an SNMP client using the same data.
+port 161 blocked by a firewall.
 
 **The scan doesn't find cables.** LLDP or CDP must be enabled on both devices, and both must already be in NetMap:
 approve the new devices and run the scan again.

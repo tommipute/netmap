@@ -135,3 +135,52 @@ class RejectResult(BaseModel):
 
 class PendingCount(BaseModel):
     pending: int
+
+
+# ---------- Prova su pochi indirizzi ----------
+def _probe_targets(value: list[str]) -> list[str]:
+    from app.discovery.probe import MAX_HOSTS
+    return validate_targets(value, MAX_HOSTS)
+
+
+class ProbeRequest(BaseModel):
+    targets: Annotated[list[str], AfterValidator(_probe_targets)] = Field(
+        ..., min_length=1, description="IP, intervalli o subnet: al massimo 256 indirizzi")
+    profile_ids: list[int] = Field(..., min_length=1, description="Profili SNMP da provare, in ordine")
+
+
+class ProbeAttempt(BaseModel):
+    profile: str
+    error: str | None = None  # None = ha risposto
+    answered: bool  # l'apparato ha risposto, anche se con un errore
+
+
+class ProbeFound(BaseModel):
+    profile: str | None = None
+    sys_name: str | None = None
+    sys_descr: str | None = None
+    sys_object_id: str | None = None
+    sys_location: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    model_known: bool
+    serial: str | None = None
+    kind: str | None = None
+    interfaces: int
+    ips: int
+    neighbors: int
+    vlans: int
+    members: int
+    fdb: int
+    arp: int
+    problems: list[str]
+    device_id: int | None = None
+    device_name: str | None = None
+
+
+class ProbeResult(BaseModel):
+    host: str
+    ping_ms: float | None = None
+    attempts: list[ProbeAttempt]
+    error: str | None = None
+    found: ProbeFound | None = None

@@ -324,7 +324,25 @@ In **Scansioni** crea una scansione con:
   censiti.
 
 Apri la scansione e premi **Avvia scansione**: in pochi secondi (qualche minuto per reti grandi) trovi
-l'esito e il log nello storico delle esecuzioni.
+l'esito e il log nello storico delle esecuzioni. Il log dice anche perché gli altri indirizzi non si sono letti:
+quelli che **rispondono al ping ma non a SNMP** (di solito community o utente sbagliati, SNMP spento o un'ACL che
+non ammette NetMap), quelli che **rispondono con un errore** (SNMP v3: utente sconosciuto, password o protocollo
+sbagliati, con il profilo), quanti non rispondono a niente e, per ogni apparato letto, le tabelle che non si sono
+lette (porte, VLAN, tabella MAC…).
+
+### Prova indirizzi
+
+Il pulsante con la lente (nell'elenco delle scansioni e nella pagina di una scansione) interroga subito pochi
+indirizzi, al massimo 256, con i profili scelti, **senza salvare niente**: serve a sistemare community, utenti e
+ACL prima della scansione vera. Per ogni indirizzo dice:
+
+- se risponde al ping e in quanto tempo;
+- l'esito di ogni profilo provato, con il motivo quando non va;
+- per chi risponde: nome, produttore e modello (e se il modello è nuovo), il tipo riconosciuto, quante porte, IP,
+  vicini, VLAN e MAC leggerebbe la scansione, le tabelle che non si leggono e se il device c'è già in NetMap.
+
+Gli indirizzi che non rispondono a niente sono nascosti: c'è una casella per mostrarli. Dalla pagina di una
+scansione la prova parte con i suoi profili e, se non sono più di 256, con i suoi indirizzi.
 
 ### Da approvare
 
@@ -507,9 +525,10 @@ vostro.
 **Ho perso la password dell'amministratore.** Sul server, nella cartella di NetMap:
 `docker compose exec -it api python -m app.users password admin` (al posto di `admin` il tuo nome utente).
 
-**La scansione non trova niente.** Il log dell'esecuzione dice quanti host hanno risposto. Un apparato che non
-risponde ha di solito la community o le credenziali v3 diverse dal profilo, un'ACL SNMP che non ammette il server
-NetMap, oppure la porta UDP 161 chiusa da un firewall. Prova da un PC con un client SNMP usando gli stessi dati.
+**La scansione non trova niente.** Il log dell'esecuzione dice quanti host hanno risposto e perché gli altri no;
+per vedere un indirizzo alla volta usa **Prova indirizzi** (sezione 12). Un apparato che risponde al ping ma non a
+SNMP ha di solito la community o le credenziali v3 diverse dal profilo, un'ACL SNMP che non ammette il server
+NetMap, oppure la porta UDP 161 chiusa da un firewall.
 
 **La scansione non trova i cavi.** Servono LLDP o CDP attivi su entrambi gli apparati, ed entrambi devono essere
 già in NetMap: approva i device nuovi e rilancia la scansione.

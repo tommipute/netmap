@@ -290,3 +290,50 @@ def test_ip_libero_assegnato_al_device_nuovo(client, setup, session_factory):
     assert ip["device_name"] == "sw-sim-02" and ip["interface_name"] == "VLAN99" and ip["is_primary"] is True
     assert ip["dns_name"] == "sw-sim-02.lab.local"  # resta lo stesso oggetto, con i suoi dati
     assert sw2["management_ip"] == "10.99.0.2/24"
+
+
+def test_prova_di_pochi_indirizzi(client, session_factory, setup, monkeypatch):
+    """La prova dice per ogni indirizzo cosa succede, senza salvare niente; nel log della scansione il riassunto."""
+    from app.discovery import snmp
+
+    def fake_probe(hosts, creds, concurrency=50, ping=True):
+        probes = []
+        for host in hosts:
+            probe = snmp.HostProbe(host)
+            if host == SW1_HOST:
+                probe.ping_ms, probe.data = 1.2, host_data(SW1, host, 1, "Lab v2c")
+                probe.data.problems = ["tabella MAC: nessuna risposta"]
+                probe.attempts = [snmp.Attempt("Lab v2c", None, True)]
+            elif host == SW2_HOST:
+                probe.ping_ms = 0.8
+                probe.attempts = [snmp.Attempt("Lab v2c", "nessuna risposta (community sbagliata…)")]
+            elif host == "10.99.0.3":
+                probe.attempts = [snmp.Attempt("Lab v2c", "utente SNMPv3 sconosciuto sull'apparato", True)]
+            else:
+                probe.attempts = [snmp.Attempt("Lab v2c", "nessuna risposta")]
+            probes.append(probe)
+        return probes
+
+    monkeypatch.setattr(snmp, "probe_all", fake_probe)
+    response = client.post("/api/discovery/probe", json={"targets": ["10.99.0.1-4"], "profile_ids": [setup["profile"]["id"]]})
+    assert response.status_code == 200, response.text
+    results = response.json()
+    assert [r["host"] for r in results] == [SW1_HOST, SW2_HOST, "10.99.0.3", "10.99.0.4"]
+    found = results[0]["found"]
+    assert found["sys_name"] == "sw-sim-01.lab.local" and found["device_id"] is None and found["interfaces"] > 0
+    assert found["kind"] == "Switch (descrizione SNMP)" and found["problems"] == ["tabella MAC: nessuna risposta"]
+    assert results[1]["ping_ms"] == 0.8 and results[1]["found"] is None
+    assert pending(client) == []  # non salva niente
+
+    too_many = client.post("/api/discovery/probe", json={"targets": ["10.0.0.0/23"], "profile_ids": [setup["profile"]["id"]]})
+    assert too_many.status_code == 422 and "il massimo è 256" in too_many.text
+
+    # la scansione vera usa lo stesso esito e scrive nel log perché gli altri non si sono letti
+    response = client.post(f"/api/discovery-jobs/{setup['job']['id']}/run")
+    with session_factory() as db:
+        run = execute_run(db, response.json()["id"])
+        log = run.log
+    assert "Rispondono al ping ma non a SNMP (1): 10.99.0.2" in log
+    assert "Rispondono con un errore (profilo Lab v2c: utente SNMPv3 sconosciuto sull'apparato): 10.99.0.3" in log
+    assert "Non rispondono né al ping né a SNMP: 3 indirizzi" in log
+    assert "non lette: tabella MAC: nessuna risposta" in log

@@ -426,6 +426,13 @@ textarea.input { resize: vertical; min-height: 72px; }
   background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
   font: 12px/1.55 var(--mono); white-space: pre-wrap;
 }
+.probe { display: flex; flex-direction: column; gap: 10px; padding: 0 20px 18px; }
+.probe__ping { white-space: nowrap; }
+.probe p { margin: 0; }
+.probe td { vertical-align: top; }
+.probe td:last-child { min-width: 280px; }
+.probe__attempts, .probe__problems { margin: 2px 0; padding-left: 18px; }
+.probe__problems { color: var(--warn); }
 .segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
 .segmented__item {
   font: inherit; font-size: 13px; cursor: pointer; padding: 6px 12px;

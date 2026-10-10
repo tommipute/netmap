@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.discovery import runner
+from app.discovery.probe import run_probe
+from app.discovery.targets import expand_targets
 from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun
 from app.models.enums import ChangeStatus
 from app.schemas.common import Page
@@ -15,6 +17,8 @@ from app.schemas.discovery import (
     DiscoveryChangeRead,
     DiscoveryRunRead,
     PendingCount,
+    ProbeRequest,
+    ProbeResult,
     RejectResult,
 )
 
@@ -30,6 +34,16 @@ def run_job(job_id: int, db: Session = Depends(get_db)):
     if runner.active_run(db, job.id):
         raise HTTPException(409, "C'è già una scansione in coda o in corso per questo job")
     return runner.enqueue(db, job)
+
+
+@router.post("/discovery/probe", response_model=list[ProbeResult],
+             summary="Prova pochi indirizzi (al massimo 256) senza salvare niente: ping, esito di ogni profilo, cosa si legge")
+def probe(payload: ProbeRequest, db: Session = Depends(get_db)):
+    credentials = runner.load_credentials(db, payload.profile_ids)
+    if not credentials:
+        raise HTTPException(422, "Scegli almeno un profilo SNMP valido")
+    from app.discovery.probe import MAX_HOSTS
+    return run_probe(db, expand_targets(payload.targets, MAX_HOSTS), credentials)
 
 
 @router.get("/discovery-runs", response_model=Page[DiscoveryRunRead], summary="Storico delle scansioni")
