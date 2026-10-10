@@ -35,6 +35,16 @@ def snmprec(device: dict) -> str:
     add("1.3.6.1.2.1.1.2.0", OID, system["object_id"])
     add("1.3.6.1.2.1.1.5.0", STR, system["name"])
     add("1.3.6.1.2.1.1.6.0", STR, system["location"])
+    # Facoltativi: tipo di apparato (sysServices, capacità LLDP, Printer-MIB, UPS-MIB)
+    if "services" in system:
+        add("1.3.6.1.2.1.1.7.0", INT, system["services"])
+    if "lldp_caps" in system:
+        caps = ["other", "repeater", "bridge", "wlanAccessPoint", "router", "telephone", "docsis", "station"]
+        add("1.0.8802.1.1.2.1.3.6.0", HEX, bitmap(caps.index(c) + 1 for c in system["lldp_caps"]))
+    if system.get("printer"):
+        add("1.3.6.1.2.1.43.5.1.1.1.1", INT, 3)
+    if system.get("ups"):
+        add("1.3.6.1.2.1.33.1.1.1.0", STR, "APC")
 
     for idx, (name, descr, if_type, mtu, mbps, mac, admin, oper, alias) in device["interfaces"].items():
         add(f"1.3.6.1.2.1.2.2.1.1.{idx}", INT, idx)

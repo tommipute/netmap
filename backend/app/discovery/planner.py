@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.discovery.matching import find_device, find_port, interface_type, norm_ifname, short_name
 from app.discovery.snmp import HostData, IfData
 from app.discovery.vendors import vendor_name
-from app.services.roles import guess_role
+from app.services.roles import detect_kind, role_for
 from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, StackMember
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
@@ -101,13 +101,19 @@ class Planner:
             return {"id": known.id, "label": known.model, "role": role.name if role else None}
         model = (hd.model or hd.sys_object_id)[:100]
         manufacturer = vendor_name(hd.sys_object_id)
-        # Modello nuovo: ruolo indovinato dalla descrizione SNMP (diventa il suo ruolo predefinito)
-        role = guess_role(self.db, hd.sys_descr, manufacturer, model)
+        # Modello nuovo: ruolo dal tipo di apparato riconosciuto (diventa il suo ruolo predefinito); se non c'è
+        # un ruolo adatto se ne propone uno nuovo, che si crea approvando
+        detected = detect_kind(sys_descr=hd.sys_descr, model=model, sys_object_id=hd.sys_object_id, mibs=hd.mibs,
+                               caps=hd.lldp_caps, sys_services=hd.sys_services, extra=manufacturer)
+        role = role_for(self.db, detected.kind) if detected else None
         return {
+            # Nei dati solo il tipo (il ruolo si sceglie approvando): così un ruolo creato nel frattempo non fa
+            # ricomparire una proposta rifiutata
             "create": {"manufacturer": manufacturer, "model": model, "sys_object_id": hd.sys_object_id,
-                       "default_role_id": role.id if role else None},
+                       "kind": detected.kind.key if detected else None},
             "label": f"{manufacturer} {model} (nuovo modello)",
-            "role": role.name if role else None,
+            "role": role.name if role else f"{detected.kind.role} (nuovo)" if detected else None,
+            "kind": f"{detected.kind.role} ({detected.reason})" if detected else None,
         }
 
     def _new_device(self, hd: HostData) -> Proposal:
@@ -123,6 +129,7 @@ class Planner:
             "Indirizzo scansionato": [None, hd.host],
             "Modello": [None, type_ref["label"] if type_ref else None],
             "Ruolo": [None, type_ref.get("role") if type_ref else None],
+            "Tipo riconosciuto": [None, type_ref.get("kind") if type_ref else None],
             "Numero di serie": [None, hd.serial],
             "Stack": [None, f"{len(hd.members)} switch" if hd.members else None],
             "Porte": [None, len(hd.interfaces)],
@@ -141,7 +148,9 @@ class Planner:
                 "sys_name": hd.sys_name,
                 "sys_descr": hd.sys_descr,
                 "snmp_profile_id": hd.profile_id,
-                "device_type": type_ref,
+                # Ruolo e tipo solo nei dettagli: cambiano con il catalogo, e una proposta rifiutata con gli stessi
+                # dati non deve tornare
+                "device_type": {k: v for k, v in type_ref.items() if k not in ("role", "kind")} if type_ref else None,
                 "interfaces": [self._interface_data(i) for i in hd.interfaces],
                 "ips": ips,
                 "stack_members": [{"number": m.number, "serial": m.serial, "model": m.model} for m in hd.members],

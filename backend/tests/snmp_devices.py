@@ -18,6 +18,8 @@ SW1 = {
         "object_id": "1.3.6.1.4.1.9.1.2494",
         "name": "sw-sim-01.lab.local",
         "location": "Laboratorio",
+        "services": 6,  # livelli 2 e 3
+        "lldp_caps": ["bridge", "router"],
     },
     # ifIndex: (ifName, ifDescr, ifType, MTU, Mbps, MAC, admin, oper, alias)
     "interfaces": {
@@ -156,7 +158,8 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
     return HostData(
         host=host, profile_id=profile_id, profile_name=profile_name,
         sys_name=system["name"], sys_descr=system["descr"], sys_object_id=system["object_id"],
-        sys_location=system["location"], serial=chassis[0][1] if chassis else None,
+        sys_location=system["location"], sys_services=system.get("services"), lldp_caps=system.get("lldp_caps", []),
+        mibs=[m for m in ("printer", "ups") if system.get(m)], serial=chassis[0][1] if chassis else None,
         model=chassis[0][2] if chassis else None, interfaces=interfaces, ips=ips, neighbors=neighbors,
         fdb=[FdbEntry(mac=m, if_index=i, vlan=v) for m, i, v in fdb], arp=arp,
         vlans={**names, **device["vlans"]}, port_vlans=port_vlans, port_tagged=port_tagged, members=members,

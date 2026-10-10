@@ -337,6 +337,13 @@ stack, porte sparite. Puoi approvare o rifiutare una modifica alla volta, tutte 
   dalla scansione stessa.
 - Una modifica rifiutata non viene riproposta finché i dati restano uguali.
 - Il nome di un device non viene mai cambiato dalla scansione.
+- Per un **modello nuovo** la scansione riconosce anche il tipo di apparato (stampante, UPS, PDU, NAS, telecamera,
+  telefono, access point, controller wireless, firewall, router, switch, server) e lo scrive in "Tipo
+  riconosciuto" con il motivo: le MIB delle stampanti o degli UPS, le parole della descrizione SNMP, il
+  produttore, le capacità dichiarate in LLDP o i servizi SNMP (sysServices). Il ruolo proposto è quello che hai
+  già con il nome adatto (per esempio "Stampanti" o "Switch di accesso"); se non c'è, accanto al nome c'è
+  "(nuovo)" e il ruolo viene creato, con colore e livello in mappa, quando approvi il device. Il ruolo diventa il
+  ruolo predefinito del modello, quindi lo prendono anche i device dello stesso modello trovati dopo.
 
 Il trucco per i cavi: approva prima i device nuovi, poi rilancia la scansione. I cavi si vedono solo quando
 entrambi gli apparati sono già in NetMap.

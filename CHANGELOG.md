@@ -32,6 +32,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   device con IP di management, produttore, modello, ruolo, seriale e posizione e, dove il programma li conosce,
   porte, indirizzi IP e cavi (vicini LLDP/CDP di LibreNMS, collegamenti tra porte di GLPI); con prova della
   connessione, scelta di gruppi o sedi, simulazione, log e "crea solo quello che manca", come per NetBox.
+- Scansione: per i modelli nuovi riconosce il tipo di apparato (stampante, UPS, PDU, NAS, telecamera, telefono,
+  access point, controller wireless, firewall, router, switch, server) dalle MIB delle stampanti e degli UPS, dalla
+  descrizione SNMP, dal produttore, dalle capacità LLDP e da sysServices, e lo mostra nella proposta con il motivo.
+  Se non c'è un ruolo adatto ne propone uno nuovo, che si crea (con colore e livello in mappa) approvando il device.
 
 ### Modifiche
 

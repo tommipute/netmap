@@ -335,6 +335,13 @@ disappeared. Approve or reject one change, all changes of a device, or all of th
 - Without asking: port status, the last time a device was seen and the data of objects created by the scan itself.
 - A rejected change is not proposed again as long as the data stays the same.
 - The scan never renames a device.
+- For a **new model** the scan also recognises the kind of device (printer, UPS, PDU, NAS, camera, phone, access
+  point, wireless controller, firewall, router, switch, server) and shows it in "Recognised type" with the reason:
+  the printer or UPS MIBs, the words of the SNMP description, the manufacturer, the capabilities announced in LLDP
+  or the SNMP services (sysServices). The proposed role is the one you already have with a matching name (for
+  example "Printers" or "Access switch"); if there is none, the name is followed by "(new)" and the role is created,
+  with colour and map level, when you approve the device. The role becomes the model's default role, so devices of
+  the same model found later get it too.
 
 The trick for cables: approve the new devices first, then run the scan again. Cables are seen only when both
 devices are already in NetMap.

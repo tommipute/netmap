@@ -41,6 +41,12 @@ SYS_DESCR = "1.3.6.1.2.1.1.1.0"
 SYS_OBJECT_ID = "1.3.6.1.2.1.1.2.0"
 SYS_NAME = "1.3.6.1.2.1.1.5.0"
 SYS_LOCATION = "1.3.6.1.2.1.1.6.0"
+SYS_SERVICES = "1.3.6.1.2.1.1.7.0"  # livelli OSI: 2 = bridge, 4 = router, 64 = applicazioni
+LLDP_LOC_SYS_CAP_ENABLED = "1.0.8802.1.1.2.1.3.6.0"
+PRT_GENERAL_CONFIG_CHANGES = "1.3.6.1.2.1.43.5.1.1.1.1"  # c'è solo sulle stampanti (Printer-MIB)
+UPS_IDENT_MANUFACTURER = "1.3.6.1.2.1.33.1.1.1.0"  # c'è solo sugli UPS (UPS-MIB)
+# Capacità LLDP (lldpLocSysCapEnabled, BITS: il primo bit è il più alto del primo byte)
+LLDP_CAPS = ["other", "repeater", "bridge", "wlanAccessPoint", "router", "telephone", "docsis", "station"]
 
 IF_DESCR = "1.3.6.1.2.1.2.2.1.2"
 IF_TYPE = "1.3.6.1.2.1.2.2.1.3"
@@ -213,6 +219,9 @@ class HostData:
     sys_descr: str | None = None
     sys_object_id: str | None = None
     sys_location: str | None = None
+    sys_services: int | None = None
+    lldp_caps: list[str] = field(default_factory=list)  # capacità dichiarate in LLDP (bridge, router…)
+    mibs: list[str] = field(default_factory=list)  # MIB che dicono il tipo: "printer", "ups"
     serial: str | None = None
     model: str | None = None
     interfaces: list[IfData] = field(default_factory=list)
@@ -656,6 +665,29 @@ async def _arp(s: _Session) -> list[ArpEntry]:
     return sorted(result.values(), key=lambda a: ipaddress.ip_address(a.ip))
 
 
+def lldp_caps(raw: bytes | None) -> list[str]:
+    if not raw:
+        return []
+    return [name for bit, name in enumerate(LLDP_CAPS) if raw[0] & (0x80 >> bit)]
+
+
+async def _kind_signals(s: _Session) -> tuple[int | None, list[str], list[str]]:
+    """Segnali per riconoscere il tipo di apparato (services/roles.py). Oggetti che molti non hanno: in v1 una GET
+    con un oggetto che manca fallisce tutta, quindi se la GET insieme non va si chiedono uno alla volta."""
+    oids = (SYS_SERVICES, LLDP_LOC_SYS_CAP_ENABLED, PRT_GENERAL_CONFIG_CHANGES, UPS_IDENT_MANUFACTURER)
+    values = await s.get(*oids)
+    if values is None:
+        values = {}
+        for oid in oids:
+            values.update(await s.get(oid) or {})
+    services = values.get(SYS_SERVICES)
+    caps = values.get(LLDP_LOC_SYS_CAP_ENABLED)
+    mibs = [name for name, oid in (("printer", PRT_GENERAL_CONFIG_CHANGES), ("ups", UPS_IDENT_MANUFACTURER))
+            if values.get(oid) is not None]
+    return (services if isinstance(services, int) else None,
+            lldp_caps(caps) if isinstance(caps, bytes) else [], mibs)
+
+
 async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data = HostData(
         host=s.host,
@@ -666,6 +698,7 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
         sys_object_id=_text(system.get(SYS_OBJECT_ID)),
         sys_location=_text(system.get(SYS_LOCATION)),
     )
+    data.sys_services, data.lldp_caps, data.mibs = await _kind_signals(s)
     data.interfaces = await _interfaces(s)
     data.ips = await _ips(s)
     data.serial, data.model, data.members = await _chassis(s)

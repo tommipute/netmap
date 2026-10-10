@@ -882,6 +882,7 @@ const strings = {
   // nomi dei campi nello storico e nelle modifiche della scansione
   'Indirizzo scansionato': 'Scanned address',
   'Posizione SNMP': 'SNMP location',
+  'Tipo riconosciuto': 'Recognised type',
   'Descrizione': 'Description',
   'Modo': 'Mode',
   'LAG': 'LAG',
@@ -1440,6 +1441,11 @@ const strings = {
 const patterns = [
   // import da NetBox (anche le righe del log, che iniziano con l'ora)
   [/^(\d\d:\d\d:\d\d )?Connessione a (\S+) (.+)$/, '$1Connected to $2 $3'],
+  // scansione: tipo di apparato riconosciuto (services/roles.py) e ruolo o modello nuovo nelle proposte
+  [/^(Firewall|Controller wireless|Telefono|Telecamera|Stampante|UPS|PDU|NAS|Access point|Router|Switch|Server) \((Printer-MIB|UPS-MIB|descrizione SNMP|produttore|LLDP|sysServices)\)$/,
+    (m, kind, reason) => `${{ 'Controller wireless': 'Wireless controller', Telefono: 'Phone', Telecamera: 'Camera', Stampante: 'Printer' }[kind] || kind} (${{ 'descrizione SNMP': 'SNMP description', produttore: 'manufacturer' }[reason] || reason})`],
+  [/^(.+) \(nuovo modello\)$/, '$1 (new model)'],
+  [/^(.+) \(nuovo\)$/, '$1 (new)'],
   // import dagli altri programmi (services/connectors.py)
   [/^(\d\d:\d\d:\d\d )?Letti da (\S+): (\d+) (host|device|apparati di rete)$/, (m, time, src, n, what) => `${time || ''}Read from ${src}: ${n} ${{ host: 'hosts', device: 'devices', 'apparati di rete': 'network devices' }[what]}`],
   [/^(\d\d:\d\d:\d\d )?Letti da (\S+): (\d+) porte, (\d+) indirizzi IP, (\d+) (vicini|collegamenti)$/, (m, time, src, p, ip, n, what) => `${time || ''}Read from ${src}: ${p} ports, ${ip} IP addresses, ${n} ${what === 'vicini' ? 'neighbours' : 'links'}`],

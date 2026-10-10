@@ -45,3 +45,54 @@ def test_indovina(session_factory):
         assert guess_role(db, "Cisco AIR-AP2802I").name == "Access point"
         assert guess_role(db, "HP J9776A 2930F-24G Switch").name == "Switch"
         assert guess_role(db, "Linux server 5.15") is None
+
+
+def test_tipo_riconosciuto():
+    from app.services.roles import detect_kind
+
+    def kind(**signals):
+        found = detect_kind(**signals)
+        return (found.kind.key, found.reason) if found else None
+
+    # MIB standard prima di tutto: una stampante HP dice solo "HP ETHERNET MULTI-ENVIRONMENT"
+    assert kind(sys_descr="HP ETHERNET MULTI-ENVIRONMENT", mibs=["printer"]) == ("printer", "Printer-MIB")
+    assert kind(sys_descr="Network Management Card AOS v6.8", mibs=["ups"]) == ("ups", "UPS-MIB")
+    # Parole della descrizione o del modello
+    assert kind(sys_descr="Brother NC-8300h, Firmware Ver.1.11") == ("printer", "descrizione SNMP")
+    assert kind(sys_descr="APC Web/SNMP Management Card (MB:v4.1.0 PF:v6.4.6) Smart-UPS 1500")[0] == "ups"
+    assert kind(sys_descr="APC Rack PDU AP8853")[0] == "pdu"
+    assert kind(sys_descr="Linux DiskStation 4.4.302+")[0] == "nas"
+    assert kind(sys_descr="AXIS P3245-V Network Camera")[0] == "camera"
+    assert kind(sys_descr="Yealink SIP-T46U")[0] == "phone"
+    assert kind(sys_descr="Cisco Controller", model="AIR-CT3504-K9")[0] == "wlc"
+    assert kind(sys_descr="FortiGate-60F v7.2.5")[0] == "firewall"
+    assert kind(sys_descr="Cisco IOS Software, ISR4300 Software")[0] == "router"
+    assert kind(sys_descr="HP J9776A 2930F-24G Switch")[0] == "switch"
+    assert kind(sys_descr="VMware ESXi 8.0.2")[0] == "server"
+    # Produttore che fa un solo tipo di apparato (Synology), poi capacità LLDP e sysServices
+    assert kind(sys_descr="Linux nas01", sys_object_id="1.3.6.1.4.1.6574.1") == ("nas", "produttore")
+    assert kind(sys_descr="Linux ap", caps=["wlanAccessPoint", "station"]) == ("ap", "LLDP")
+    assert kind(sys_descr="", caps=["bridge", "router"]) == ("switch", "LLDP")
+    assert kind(sys_descr="Linux", sys_services=6) == ("switch", "sysServices")
+    assert kind(sys_descr="Linux", sys_services=4) == ("router", "sysServices")
+    assert kind(sys_descr="Linux server 5.15", sys_services=72) is None  # un host qualsiasi: non si sa
+
+
+def test_scansione_propone_il_ruolo_nuovo(client, setup, session_factory):
+    import copy
+
+    printer = copy.deepcopy(SW1)
+    printer["system"] = {"descr": "HP ETHERNET MULTI-ENVIRONMENT,ROM none,JETDIRECT,JD153", "printer": True,
+                         "object_id": "1.3.6.1.4.1.11.2.3.9.1", "name": "stampante-1", "location": "Piano 1"}
+    printer["entities"] = {1: (3, "CNB1234567", "HP LaserJet M507")}
+    scan(client, session_factory, setup["job"]["id"], (printer, "10.99.0.3"))
+    change = next(c for c in client.get("/api/discovery-changes").json()["items"] if c["device_label"] == "stampante-1")
+    details = {name: new for name, _old, new in change["diff"]}
+    assert details["Ruolo"] == "Stampante (nuovo)" and details["Tipo riconosciuto"] == "Stampante (Printer-MIB)"
+    assert "role" not in change["data"]["device_type"] and change["data"]["device_type"]["create"]["kind"] == "printer"
+    approve_all(client)
+    device = device_named(client, "stampante-1")
+    role = client.get(f"/api/device-roles/{device['role_id']}").json()
+    assert role["name"] == "Stampante" and role["level"] == 4
+    # Il ruolo nuovo ora esiste: la stessa scansione non propone niente di nuovo sul device
+    assert client.get("/api/device-roles", params={"q": "Stampante"}).json()["total"] == 1

@@ -14,6 +14,7 @@ from app.models import (
     StackMember,
 )
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
+from app.services import roles
 from app.services.rules import cable_hook, interface_hook, ip_hook, vlan_hook
 
 SNMP = Source.SNMP.value
@@ -63,9 +64,17 @@ def _device_type_id(db: Session, ref: dict | None) -> int | None:
         select(DeviceType).where(DeviceType.manufacturer_id == manufacturer.id, DeviceType.model == spec["model"])
     ).first()
     if dev_type is None:
-        role_id = spec.get("default_role_id")
+        role_id = spec.get("default_role_id")  # proposte di prima della 1.1
+        role = db.get(DeviceRole, role_id) if role_id else None
+        kind = roles.BY_KEY.get(spec.get("kind") or "")
+        if role is None and kind is not None:  # ruolo del tipo riconosciuto: quello adatto, altrimenti nuovo
+            role = roles.role_for(db, kind)
+            if role is None:
+                role = DeviceRole(name=kind.role, level=kind.level, color=kind.color)
+                db.add(role)
+                db.flush()
         dev_type = DeviceType(manufacturer_id=manufacturer.id, model=spec["model"],
-                              default_role_id=role_id if role_id and db.get(DeviceRole, role_id) else None)
+                              default_role_id=role.id if role else None)
         db.add(dev_type)
     if dev_type.sys_object_id is None:
         dev_type.sys_object_id = spec["sys_object_id"]
