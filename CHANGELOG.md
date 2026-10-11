@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.1.0] - 2026-10-11
+
+Funzioni nuove dopo la 1.0.0: import da altri programmi (Zabbix, LibreNMS, Observium, PRTG, GLPI, Lansweeper),
+campi personalizzati, avvisi per porta e con testi su misura, SNMP v1, prova degli indirizzi, sfondo ed endpoint in
+mappa. Nessun cambiamento incompatibile: l'aggiornamento applica da solo le migration del database.
+
 ### Novità
 
 - Utenti: nome e cognome in due campi separati (anche nella creazione dell'amministratore). Gli utenti di dominio
