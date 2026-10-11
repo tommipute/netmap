@@ -27,16 +27,17 @@ import CableEdge from '../map/CableEdge'
 import { cableStyle } from '../map/cables'
 import { cableGeometry, labelBox, nodeSizes } from '../map/geometry'
 import DeviceNode from '../map/DeviceNode'
+import EndpointsNode, { CARD_GAP, CARD_WIDTH, cardHeight, endpointName } from '../map/EndpointsNode'
 import MapSearch from '../map/MapSearch'
 import { shortPortName } from '../map/ports'
 import LocationNode from '../map/LocationNode'
 import MapLabels from '../map/MapLabels'
 import RackNode from '../map/RackNode'
 import { LOC_PAD, X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout, locationLayout } from '../map/layout'
-import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatSpeed, labelOf } from '../options'
+import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatDateTime, formatSpeed, labelOf } from '../options'
 import { t } from '../i18n'
 
-const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode, background: BackgroundNode }
+const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode, background: BackgroundNode, endpoints: EndpointsNode }
 const edgeTypes = { cable: CableEdge }
 const HINT_MS = 6000 // il suggerimento in alto resta per qualche secondo
 const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
@@ -54,6 +55,7 @@ function download(dataUrl, filename) {
 // Bolle delle posizioni e immagine di sfondo accese o spente (scelta ricordata nel browser)
 const LOCATIONS_PREF = 'netmap.map.locations'
 const BACKGROUND_PREF = 'netmap.map.background'
+const ENDPOINTS_PREF = 'netmap.map.endpoints'
 function readPref(key) {
   try {
     return localStorage.getItem(key) !== '0'
@@ -385,7 +387,8 @@ function Editor() {
   const [showLabels, setShowLabels] = useState(false)
   const [cableTypes, setCableTypes] = useState([]) // tipi di cavo scelti nella legenda, vuoto = tutti
   const [showLocations, setShowLocations] = useState(() => readPref(LOCATIONS_PREF))
-  const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge', id, found? }
+  const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge' | 'endpoint', id, found? }
+  const [showEndpoints, setShowEndpoints] = useState(() => readPref(ENDPOINTS_PREF))
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
   // Cavi sistemati a mano: { cableId: { points: spigoli dal lato A al lato B, a_end, b_end: { side, f } | null } }
   const [routes, setRoutes] = useState({})
@@ -622,6 +625,53 @@ function Editor() {
   const onConnect = useCallback(
     ({ source, target }) => source !== target && setConnecting({ a: Number(source), b: Number(target) }), [])
   const bubbles = useMemo(() => rackBubbles(nodes, selectRack), [nodes, selectRack])
+  // Endpoint (tabelle MAC) per device, in ordine di porta: una scheda accanto a ogni device che ne ha
+  const endpointsOn = showEndpoints && (view?.endpoints?.length || 0) > 0
+  const endpointsByDevice = useMemo(() => {
+    const groups = new Map()
+    if (!endpointsOn) return groups
+    for (const e of view.endpoints) {
+      const id = String(e.device_id)
+      if (!groups.has(id)) groups.set(id, [])
+      groups.get(id).push(e)
+    }
+    const portOrder = (a, b) => (a.interface_name || '').localeCompare(b.interface_name || '', undefined, { numeric: true })
+    for (const list of groups.values()) list.sort(portOrder)
+    return groups
+  }, [endpointsOn, view])
+  const selectEndpoint = useCallback((endpointId) => setSelection({ kind: 'endpoint', id: endpointId }), [])
+  // La scheda va a destra del device, altrimenti a sinistra o sotto se lì non copre altri device o schede
+  const cards = useMemo(() => {
+    if (!endpointsByDevice.size) return []
+    const rect = (n) => ({ l: n.position.x, t: n.position.y, r: n.position.x + (n.measured?.width ?? 172), b: n.position.y + (n.measured?.height ?? 60) })
+    const taken = nodes.map((n) => ({ id: n.id, ...rect(n) }))
+    const free = (box, own) => taken.every((o) => o.id === own || o.r <= box.l || box.r <= o.l || o.b <= box.t || box.b <= o.t)
+    return nodes.flatMap((n) => {
+      const items = endpointsByDevice.get(n.id)
+      if (!items) return []
+      const d = rect(n)
+      const h = cardHeight(items.length)
+      const sides = [
+        ['right', d.r + CARD_GAP, d.t],
+        ['left', d.l - CARD_GAP - CARD_WIDTH, d.t],
+        ['below', d.l, d.b + CARD_GAP],
+      ].map(([side, x, y]) => ({ side, l: x, t: y, r: x + CARD_WIDTH, b: y + h }))
+      const box = sides.find((b) => free(b, n.id)) || sides[0]
+      taken.push({ id: `endpoints-${n.id}`, ...box })
+      return [{
+        id: `endpoints-${n.id}`,
+        type: 'endpoints',
+        position: { x: box.l, y: box.t },
+        // Misure date: non stanno in nodes, quindi React Flow non le ricorda e senza le terrebbe nascoste
+        width: CARD_WIDTH,
+        height: box.b - box.t,
+        draggable: false,
+        selectable: false,
+        focusable: false,
+        data: { items, side: box.side, deviceId: n.id, selectedId: null, onSelect: selectEndpoint },
+      }]
+    })
+  }, [nodes, endpointsByDevice, selectEndpoint])
   const locationsOn = showLocations && (view?.locations.length || 0) > 0
   // Percorsi ed etichette di tutti i cavi: dipendono dalle posizioni. Mentre si trascina ricalcolo solo i cavi dei
   // device che si muovono (con centinaia di cavi rifarli tutti a ogni movimento del mouse rallenta la mappa); al
@@ -645,8 +695,12 @@ function Editor() {
     }
     for (const g of Object.values(geometry)) for (const l of g.labels) add(l.node, labelBox(l))
     for (const { bubble, box } of rackLabels) add(bubble.data.ids[0], box)
+    for (const c of cards) {
+      const { x, y } = c.position
+      add(c.data.deviceId, { l: x, r: x + CARD_WIDTH, t: y, b: y + cardHeight(c.data.items.length) })
+    }
     return locationBubbles(nodes, view.locations, selectRack, extras)
-  }, [locationsOn, nodes, view, selectRack, geometry, rackLabels])
+  }, [locationsOn, nodes, view, selectRack, geometry, rackLabels, cards])
   // Con i nomi delle porte un device con tanti cavi sullo stesso lato si allarga (o si allunga) quanto serve
   const sizes = useMemo(() => nodeSizes(nodes, baseEdges), [nodes, baseEdges])
   const widths = useMemo(() => Object.fromEntries(Object.entries(sizes).filter(([, s]) => s.width).map(([id, s]) => [id, s.width])), [sizes])
@@ -654,6 +708,10 @@ function Editor() {
   // Evidenza: con un device, un cavo o un rack selezionato restano in primo piano lui, i suoi cavi e i device
   // collegati; il resto va in dissolvenza
   const focus = useMemo(() => {
+    if (selection?.kind === 'endpoint') {
+      const endpoint = view?.endpoints.find((e) => e.id === selection.id)
+      return endpoint ? { devices: new Set([String(endpoint.device_id)]), cables: new Set() } : null
+    }
     if (selection?.kind === 'edge') {
       const cable = view?.edges.find((e) => e.id === selection.id)
       if (!cable) return null
@@ -730,13 +788,17 @@ function Editor() {
       ...(backgroundNode ? [backgroundNode] : []),
       ...places.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
       ...bubbles.map((b) => faded(b, b.data.ids.some((nodeId) => focus?.devices.has(nodeId)))),
+      ...cards.map((c) => {
+        const selectedId = selection?.kind === 'endpoint' && c.data.items.some((e) => e.id === selection.id) ? selection.id : null
+        return faded(selectedId ? { ...c, data: { ...c.data, selectedId } } : c, focus?.devices.has(c.data.deviceId))
+      }),
       ...nodes.map((n) => {
         const { width, height: minHeight } = sizes[n.id] || {}
         const sized = width === n.data.width && minHeight === n.data.minHeight ? n : { ...n, data: { ...n.data, width, minHeight } }
         return faded(sized, focus?.devices.has(n.id))
       }),
     ]
-  }, [backgroundNode, places, bubbles, nodes, focus, sizes])
+  }, [backgroundNode, places, bubbles, cards, nodes, focus, sizes, selection])
   // Nomi di rack e posizioni, sopra cavi e device (MapLabels)
   const names = useMemo(() => {
     const inFocus = (ids) => !focus || ids.some((nodeId) => focus.devices.has(nodeId))
@@ -815,7 +877,16 @@ function Editor() {
 
   const arrange = () => {
     const heights = Object.fromEntries(nodesRef.current.map((n) => [n.id, n.measured?.height]))
-    const options = { withPorts: showLabels, widths }
+    // Con gli endpoint un device che ne ha occupa anche il posto della sua scheda: il layout lo mette a sinistra
+    // del posto allargato e la scheda va nella parte in più, a destra
+    const extra = CARD_GAP + CARD_WIDTH
+    const own = (nodeId) => widths[nodeId] || nodesRef.current.find((n) => n.id === nodeId)?.measured?.width || 172
+    const wide = { ...widths }
+    for (const [nodeId, items] of endpointsByDevice) {
+      wide[nodeId] = own(nodeId) + extra
+      heights[nodeId] = Math.max(heights[nodeId] || 0, cardHeight(items.length))
+    }
+    const options = { withPorts: showLabels, widths: wide }
     const layout = locationsOn
       ? locationLayout(view.nodes, view.edges, view.locations, heights, options)
       : hierarchicalLayout(view.nodes, view.edges, heights, options)
@@ -930,6 +1001,7 @@ function Editor() {
   const nameOf = Object.fromEntries(view.nodes.map((n) => [n.id, n.name]))
   const selectedNode = selection?.kind === 'node' ? view.nodes.find((n) => n.id === selection.id) : null
   const selectedEdge = selection?.kind === 'edge' ? view.edges.find((e) => e.id === selection.id) : null
+  const selectedEndpoint = selection?.kind === 'endpoint' ? view.endpoints.find((e) => e.id === selection.id) : null
 
   return (
     <div className="map-page">
@@ -981,6 +1053,19 @@ function Editor() {
                   writePref(LOCATIONS_PREF, e.target.checked)
                 }} />
               {t('Posizioni')}
+            </label>
+          )}
+          {view.endpoints.length > 0 && (
+            <label className="check check--inline"
+              title={view.endpoint_total > view.endpoints.length
+                ? t('Gli apparati visti nelle tabelle MAC degli switch (i primi {n} su {total})', { n: view.endpoints.length, total: view.endpoint_total })
+                : t('Gli apparati visti nelle tabelle MAC degli switch: PC, stampanti, telefoni…')}>
+              <input type="checkbox" checked={showEndpoints} onChange={(e) => {
+                  setShowEndpoints(e.target.checked)
+                  writePref(ENDPOINTS_PREF, e.target.checked)
+                  if (!e.target.checked && selection?.kind === 'endpoint') setSelection(null)
+                }} />
+              {t('Endpoint')} <span className="muted">{view.endpoint_total}</span>
             </label>
           )}
           {view.background && (
@@ -1126,6 +1211,36 @@ function Editor() {
                 <IconButton icon="eyeOff" label={t('Togli dalla mappa (il device resta)')} small className="btn--ghost"
                   onClick={() => removeFromMap(selectedNode.id)} />
               )}
+            </div>
+          </aside>
+        )}
+
+        {!bgEditing && selectedEndpoint && (
+          <aside className="map-panel" aria-label={t('Dettagli endpoint')}>
+            <button type="button" className="modal__close" onClick={() => setSelection(null)} aria-label={t('Chiudi dettagli')}>{t('×')}</button>
+            <h2 className={selectedEndpoint.known_as ? '' : 'mono'}>{endpointName(selectedEndpoint)}</h2>
+            <dl className="facts facts--stack">
+              {selectedEndpoint.known_as && (
+                <div><dt>{t('Device')}</dt><dd><Link to={`/devices/${selectedEndpoint.known_device_id}`}>{selectedEndpoint.known_as}</Link></dd></div>
+              )}
+              <div><dt>{t('MAC')}</dt><dd className="mono">{selectedEndpoint.mac}</dd></div>
+              <div><dt>{t('IP')}</dt><dd className="mono">{selectedEndpoint.ip || '—'}</dd></div>
+              <div>
+                <dt>{t('Collegato a')}</dt>
+                <dd>
+                  <Link to={`/devices/${selectedEndpoint.device_id}`}>{nameOf[selectedEndpoint.device_id]}</Link>{' '}
+                  <span className="mono">{selectedEndpoint.interface_name}</span>
+                </dd>
+              </div>
+              <div><dt>{t('VLAN')}</dt><dd>{selectedEndpoint.vlan ? `${selectedEndpoint.vlan}${selectedEndpoint.vlan_name ? ` · ${selectedEndpoint.vlan_name}` : ''}` : '—'}</dd></div>
+              {selectedEndpoint.macs_on_port > 1 && (
+                <div><dt>{t('MAC sulla porta')}</dt><dd>{selectedEndpoint.macs_on_port}</dd></div>
+              )}
+              <div><dt>{t('Visto l\'ultima volta')}</dt><dd>{formatDateTime(selectedEndpoint.last_seen_at)}</dd></div>
+            </dl>
+            <div className="map-panel__actions">
+              <IconLink icon="search" label={t("Apri in \"Dov'è collegato?\"")} small className="btn--primary"
+                to={`/where?q=${encodeURIComponent(selectedEndpoint.mac)}`} />
             </div>
           </aside>
         )}

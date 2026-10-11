@@ -66,6 +66,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   database (quindi anche nei backup). Con "Sfondo della mappa" la si carica, la si sposta, la si ridimensiona e se
   ne sceglie l'opacità; chiuso il riquadro resta ferma sotto device e cavi. La casella "Sfondo" la nasconde; entra
   nell'esportazione PNG/SVG e nella stampa.
+- Mappa: casella "Endpoint" per vedere accanto a ogni switch gli apparati trovati nelle sue tabelle MAC (PC,
+  stampanti, telefoni…): porta e nome, IP o MAC, con un segno sulle porte dove ci sono più MAC. Cliccandone uno si
+  vedono MAC, IP, VLAN e quando è stato visto l'ultima volta; oltre i primi sei c'è il link a "Dov'è collegato?".
+  La scheda si mette dove non copre altri device e "Disponi" le lascia spazio. Quelli che sono già un device
+  della mappa non compaiono.
 - Mappa: cliccando un tipo di cavo nella legenda si vedono solo i cavi di quel tipo (anche più tipi insieme; "Tutti i
   cavi" li rimette tutti).
 - Backup: per quelli fatti prima di un aggiornamento la pagina dice da quale versione a quale (l'updater lo annota in

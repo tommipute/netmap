@@ -203,3 +203,20 @@ def endpoint_query(q: str | None = None, device_id: int | None = None, interface
         stmt = stmt.where(or_(*conditions))
     return stmt.order_by(Endpoint.last_seen_at.desc(), Endpoint.mac)
 
+
+
+MAX_MAP_ENDPOINTS = 3000  # oltre la mappa diventa illeggibile: gli altri restano in "Dov'è collegato?"
+MAP_ENDPOINT_FIELDS = ("id", "mac", "ip", "vlan", "vlan_name", "device_id", "interface_id", "interface_name",
+                       "macs_on_port", "last_seen_at", "known_as", "known_device_id")
+
+
+def map_endpoints(db: Session, device_ids: list[int]) -> tuple[list[dict], int]:
+    """Endpoint sulle porte dei device in mappa (gli uplink sono già esclusi dalla scansione), tranne quelli che
+    sono già un device della mappa. (elenco, quanti in tutto)."""
+    if not device_ids:
+        return [], 0
+    stmt = (select(Endpoint).join(Interface, Endpoint.interface_id == Interface.id)
+            .where(Interface.device_id.in_(device_ids)).order_by(Interface.device_id, Interface.name, Endpoint.mac))
+    on_map = set(device_ids)
+    rows = [r for r in endpoint_rows(db, list(db.scalars(stmt).unique())) if r["known_device_id"] not in on_map]
+    return [{k: r[k] for k in MAP_ENDPOINT_FIELDS} for r in rows[:MAX_MAP_ENDPOINTS]], len(rows)

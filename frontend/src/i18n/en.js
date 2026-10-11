@@ -401,6 +401,17 @@ const strings = {
   // sfondo della mappa
   'Sfondo': 'Background',
   'Sfondo della mappa': 'Map background',
+  // Endpoint in mappa
+  'Gli apparati visti nelle tabelle MAC degli switch: PC, stampanti, telefoni…': 'Devices seen in the switch MAC tables: PCs, printers, phones…',
+  'Gli apparati visti nelle tabelle MAC degli switch (i primi {n} su {total})': 'Devices seen in the switch MAC tables (the first {n} of {total})',
+  '1 endpoint': '1 endpoint',
+  '{n} endpoint': '{n} endpoints',
+  'e un altro': 'and 1 more',
+  '{n} MAC su questa porta (switch o access point non documentato?)': '{n} MACs on this port (undocumented switch or access point?)',
+  'Dettagli endpoint': 'Endpoint details',
+  'Collegato a': 'Connected to',
+  'MAC sulla porta': 'MACs on the port',
+  'Apri in "Dov\'è collegato?"': 'Open in "Where is it connected?"',
   "L'immagine sotto la mappa (planimetria, foto…)": 'The image under the map (floor plan, photo…)',
   'Opacità': 'Opacity',
   "Trascina l'immagine per spostarla e i suoi angoli per ingrandirla. Le modifiche si salvano da sole; chiuso questo riquadro lo sfondo resta fermo.":

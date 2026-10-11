@@ -25,6 +25,7 @@ from app.models import (
     StackMember,
 )
 from app.services.custom_fields import search_clause
+from app.services.endpoints import map_endpoints
 from app.models.dcim import interface_tagged_vlans
 from app.models.enums import NON_CABLEABLE_TYPES
 
@@ -225,9 +226,11 @@ def map_view(db: Session, network_map: NetworkMap) -> dict:
         {"id": loc.id, "name": loc.name, "parent_id": loc.parent_id, "path": loc.path, "floor": loc.floor}
         for loc in sorted((all_locations[i] for i in used), key=lambda loc: loc.path.lower())
     ]
+    endpoints, endpoint_total = map_endpoints(db, ids)
     return {
         "map": network_map, "nodes": nodes, "edges": edges, "available": available, "vlans": vlans, "routes": routes,
         "locations": locations, "background": map_background(db, network_map.id),
+        "endpoints": endpoints, "endpoint_total": endpoint_total,
     }
 
 

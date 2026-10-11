@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (117 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (130 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -593,6 +593,14 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   Fuori da "Sfondo della mappa" ha `pointer-events: none` e i clic passano alla mappa. Il NodeResizer va dopo
   l'`<img>` (altrimenti le maniglie stanno sotto); con `keepAspectRatio` l'angolo trascinato solo in orizzontale
   non ridimensiona (React Flow), in diagonale o dai bordi sì.
+  **Endpoint in mappa** (`map_endpoints` in services/endpoints.py → `view.endpoints` + `endpoint_total`, al massimo
+  3000; esclusi quelli che sono già un device della mappa): casella "Endpoint" (localStorage `netmap.map.endpoints`).
+  Una scheda per device (`map/EndpointsNode.jsx`, nodi `endpoints-<id>` calcolati come le bolle, fuori da `nodes`:
+  per questo hanno `width`/`height` espliciti, altrimenti React Flow li tiene `visibility: hidden`), non
+  trascinabile, a destra del device o a sinistra/sotto se lì non copre device o altre schede; righe = selezione
+  `{kind: 'endpoint'}` con il pannello dei dettagli. "Disponi" allarga il posto dei device con endpoint
+  (`widths` + `CARD_GAP + CARD_WIDTH`, altezza almeno quella della scheda): il layout mette il device a sinistra del
+  posto allargato. Le bolle delle posizioni comprendono le schede (`extras`).
   **Filtro dei cavi**: i tipi nella legenda sono pulsanti (`cableTypes`): i cavi degli altri tipi non entrano in
   `baseEdges`. **Evidenza**: con un device, un cavo o un rack selezionato, il resto prende `is-faded` / `cable--faded`.
   **Ricerca nella mappa** (`map/MapSearch.jsx`): nome/IP dei device in mappa subito, poi `/search` (MAC, IP,

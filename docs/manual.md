@@ -301,6 +301,14 @@ keep their name clear.
   automatically; with **Done** the image stays put and you go back to moving devices. The **Background** checkbox
   hides it without removing it; **Remove background** deletes it. The background is included in exports, printing
   and database backups.
+- **Endpoints**: the **Endpoints** checkbox (shown when the scan found something in the MAC tables of the map's
+  switches) puts a card next to each switch with the devices connected to its ports: PCs, printers, phones, access
+  points… For each one, the port and a name (the NetMap device's name if it knows it, otherwise IP or MAC); ×N means
+  there are N MACs on that port, usually an undocumented switch or access point. Click a row to see MAC, IP, VLAN
+  and when it was last seen, with a link to **Where is it connected?**; after the first six, **and N more** opens
+  the switch's full list. The card sits to the right of the device, or to the left or below if there is room
+  there; with **Arrange** each switch with endpoints leaves room for its card. Devices that are already on the map
+  are not shown.
 - **Live status**: the dot on a device is green if it responds, red if not; the status refreshes by itself every 30 seconds. To see devices or
   cables added from another page straight away, use **Refresh the map** (the two arrows at the top).
 - **Export…**: PNG image, SVG drawing, or print / PDF.

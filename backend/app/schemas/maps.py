@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -79,6 +80,23 @@ class MapBackgroundUpdate(InputSchema):
     opacity: float | None = Field(None, ge=0.05, le=1)
 
 
+class MapEndpoint(BaseModel):
+    """MAC visto su una porta di un device in mappa (PC, telefono, telecamera…)."""
+
+    id: int
+    mac: str
+    ip: str | None = None
+    vlan: int | None = None
+    vlan_name: str | None = None
+    device_id: int
+    interface_id: int
+    interface_name: str
+    macs_on_port: int | None = None
+    last_seen_at: datetime | None = None
+    known_as: str | None = None  # come lo conosce la documentazione (nome DNS, porta di un device)
+    known_device_id: int | None = None
+
+
 class MapView(BaseModel):
     map: MapRead
     nodes: list[MapViewNode]
@@ -88,6 +106,8 @@ class MapView(BaseModel):
     routes: list[CableRoute] = []  # cavi con i punti di ancoraggio disegnati a mano
     locations: list[MapLocation] = []  # posizioni dei device in mappa con quelle che le contengono (bolle)
     background: MapBackgroundRead | None = None  # immagine di sfondo
+    endpoints: list[MapEndpoint] = []  # endpoint sulle porte dei device in mappa (al massimo 3000)
+    endpoint_total: int = 0
 
 
 class NodePosition(BaseModel):

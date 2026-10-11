@@ -301,6 +301,14 @@ serve perché il loro nome resti libero.
   trasparente. Le modifiche si salvano da sole; con **Fatto** l'immagine resta ferma e si torna a spostare i device.
   La casella **Sfondo** la nasconde senza toglierla; **Togli sfondo** la elimina. Lo sfondo entra nell'esportazione
   e nella stampa, e nei backup del database.
+- **Endpoint**: la casella **Endpoint** (c'è se la scansione ha trovato qualcosa nelle tabelle MAC degli switch
+  della mappa) mette accanto a ogni switch una scheda con gli apparati collegati alle sue porte: PC, stampanti,
+  telefoni, access point… Per ognuno porta e nome (quello del device di NetMap se lo conosce, altrimenti IP o MAC);
+  ×N vuol dire che su quella porta ci sono N MAC, di solito uno switch o un access point non documentato. Cliccando
+  una riga si vedono MAC, IP, VLAN e quando è stato visto l'ultima volta, con il link a **Dov'è collegato?**; dopo i
+  primi sei, **e altri N** apre l'elenco completo dello switch. La scheda sta a destra del device, oppure a sinistra
+  o sotto se lì c'è posto; con **Disponi** ogni switch con endpoint lascia spazio per la sua. Gli apparati che sono
+  già device della mappa non compaiono.
 - **Stato live**: il pallino sul device è verde se risponde, rosso se no; lo stato si aggiorna da solo ogni 30 secondi. Per vedere subito device o
   cavi aggiunti da un'altra pagina usa **Aggiorna la mappa** (le due frecce in alto).
 - **Esporta**: immagine PNG, disegno SVG, oppure stampa / PDF.
