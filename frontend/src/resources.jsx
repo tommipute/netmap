@@ -5,6 +5,7 @@
 import { ROLES, USER_SOURCES } from './auth'
 import { AlertTemplates, DeviceMulti, PortPicker } from './components/AlertFields'
 import AlertTestButton from './components/AlertTestButton'
+import { OBJECT_TYPES as HISTORY_TYPES } from './components/HistoryList'
 import { CUSTOM_FIELD_TYPES, CustomFieldsEditor, ObjectTypesPicker } from './components/CustomFields'
 import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
 import RefLabel from './components/RefLabel'
@@ -713,6 +714,79 @@ resources['stack-members'] = {
   ],
 }
 
+/** Scelta multipla a bolle; nessuna scelta = tutti. */
+function ChipsPicker({ value, onChange, options }) {
+  const selected = value || []
+  const toggle = (key) => onChange(selected.includes(key) ? selected.filter((v) => v !== key) : [...selected, key])
+  return (
+    <div className="chips" role="group">
+      {options.map((o) => {
+        const on = selected.includes(o.value)
+        return (
+          <button type="button" key={o.value} className={`chip${on ? ' chip--on' : ''}`} aria-pressed={on} onClick={() => toggle(o.value)}>
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+const WEBHOOK_ACTIONS = [
+  { value: 'create', label: t('Creato') },
+  { value: 'update', label: t('Modificato') },
+  { value: 'delete', label: t('Eliminato') },
+]
+const WebhookTypes = (props) => <ChipsPicker {...props} options={HISTORY_TYPES} />
+const WebhookActions = (props) => <ChipsPicker {...props} options={WEBHOOK_ACTIONS} />
+const chosen = (options, values) => (values?.length ? values.map((v) => O.labelOf(options, v)).join(', ') : t('Tutti'))
+
+resources.webhooks = {
+  path: 'webhooks',
+  title: tc('elenco', 'Webhook'),
+  newLabel: t('Nuovo webhook'),
+  editLabel: t('Modifica webhook'),
+  intro:
+    t('Indirizzi a cui NetMap manda le modifiche appena succedono (le stesse righe dello storico), per tenere aggiornati altri programmi: CMDB, ticketing, automazioni. Le modifiche arrivano in ordine, a gruppi, in JSON con una firma; se il programma non risponde si riprova più tardi senza perderne nessuna. Il formato è nel manuale.'),
+  label: (o) => o.name,
+  filters: [{ name: 'enabled', label: t('Attivo'), options: [{ value: 'true', label: t('sì') }, { value: 'false', label: t('no') }] }],
+  columns: [
+    { name: 'name', label: t('Nome'), render: (o) => <strong>{o.name}</strong> },
+    { name: 'url_host', label: t('Server'), type: 'mono', filter: false, sortField: false },
+    { name: 'enabled', label: t('Attivo'), type: 'bool' },
+    { name: 'object_types', label: t('Oggetti'), render: (o) => chosen(HISTORY_TYPES, o.object_types), filter: false, sortField: false },
+    { name: 'actions', label: t('Azioni'), render: (o) => chosen(WEBHOOK_ACTIONS, o.actions), filter: false, sortField: false, hidden: true },
+    {
+      name: 'last_sent_at',
+      label: t('Ultimo invio'),
+      render: (o) =>
+        o.last_error ? (
+          <span className="live live--down" title={tServer(o.last_error)}>{t('Errore: {error}', { error: tServer(o.last_error) })}</span>
+        ) : (
+          O.formatDateTime(o.last_sent_at)
+        ),
+    },
+    { name: 'test', label: t('Prova'), render: (o) => <AlertTestButton channel={o} path="webhooks" /> },
+  ],
+  fields: [
+    { name: 'name', label: t('Nome'), required: true, placeholder: t('CMDB') },
+    { name: 'enabled', label: t('Attivo'), type: 'bool', default: true },
+    {
+      name: 'url', label: t('Indirizzo'), type: 'secret',
+      savedHint: (item) => (item ? t('Salvato ({host}): lascia vuoto per non cambiarlo', { host: item.url_host || '?' }) : 'https://…'),
+      help: t('Riceve una richiesta POST con le modifiche in JSON. Si salva cifrato: può contenere una chiave.'),
+    },
+    {
+      name: 'secret', label: t('Chiave della firma'), type: 'secret',
+      savedHint: (item) => (item?.has_secret ? t('Salvata: lascia vuoto per non cambiarla') : t('Facoltativa')),
+      help: t('Con una chiave ogni richiesta ha l\'intestazione X-NetMap-Signature (HMAC-SHA256 del corpo): chi riceve controlla che venga da NetMap.'),
+    },
+    { name: 'object_types', label: t('Oggetti'), type: 'custom', Component: WebhookTypes, empty: [], help: t('Nessuna scelta = tutti.') },
+    { name: 'actions', label: t('Azioni'), type: 'custom', Component: WebhookActions, empty: [], help: t('Nessuna scelta = tutte.') },
+    { name: 'verify_tls', label: t('Controlla il certificato HTTPS'), type: 'bool', default: true },
+    description,
+  ],
+}
+
 resources['alert-channels'] = {
   path: 'alert-channels',
   title: t('Avvisi'),
@@ -888,5 +962,5 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }, 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]

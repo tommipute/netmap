@@ -24,6 +24,7 @@ const PATHS = {
   plusMany: <><rect x="8" y="8" width="13" height="13" rx="2" /><path d="M4 16V5a1 1 0 0 1 1-1h11" /><path d="M14.5 11.5v6M11.5 14.5h6" /></>,
   save: <><path d="M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M8 3v5h7V3" /><path d="M8 21v-7h8v7" /></>,
   check: <path d="m5 12 5 5 9-10" />,
+  copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>,
   checkAll: <><path d="m2 12 5 5 9-10" /><path d="m12 16 1 1 9-10" /></>,
   play: <path d="M7 4v16l13-8L7 4Z" />,
   log: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5" /><path d="M9 12h7M9 16h7" /></>,

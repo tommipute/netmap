@@ -9,6 +9,7 @@ import hmac
 import json
 import secrets as pysecrets
 import time
+from datetime import timezone
 from functools import lru_cache
 
 from app.config import settings
@@ -75,3 +76,22 @@ def decode_token(token: str) -> dict | None:
         return data
     except (ValueError, TypeError, json.JSONDecodeError):
         return None
+
+
+# ---------------------------------------------------------------- token API
+API_TOKEN_PREFIX = "nmt_"
+
+
+def new_api_token() -> str:
+    """Token API casuale (nmt_ + 40 caratteri): nel database va solo il suo hash."""
+    return API_TOKEN_PREFIX + pysecrets.token_urlsafe(30)
+
+
+def hash_api_token(token: str) -> str:
+    # Il token è casuale e lungo: basta SHA-256 (niente scrypt, che rallenterebbe ogni richiesta)
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def as_utc(value):
+    """Le date lette da SQLite (test) non hanno il fuso: sono UTC."""
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value

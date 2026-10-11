@@ -7,7 +7,7 @@ import { NAV, resources } from '../resources'
 import { useTheme } from '../theme'
 import PasswordDialog from './PasswordDialog'
 import { Icon } from './Icon'
-import { LANG, LANGUAGES, setLang, t } from '../i18n'
+import { LANG, LANGUAGES, setLang, t, tc } from '../i18n'
 import VersionLabel, { repoFileUrl } from './VersionLabel'
 
 const THEMES = [
@@ -113,6 +113,11 @@ function UserMenu() {
             target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
             <Icon name="book" /> {t('Manuale')}
           </a>
+          {signedIn && (
+            <Link role="menuitem" className="user-menu__item" to="/api-tokens" onClick={() => setOpen(false)}>
+              <Icon name="key" /> {tc('elenco', 'Token API')}
+            </Link>
+          )}
           <a role="menuitem" className="user-menu__item" href="/docs" target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
             <Icon name="open" /> {t('Documentazione API')}
           </a>

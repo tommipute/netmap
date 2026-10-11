@@ -295,6 +295,31 @@ def alert_channel_hook(db: Session, channel, data: dict[str, Any], is_create: bo
         _fail("Scegli almeno una porta da seguire")
 
 
+# ---------- Webhook delle modifiche ----------
+def webhook_hook(db: Session, hook, data: dict[str, Any], is_create: bool) -> None:
+    """Indirizzo e chiave solo cifrati; un webhook nuovo parte dalle modifiche di adesso (non manda lo storico)."""
+    from app.services.audit import TRACKED
+    from app.services.webhooks import current_cursor
+
+    url = (data.get("url") or "").strip()
+    if url and not url.startswith(("https://", "http://")):
+        _fail("L'indirizzo del webhook deve iniziare con https:// o http://")
+    try:
+        if "url" in data:
+            hook.url_enc = encrypt(url) if url else None
+        if "secret" in data:
+            hook.secret_enc = encrypt(data["secret"]) if data["secret"] else None
+    except SecretError as exc:
+        raise HTTPException(500, str(exc)) from exc
+    if not hook.url_enc:
+        _fail("Serve l'indirizzo del webhook")
+    unknown = set(hook.object_types or []) - set(TRACKED.values())
+    if unknown:
+        _fail(f"Tipi di oggetto sconosciuti: {', '.join(sorted(unknown))}")
+    if is_create:
+        hook.cursor = current_cursor(db)
+
+
 # ---------- Copie dei backup ----------
 def backup_target_hook(db: Session, target, data: dict[str, Any], is_create: bool) -> None:
     """Password e chiave privata si salvano solo cifrate; cambiando server si dimentica la sua chiave (SFTP)."""

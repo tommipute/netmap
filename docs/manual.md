@@ -571,6 +571,70 @@ its certificate. "Not signed by a known CA": paste the domain CA certificate.
 ## 20. API and scripts
 
 Everything the interface does goes through a REST API, documented under **API documentation** in the user menu
-(`/docs`). To use it from a script, sign in with `POST /api/auth/login` and send the token you receive in the
-`Authorization: Bearer <token>` header; permissions follow the user's role. Lists accept `limit`, `offset`, `q`,
-filters and `sort` (e.g. `GET /api/devices?site_id=1&sort=-name`).
+(`/docs`). Lists accept `limit`, `offset`, `q`, filters and `sort` (e.g. `GET /api/devices?site_id=1&sort=-name`).
+
+### API tokens
+
+For scripts and other programs use an **API token**: user menu → **API tokens** (administrators also find them
+under Administration, with every user's tokens) → **+**. Pick a name, the expiry (**Expires**: never, 30 days,
+90 days, a year) and whether it is **Read only**; an administrator can create it for another user. The token
+(`nmt_…`) is shown **only once**, in the window that opens: copy it right away. Use it like this:
+
+```
+curl -H "Authorization: Bearer nmt_…" https://netmap.company.com/api/devices?limit=10
+```
+
+- A token can do at most what its user can do (a viewer only reads); a read-only token only makes read requests.
+  A token cannot create other tokens or change the password.
+- Changes made with a token appear in the history with the user's name and the source **API (with a token)**.
+- The table shows the start of the token, the last use (with the address) and the expiry; the bin **revokes** it at once.
+- **Changing the user's password or deactivating the user revokes all their tokens.** For a program, a dedicated
+  user (e.g. `cmdb-integration`, viewer or editor role) that nobody signs in with is best.
+
+Alternatively a script can sign in with `POST /api/auth/login` and use the session token it receives, which expires
+like interface sessions.
+
+### Webhooks
+
+With webhooks NetMap notifies other programs: Administration → **Webhooks** → **+**. For each webhook choose the
+**Address** (receives a POST request, stored encrypted), an optional **Signing key**, the **Objects** (devices,
+cables, IPs…) and the **Actions** (created, updated, deleted) to send; nothing chosen = all. The ▶ button in the
+table sends a test message.
+
+Changes are the same rows as the **history**: they arrive within about ten seconds, in order, in batches of at most
+200. A new webhook starts from the changes of that moment (it does not send old history). If the program does not
+answer or answers with an error, the error shows in the **Last sent** column and NetMap retries after 1, 2, 5, 10
+and then every 30 minutes, starting again from the first change not delivered: none are lost. The receiver must
+answer with a 2xx code.
+
+Request body (header `X-NetMap-Event`: `changes`, or `test` for the test message):
+
+```json
+{
+  "event": "changes",
+  "sent_at": "2026-10-11T10:17:11+00:00",
+  "netmap": "1.2.0",
+  "events": [
+    {
+      "id": 9541, "at": "2026-10-11T10:17:02+00:00",
+      "action": "update", "object_type": "device", "object_id": 42, "object": "sw-floor1",
+      "api": "/api/devices/42", "user": "jsmith", "source": "utente",
+      "changes": [{"field": "Stato", "before": "planned", "after": "active"}],
+      "device_ids": [42]
+    }
+  ]
+}
+```
+
+`id` always grows (use it to drop duplicates), `api` is the address to read the whole object (empty for deleted
+ones), `source` says where the change comes from (`utente` = by hand, `scansione` = SNMP scan, `import`, `api`…),
+`device_ids` the devices involved (two for a cable). Field names in `changes` are the Italian labels of the history.
+Secrets are never included: only the fact that they changed.
+
+With a signing key every request has the header `X-NetMap-Signature: sha256=<HMAC-SHA256 of the body>`. To check
+it, for example in Python:
+
+```python
+expected = "sha256=" + hmac.new(key.encode(), received_body, hashlib.sha256).hexdigest()
+ok = hmac.compare_digest(expected, request.headers["X-NetMap-Signature"])
+```

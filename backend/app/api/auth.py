@@ -15,10 +15,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.core.auth import create_token, decode_token, hash_password, verify_password
+from app.core.auth import API_TOKEN_PREFIX, as_utc, create_token, decode_token, hash_api_token, hash_password, verify_password
 from app.core.throttle import Throttle, client_ip
 from app.database import get_db
-from app.models import User
+from app.models import ApiToken, User
 from app.services import directory
 from app.models.enums import UserRole, UserSource
 from app.schemas.auth import AuthStatus, LoginRequest, LoginResult, PasswordChange, SetupRequest, UserRead
@@ -46,17 +46,51 @@ def _token_from(request: Request) -> str | None:
     return request.cookies.get(COOKIE)
 
 
+def _token_user(request: Request, db: Session, token: str) -> User:
+    """Utente di un token API (nmt_…): deve esistere, non essere scaduto, e l'utente essere attivo e con la stessa
+    password di quando è stato creato. Un token in sola lettura fa solo richieste di lettura."""
+    row = db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_api_token(token)))
+    now = datetime.now(timezone.utc)
+    user = row.user if row else None
+    if row is None or user is None or not user.active or row.user_version != user.token_version:
+        raise HTTPException(401, "Token API non valido o revocato", headers={"WWW-Authenticate": "Bearer"})
+    if row.expires_at and as_utc(row.expires_at) < now:
+        raise HTTPException(401, "Token API scaduto", headers={"WWW-Authenticate": "Bearer"})
+    if row.read_only and request.method not in READ_METHODS:
+        raise HTTPException(403, "Questo token API è in sola lettura")
+    # Ultimo uso: al massimo una scrittura al minuto per token
+    if row.last_used_at is None or (now - as_utc(row.last_used_at)).total_seconds() > 60:
+        row.last_used_at = now
+        row.last_used_ip = client_ip(request)
+        db.commit()
+    request.state.api_token = row
+    db.info["audit_source"] = "api"
+    return user
+
+
 def current_user(request: Request, db: Session = Depends(get_db)) -> User | None:
     """Utente della richiesta; 401 se manca o non è valido. Con il login disattivato restituisce None."""
     if not settings.auth_enabled:
         return None
     token = _token_from(request)
+    if token and token.startswith(API_TOKEN_PREFIX):
+        user = _token_user(request, db, token)
+        request.state.user = user
+        db.info["audit_user"] = (user.id, user.username)
+        return user
     data = decode_token(token) if token else None
     user = db.get(User, int(data["sub"])) if data and str(data.get("sub", "")).isdigit() else None
     if user is None or not user.active or data.get("ver") != user.token_version:
         raise HTTPException(401, "Sessione scaduta o non valida: accedi di nuovo", headers={"WWW-Authenticate": "Bearer"})
     request.state.user = user
     db.info["audit_user"] = (user.id, user.username)  # chi fa le modifiche: services/audit.py
+    return user
+
+
+def no_api_token(request: Request, user: User | None = Depends(current_user)) -> User | None:
+    """Solo dall'interfaccia: con un token API non si cambiano password né token (un token rubato non se ne crea altri)."""
+    if getattr(request.state, "api_token", None) is not None:
+        raise HTTPException(403, "Questa operazione non si può fare con un token API: accedi con utente e password")
     return user
 
 
@@ -203,7 +237,7 @@ def me(user: User | None = Depends(current_user)):
 
 
 @router.post("/password", response_model=LoginResult, summary="Cambia la propria password")
-def change_password(payload: PasswordChange, response: Response, user: User | None = Depends(current_user),
+def change_password(payload: PasswordChange, response: Response, user: User | None = Depends(no_api_token),
                     db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(404, "Login disattivato (AUTH_ENABLED=false)")

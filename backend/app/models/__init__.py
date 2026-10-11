@@ -25,6 +25,7 @@ from app.models.dcim import (
 )
 from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
 from app.models.imports import ImportRun
+from app.models.integrations import ApiToken, Webhook
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
 from app.models.maps import MapBackground, MapCableRoute, MapNode, NetworkMap
 from app.models.monitoring import Endpoint

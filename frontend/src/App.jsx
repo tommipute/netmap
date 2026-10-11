@@ -15,6 +15,7 @@ import ResourcePage from './pages/ResourcePage'
 import SearchPage from './pages/SearchPage'
 import UpdatesPage from './pages/UpdatesPage'
 import BackupPage from './pages/BackupPage'
+import ApiTokensPage from './pages/ApiTokensPage'
 import DirectoryPage from './pages/DirectoryPage'
 import ImportPage from './pages/ImportPage'
 import { resources } from './resources'
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="discovery/changes" element={<ChangesPage />} />
         <Route path="updates" element={<UpdatesPage />} />
         <Route path="backup" element={<BackupPage />} />
+        <Route path="api-tokens" element={<ApiTokensPage />} />
         <Route path="directory" element={<DirectoryPage />} />
         <Route path="import" element={<ImportPage />} />
         <Route path="import-netbox" element={<Navigate to="/import?source=netbox" replace />} />

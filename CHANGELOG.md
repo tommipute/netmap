@@ -6,6 +6,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- Token API: chiavi di lunga durata per script e altri programmi (menu utente → Token API), con nome, scadenza
+  facoltativa e sola lettura; agiscono come il loro utente, si revocano dalla tabella e mostrano l'ultimo uso. Le
+  modifiche fatte con un token finiscono nello storico con l'origine "API". Cambiare la password o disattivare
+  l'utente revoca i suoi token.
+- Webhook (Amministrazione → Webhook): NetMap manda le modifiche dello storico a un indirizzo appena succedono, in
+  JSON con firma HMAC facoltativa, filtrate per tipo di oggetto e azione; se il programma non risponde riprova
+  senza perderne nessuna. Pulsante per il messaggio di prova.
+
 ### Modifiche
 
 - Import: le sedi o i gruppi da importare si scelgono da un menu con ricerca (vanno bene anche centinaia di

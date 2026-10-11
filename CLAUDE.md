@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (130 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (134 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -233,6 +233,8 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
 | `GET`/`PUT /api/directory` · `POST /api/directory/test` | Active Directory: impostazioni, prova con un utente (solo admin) |
 | `GET /api/diagnostics` | pacchetto diagnostico zip (solo admin) |
+| `GET`/`POST /api/api-tokens` · `DELETE /api/api-tokens/{id}` | token API: i propri (admin: tutti); mai con un token |
+| `POST /api/webhooks/{id}/test` | messaggio di prova di un webhook (CRUD `/webhooks` solo admin) |
 | `POST /api/imports/test` · `GET`/`POST /api/imports` · `GET /api/imports/{id}` | import da NetBox e dagli altri programmi: prova, coda, stato con log e problemi (solo admin); `/api/netbox/*` resta per compatibilità |
 
 Elenchi CRUD: `GET /api/<entità>?limit=&offset=&q=&<filtri>` → `{total, items}`; `limit` massimo 1000.
@@ -467,6 +469,24 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - Modelli (`templates`, chiavi down/up/port_down/port_up, vuoto = `TEXTS[lingua]["templates"]`): segnaposto in
   `PLACEHOLDERS` (nomi inglesi e italiani); `render` toglie parentesi e parti dopo " · "/" › " rimaste vuote.
   `POST /api/alert-messages/preview` → testi d'esempio, `unknown`, `defaults` (frontend `components/AlertFields.jsx`).
+
+## Token API e webhook (`models/integrations.py`, `api/integrations.py`, `services/webhooks.py`, deciso l'11/10/2026)
+
+- **Token API** (tabella `api_tokens`, pagina `pages/ApiTokensPage.jsx` su `/api-tokens`, dal menu utente e da
+  Amministrazione): `nmt_` + 30 byte casuali, nel database solo lo SHA-256 (`token_hash`) e l'inizio (`prefix`).
+  `current_user` riconosce `Bearer nmt_…` (`_token_user`): utente attivo, `user_version == token_version` (quindi
+  **cambio password o disattivazione revocano i token**: scelta voluta, per le integrazioni un utente apposta),
+  scadenza, sola lettura (403 sui metodi non GET); ultimo uso salvato al massimo una volta al minuto;
+  `audit_source = "api"`. Il router `integrations.tokens` sta **fuori** dal router protetto (anche un lettore crea i
+  suoi token) e ha la dipendenza `no_api_token`: con un token non si gestiscono token né password.
+- **Webhook** (tabella `webhooks`, CRUD `/webhooks` solo admin, `webhook_hook` in rules.py; risorsa `webhooks` in
+  resources.jsx): URL e chiave cifrati (`keys.ENCRYPTED`), la lettura dà solo `url_host` e `has_secret`. Il worker
+  (thread `webhook_loop`, ogni 10 s) manda le righe di `audit_log` con id > `cursor` filtrate per `object_types`
+  e `actions` (`deliver`, gruppi da 200, POST JSON firmato `X-NetMap-Signature: sha256=<hmac>`); errore → il
+  cursore resta, `last_error`, riprova dopo 1/2/5/10/30 minuti. Id saltati sotto il cursore (transazioni lunghe
+  ancora aperte) finiscono in `gaps` e si ricontrollano per 6 ore. Un webhook nuovo parte dal massimo id attuale.
+  Formato degli eventi (`event_of`) documentato nel manuale: cambiarlo = cambiamento incompatibile.
+- Test `tests/test_integrations.py` (urlopen finto). Provato nel browser l'11/10/2026 con un ricevitore nel worker.
 
 ## Campi personalizzati (`services/custom_fields.py`, tabella `custom_field_definitions`)
 

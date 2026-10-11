@@ -3,7 +3,8 @@
 La coda è la tabella discovery_runs: l'API inserisce una riga 'queued' ("Avvia ora" o pianificazione)
 e il worker la prende entro pochi secondi. Le scansioni non girano mai dentro una richiesta HTTP.
 Un secondo thread copia i backup fuori dal server (services/offsite.py), così una scansione lunga non lo ferma;
-un terzo fa gli import da NetBox e dagli altri programmi (services/netbox.py, services/connectors.py).
+un terzo fa gli import da NetBox e dagli altri programmi (services/netbox.py, services/connectors.py), un quarto
+manda le modifiche ai webhook (services/webhooks.py).
 
 Uso:  python -m app.worker
 """
@@ -18,6 +19,7 @@ from app.database import SessionLocal
 from app.discovery.runner import claim_next_run, execute_run, recover_interrupted, schedule_due_jobs
 from app.services.netbox import import_loop
 from app.services.offsite import offsite_loop
+from app.services.webhooks import webhook_loop
 
 logger = logging.getLogger("netmap.worker")
 SCHEDULE_EVERY = 60  # secondi tra un controllo e l'altro dei job pianificati
@@ -29,6 +31,7 @@ def main() -> None:
     logger.info("Worker scansioni avviato")
     threading.Thread(target=offsite_loop, args=(SessionLocal,), name="offsite", daemon=True).start()
     threading.Thread(target=import_loop, args=(SessionLocal,), name="imports", daemon=True).start()
+    threading.Thread(target=webhook_loop, args=(SessionLocal,), name="webhooks", daemon=True).start()
     recovered = False
     next_schedule = 0.0
 

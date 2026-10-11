@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
-from app.api import alerts, auth, backups, directory, discovery, extra, history, netbox, system
+from app.api import alerts, auth, backups, directory, discovery, extra, history, integrations, netbox, system
 from app.api.auth import require_admin, require_admin_to_write, require_user
 from app.api.crud import build_crud_router
 from app.models import (
@@ -26,8 +26,10 @@ from app.models import (
     SnmpProfile,
     StackMember,
     User,
+    Webhook,
 )
 from app.schemas import alerts as al
+from app.schemas import integrations as ig
 from app.schemas import backups as bk
 from app.schemas import auth as sa
 from app.schemas import custom_fields as cfs
@@ -116,6 +118,10 @@ _routers = [
          read_schema=al.AlertChannelRead, path="/alert-channels", tag="Avvisi", filters=("type", "enabled"),
          search=("name",), order_by=(AlertChannel.name,), hook=rules.alert_channel_hook,
          dependencies=[Depends(require_admin)]),
+    # ---------- Webhook delle modifiche (solo amministratori) ----------
+    dict(model=Webhook, create_schema=ig.WebhookCreate, update_schema=ig.WebhookUpdate, read_schema=ig.WebhookRead,
+         path="/webhooks", tag="Integrazioni", filters=("enabled",), search=("name",), order_by=(Webhook.name,),
+         hook=rules.webhook_hook, dependencies=[Depends(require_admin)]),
     # ---------- Copie dei backup fuori dal server (solo amministratori) ----------
     dict(model=BackupTarget, create_schema=bk.BackupTargetCreate, update_schema=bk.BackupTargetUpdate,
          read_schema=bk.BackupTargetRead, path="/backup-targets", tag="Backup", filters=("type", "enabled"),
@@ -127,6 +133,7 @@ protected.include_router(extra.router)
 protected.include_router(discovery.router)
 protected.include_router(history.router)
 protected.include_router(alerts.router)
+protected.include_router(integrations.router)
 protected.include_router(backups.router)
 protected.include_router(directory.router)
 protected.include_router(netbox.router)
@@ -138,5 +145,6 @@ for config in _routers:
 
 api_router.include_router(system.public)   # versione e health: senza login
 api_router.include_router(auth.router)
+api_router.include_router(integrations.tokens)
 api_router.include_router(protected)
 

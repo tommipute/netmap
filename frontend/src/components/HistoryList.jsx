@@ -25,6 +25,8 @@ export const OBJECT_TYPES = [
   { value: 'alert_channel', label: t('Canale di avviso') },
   { value: 'backup_target', label: t('Destinazione dei backup') },
   { value: 'directory', label: t('Active Directory') },
+  { value: 'api_token', label: t('Token API') },
+  { value: 'webhook', label: t('Webhook') },
 ]
 // Import da altri programmi: stesse etichette dell'origine dei dati (options.js)
 const IMPORT_SOURCES = DATA_SOURCES.filter((o) => !['manual', 'snmp'].includes(o.value)).map(({ value, label }) => ({ value, label }))
@@ -33,6 +35,7 @@ export const SOURCES = [
   { value: 'scansione', label: t('Scansione SNMP') },
   { value: 'import', label: t('Import CSV o Excel') },
   ...IMPORT_SOURCES,
+  { value: 'api', label: t('API (con un token)') },
   { value: 'directory', label: t('Accesso con Active Directory') },
   { value: 'sistema', label: t('Sistema') },
 ]
