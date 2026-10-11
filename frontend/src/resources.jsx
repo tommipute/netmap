@@ -986,3 +986,17 @@ export const NAV = [
   { title: t('Avvisi e integrazioni'), admin: true, items: ['alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }] },
   { title: t('Amministrazione'), admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]
+
+/** Voce del menu normalizzata: { to, title, badge } */
+export const navItem = (item) => (typeof item === 'string' ? { to: resources[item].path, title: resources[item].title } : item)
+
+/** Gruppi del menu che l'utente vede */
+export const navGroups = (isAdmin) => NAV.filter((group) => !group.admin || isAdmin)
+
+/** Gruppo del menu che contiene la pagina aperta (anche il dettaglio: /devices/12 sta sotto /devices) */
+export function navGroupOf(groups, pathname) {
+  return groups.find((group) => group.items.some((item) => {
+    const base = `/${navItem(item).to}`
+    return pathname === base || pathname.startsWith(`${base}/`)
+  }))
+}

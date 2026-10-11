@@ -39,6 +39,7 @@ const PATHS = {
   filter: <path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5Z" />,
   next: <path d="m9 6 6 6-6 6" />,
   layout: <><rect x="9" y="3" width="6" height="5" rx="1" /><rect x="3" y="16" width="6" height="5" rx="1" /><rect x="15" y="16" width="6" height="5" rx="1" /><path d="M12 8v4M6 16v-4h12v4" /></>,
+  sliders: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
   eyeOff: <><path d="M3 3l18 18" /><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 9 6 9 6a15.6 15.6 0 0 1-2.4 2.9M6.3 7.6C4.2 9.2 3 12 3 12s4 6 9 6a8.6 8.6 0 0 0 3.7-.8" /><path d="M9.9 10a3 3 0 0 0 4.2 4.1" /></>,
 }
 

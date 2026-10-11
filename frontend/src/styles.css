@@ -115,8 +115,39 @@ a:hover { text-decoration: underline; }
 .brand__mark { position: relative; display: inline-flex; gap: 10px; align-items: center; }
 .brand__mark span { width: 9px; height: 9px; border: 2px solid var(--accent); border-radius: 2px; background: var(--surface); position: relative; z-index: 1; }
 .brand__mark::before { content: ''; position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; background: var(--accent); }
-.nav-group { margin-bottom: 18px; }
-.nav-group__title { color: var(--muted); font-size: 12px; padding: 0 8px 4px; }
+.nav-group { margin-bottom: 2px; }
+/* Nome della sezione: un clic la apre o la chiude */
+.nav-group__title {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; font: inherit; font-weight: 500;
+  color: var(--ink); background: none; border: 0; border-radius: var(--radius); text-align: left; cursor: pointer;
+}
+.nav-group__title > span:first-child { flex: 1; }
+.nav-group__title .icon { color: var(--muted); }
+.nav-group__title:hover { background: var(--surface-2); }
+.nav-group__title--current { color: var(--accent); }
+.nav-group--open { margin-bottom: 10px; }
+.nav-group__items { padding-left: 8px; }
+/* Menu in alto: sezioni in una barra, pagine in una tendina */
+.shell--top { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.topnav {
+  position: relative; z-index: 40; display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.topnav .brand { padding: 0 8px 0 0; flex: none; }
+.topnav__groups { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.topnav__group {
+  display: inline-flex; align-items: center; gap: 6px; padding: 12px 10px; font: inherit; white-space: nowrap;
+  color: var(--ink); background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+}
+.topnav__group .icon { color: var(--muted); }
+.topnav__group:hover, .topnav__group[aria-expanded="true"] { background: var(--surface-2); }
+.topnav__group--current { border-bottom-color: var(--accent); color: var(--accent); }
+.topnav__panel {
+  position: absolute; top: calc(100% + 4px); min-width: 220px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: 0 10px 24px rgba(15, 21, 28, 0.18);
+}
+.topnav__panel .nav-link { white-space: nowrap; }
 .nav-link {
   display: block; padding: 6px 8px; border-radius: var(--radius);
   color: var(--ink); border-left: 3px solid transparent;
@@ -525,9 +556,12 @@ textarea.input { resize: vertical; min-height: 72px; }
 .user-menu__head { padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 .user-menu__head strong { display: block; }
 .user-menu__head .hint { margin-top: 4px; }
-.user-menu__section { padding: 6px 10px; }
-.user-menu__section .segmented { display: flex; margin-top: 6px; }
-.user-menu__section .segmented__item { flex: 1; }
+/* Preferenze */
+.prefs { display: flex; flex-direction: column; gap: 16px; }
+.prefs .modal__footer { margin-top: 0; }
+.prefs__row { display: flex; flex-direction: column; gap: 6px; }
+.prefs__row .segmented { display: flex; }
+.prefs__row .segmented__item { flex: 1; }
 .user-menu__item {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; font: inherit; font-size: 13px;
   color: var(--ink); background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; text-decoration: none;
@@ -770,13 +804,7 @@ body.is-dragging, body.is-dragging * { user-select: none; cursor: grabbing !impo
 
 /* ---------- Schermi piccoli ---------- */
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
-  .sidebar { display: flex; gap: 12px; overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
-  .sidebar nav { display: flex; gap: 12px; }
-  .brand { padding: 0 8px; }
-  .nav-group { display: flex; align-items: center; gap: 2px; margin: 0; }
-  .nav-group__title { display: none; }
-  .nav-link { white-space: nowrap; border-left: 0; }
+  .topnav { padding: 0 8px; gap: 4px; }
   .page { padding: 18px 16px 40px; }
   .page-head { flex-direction: column; }
   .form__grid, .picker { grid-template-columns: 1fr; }

@@ -669,8 +669,15 @@ Token in `styles.css`. Tema chiaro/scuro: segue il sistema (`prefers-color-schem
 `:root[data-theme]`; `index.html` lo applica prima del primo disegno; la mappa passa il tema a React Flow
 come `colorMode`; la stampa usa selettori con la stessa specificità per restare chiara).
 Barra in alto: ricerca (300 px), pallini dello stato live con i soli numeri (verde → `?reachable=true`, rosso →
-`?reachable=false`), menu utente a destra (iniziali + nome: ruolo e cosa può fare, tema, cambia password,
-documentazione API, esci). Con il login spento il menu resta, con il solo tema. Palette ispirata ai rack: grigio-azzurro, etichette
+`?reachable=false`), menu utente a destra (iniziali + nome: ruolo e cosa può fare, preferenze, cambia password,
+documentazione API, esci). Con il login spento il menu resta, con Preferenze e documentazione.
+**Preferenze** (`components/PrefsDialog.jsx`, dal menu utente): tema, lingua, menu, pagina iniziale, righe per
+pagina; valgono subito, salvate nel browser. `prefs.js`: `PREFS` (chiave localStorage `netmap.menu` / `netmap.pageSize`
+/ `netmap.start`, default, valori ammessi), `usePref(name)` aggiorna tutti i componenti. Pagina iniziale: `StartPage`
+in `App.jsx` (se l'utente non la vede più nel menu, le mappe). **Menu** (`Layout.jsx`): solo i nomi delle sezioni;
+`SideNav` a fisarmonica (una sezione alla volta, quella della pagina aperta si apre da sola, `navGroupOf`; il numero
+in attesa sta sul nome quando è chiusa), `TopNav` in alto con tendine (si chiudono con clic fuori, Esc o cambio
+pagina; sotto 860 px è sempre questo). Helper `navItem`, `navGroups`, `navGroupOf` in `resources.jsx`. Palette ispirata ai rack: grigio-azzurro, etichette
 bianche, accento acqua come la fibra OM3 (`--accent`). Font IBM Plex Sans + IBM Plex Mono (solo per porte, IP, MAC).
 Device in mappa = etichetta da rack con banda colorata del ruolo. Colori cavi da convenzione reale:
 rame blu, fibra multimodale acqua, monomodale gialla, DAC grigio scuro.

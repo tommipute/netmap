@@ -39,23 +39,32 @@ Open the NetMap address in your browser (for example `https://netmap.company.loc
 asks you to create the **administrator**: user name, first name, last name and password (at least 8 characters). From then on
 you sign in with user name and password; a session lasts 12 hours.
 
-On the sign-in page and in the user menu (top right) you can choose:
+On the sign-in page you pick the **language** (Italian or English). After signing in, user menu (top right) →
+**Preferences**:
 
-- **Language**: Italian or English, for the browser you are using.
 - **Theme**: light, dark or automatic (follows the operating system).
+- **Language**: Italian or English.
+- **Menu**: at the side (left) or at the top. On a phone it is always at the top.
+- **Start page**: the page that opens when you enter NetMap or click the logo (normally the maps).
+- **Rows per page** in the lists: 25, 50, 100 or 200.
+
+Preferences apply at once and are kept in the browser you are using: on another computer you choose them again.
 
 After 5 wrong passwords in a row for the same user you have to wait a minute, and the wait doubles with every
 further mistake (up to 15 minutes). It protects against password guessing: wait and try again.
 
 ## 2. The interface
 
-- **Menu on the left**, in sections: Network, Places, Addressing, Catalog, SNMP scan, Activity and (administrators
-  only) Administration. On a phone it becomes a bar at the top that scrolls sideways.
+- **Menu**, in sections: Network, Places, Addressing, Catalog, SNMP scan, Activity and (administrators only) Alerts
+  and integrations, Administration. Only the section names are shown: click one to open it with its pages. At the
+  side one section is open at a time, and the one of the page you are on is already open; at the top (see
+  Preferences, and always on a phone) the pages appear in a drop-down. The orange number next to SNMP scan says how
+  many changes are waiting for approval.
 - **Search at the top**: finds devices by name, serial number or asset tag, IP addresses, MAC addresses (even
   partial, even in Cisco format `aabb.ccdd.eeff`) and DNS names.
 - **Live status dots** next to the search: how many devices respond (green) and how many don't (red). Click them to
   open the list of devices in that state.
-- **User menu** on the right: your role, theme, language, change password, API documentation, sign out.
+- **User menu** on the right: your role, preferences, change password, manual, API tokens and documentation, sign out.
 - At the bottom of every page: the installed version and the link to the source code.
 
 **Icon-only buttons** tell you what they do when you hover over them (or long-press on a phone): pencil = edit,

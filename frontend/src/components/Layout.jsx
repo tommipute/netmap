@@ -1,20 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ROLES, useAuth } from '../auth'
 import { usePendingCount, useStatusSummary, useVersion } from '../hooks'
 import { labelOf } from '../options'
-import { NAV, resources } from '../resources'
-import { useTheme } from '../theme'
+import { usePref } from '../prefs'
+import { navGroupOf, navGroups, navItem } from '../resources'
 import PasswordDialog from './PasswordDialog'
+import PrefsDialog from './PrefsDialog'
 import { Icon } from './Icon'
-import { LANG, LANGUAGES, setLang, t, tc } from '../i18n'
+import { LANG, t, tc } from '../i18n'
 import VersionLabel, { repoFileUrl } from './VersionLabel'
 
-const THEMES = [
-  { value: 'system', label: t('Automatico') },
-  { value: 'light', label: t('Chiaro') },
-  { value: 'dark', label: t('Scuro') },
-]
 const ROLE_HELP = {
   viewer: t('Consulta tutto, senza modificare.'),
   editor: t('Modifica i dati e approva le modifiche della scansione.'),
@@ -41,13 +37,13 @@ function StatusChip() {
 const initials = (name) =>
   name.split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?'
 
-/** Utente in alto a destra: menu con ruolo, tema chiaro/scuro, password, manuale, documentazione API, esci. */
+/** Utente in alto a destra: menu con ruolo, preferenze, password, manuale, documentazione API, esci. */
 function UserMenu() {
   const { enabled, user, logout } = useAuth()
   const version = useVersion()
-  const [theme, setTheme] = useTheme()
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState(false)
+  const [prefs, setPrefs] = useState(false)
   const boxRef = useRef(null)
   useEffect(() => {
     if (!open) return undefined
@@ -81,28 +77,9 @@ function UserMenu() {
               {user.source === 'ad' && <p className="hint">{t('Utente di dominio: password e ruolo vengono da Active Directory.')}</p>}
             </div>
           )}
-          <div className="user-menu__section">
-            <span className="hint">{t('Tema')}</span>
-            <div className="segmented" role="group" aria-label={t('Tema')}>
-              {THEMES.map((option) => (
-                <button key={option.value} type="button" className={`segmented__item${theme === option.value ? ' segmented__item--on' : ''}`}
-                  aria-pressed={theme === option.value} onClick={() => setTheme(option.value)}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="user-menu__section">
-            <span className="hint">{t('Lingua')}</span>
-            <div className="segmented" role="group" aria-label={t('Lingua')}>
-              {LANGUAGES.map((option) => (
-                <button key={option.value} type="button" className={`segmented__item${LANG === option.value ? ' segmented__item--on' : ''}`}
-                  aria-pressed={LANG === option.value} onClick={() => LANG !== option.value && setLang(option.value)}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <button type="button" role="menuitem" className="user-menu__item" onClick={() => { setOpen(false); setPrefs(true) }}>
+            <Icon name="sliders" /> {t('Preferenze')}
+          </button>
           <div className="user-menu__sep" />
           {signedIn && user.source !== 'ad' && (
             <button type="button" role="menuitem" className="user-menu__item" onClick={() => { setOpen(false); setDialog(true) }}>
@@ -132,15 +109,152 @@ function UserMenu() {
         </div>
       )}
       {dialog && <PasswordDialog onClose={() => setDialog(false)} />}
+      {prefs && <PrefsDialog onClose={() => setPrefs(false)} />}
     </div>
+  )
+}
+
+const NARROW = '(max-width: 860px)'
+
+/** Schermo stretto (telefono): il menu sta sempre in alto. */
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW).matches)
+  useEffect(() => {
+    const query = window.matchMedia(NARROW)
+    const change = () => setNarrow(query.matches)
+    query.addEventListener('change', change)
+    return () => query.removeEventListener('change', change)
+  }, [])
+  return narrow
+}
+
+const Badge = ({ count }) => count > 0 && (
+  <span className="nav-badge" aria-label={t('{n} in attesa', { n: count })}>{count > 999 ? '999+' : count}</span>
+)
+
+/** Voci di un gruppo: link alle pagine, con il numero in attesa dove serve. */
+function NavItems({ group, badges, onPick }) {
+  return group.items.map(navItem).map(({ to, title, badge }) => (
+    <NavLink key={to} to={`/${to}`} className="nav-link" onClick={onPick}>
+      {title}
+      <Badge count={badge ? badges[badge] : 0} />
+    </NavLink>
+  ))
+}
+
+const groupCount = (group, badges) => group.items.map(navItem).reduce((n, item) => n + (item.badge ? badges[item.badge] || 0 : 0), 0)
+
+const Brand = () => (
+  <NavLink to="/" className="brand" aria-label={t('NetMap, vai alla pagina iniziale')}>
+    <span className="brand__mark" aria-hidden="true">
+      <span />
+      <span />
+    </span>
+    NetMap
+  </NavLink>
+)
+
+/** Menu a lato: solo i nomi delle sezioni; un clic apre la sezione (una alla volta). Quella della pagina aperta
+ * si apre da sola. */
+function SideNav({ groups, badges }) {
+  const { pathname } = useLocation()
+  const current = navGroupOf(groups, pathname)?.title
+  const [open, setOpen] = useState(current)
+  useEffect(() => {
+    if (current) setOpen(current)
+  }, [current])
+
+  return (
+    <aside className="sidebar">
+      <Brand />
+      <nav aria-label={t('Sezioni')}>
+        {groups.map((group) => {
+          const expanded = open === group.title
+          return (
+            <div key={group.title} className={`nav-group${expanded ? ' nav-group--open' : ''}`}>
+              <button type="button" className={`nav-group__title${current === group.title ? ' nav-group__title--current' : ''}`}
+                aria-expanded={expanded} onClick={() => setOpen(expanded ? null : group.title)}>
+                <span>{group.title}</span>
+                {!expanded && <Badge count={groupCount(group, badges)} />}
+                <Icon name={expanded ? 'up' : 'down'} size={14} />
+              </button>
+              {expanded && <div className="nav-group__items"><NavItems group={group} badges={badges} /></div>}
+            </div>
+          )
+        })}
+      </nav>
+    </aside>
+  )
+}
+
+/** Menu in alto: i nomi delle sezioni in una barra; un clic apre la tendina con le pagine. */
+function TopNav({ groups, badges }) {
+  const { pathname } = useLocation()
+  const current = navGroupOf(groups, pathname)?.title
+  const [open, setOpen] = useState(null)
+  const [left, setLeft] = useState(0)
+  const boxRef = useRef(null)
+  const panelRef = useRef(null)
+
+  useEffect(() => setOpen(null), [pathname])
+  useEffect(() => {
+    if (!open) return undefined
+    const close = (e) => !boxRef.current?.contains(e.target) && setOpen(null)
+    const esc = (e) => e.key === 'Escape' && setOpen(null)
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  // La tendina resta dentro lo schermo anche sotto le ultime sezioni
+  useEffect(() => {
+    if (!open || !panelRef.current || !boxRef.current) return
+    const box = boxRef.current.getBoundingClientRect()
+    const max = box.width - panelRef.current.offsetWidth - 8
+    setLeft((l) => Math.max(8, Math.min(l, max)))
+  }, [open])
+
+  const toggle = (e, title) => {
+    if (open === title) return setOpen(null)
+    const box = boxRef.current.getBoundingClientRect()
+    setLeft(e.currentTarget.getBoundingClientRect().left - box.left)
+    return setOpen(title)
+  }
+  const group = groups.find((g) => g.title === open)
+
+  return (
+    <header className="topnav" ref={boxRef}>
+      <Brand />
+      <nav className="topnav__groups" aria-label={t('Sezioni')}>
+        {groups.map((g) => (
+          <button key={g.title} type="button" aria-expanded={open === g.title} aria-haspopup="true"
+            className={`topnav__group${current === g.title ? ' topnav__group--current' : ''}`} onClick={(e) => toggle(e, g.title)}>
+            {g.title}
+            <Badge count={groupCount(g, badges)} />
+            <Icon name="down" size={14} />
+          </button>
+        ))}
+      </nav>
+      {group && (
+        <div className="topnav__panel" ref={panelRef} style={{ left }}>
+          <NavItems group={group} badges={badges} onPick={() => setOpen(null)} />
+        </div>
+      )}
+    </header>
   )
 }
 
 export default function Layout() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const [menu] = usePref('menu')
+  const narrow = useNarrow()
   const [query, setQuery] = useState('')
   const badges = { pending: usePendingCount() }
+  const groups = navGroups(isAdmin)
+  const top = narrow || menu === 'top'
 
   const search = (e) => {
     e.preventDefault()
@@ -149,37 +263,8 @@ export default function Layout() {
   }
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <NavLink to="/" className="brand" aria-label={t('NetMap, vai alle mappe')}>
-          <span className="brand__mark" aria-hidden="true">
-            <span />
-            <span />
-          </span>
-          NetMap
-        </NavLink>
-        <nav aria-label={t('Sezioni')}>
-          {NAV.filter((group) => !group.admin || isAdmin).map((group) => (
-            <div key={group.title} className="nav-group">
-              <p className="nav-group__title">{group.title}</p>
-              {group.items.map((item) => {
-                const { to, title, badge } = typeof item === 'string' ? { to: resources[item].path, title: resources[item].title } : item
-                const count = badge ? badges[badge] : 0
-                return (
-                  <NavLink key={to} to={`/${to}`} className="nav-link">
-                    {title}
-                    {count > 0 && (
-                      <span className="nav-badge" aria-label={t('{n} in attesa', { n: count })}>
-                        {count > 999 ? '999+' : count}
-                      </span>
-                    )}
-                  </NavLink>
-                )
-              })}
-            </div>
-          ))}
-        </nav>
-      </aside>
+    <div className={`shell${top ? ' shell--top' : ''}`}>
+      {top ? <TopNav groups={groups} badges={badges} /> : <SideNav groups={groups} badges={badges} />}
       <div className="main">
         <header className="topbar">
           <form className="topbar__search" role="search" onSubmit={search}>

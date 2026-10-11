@@ -19,8 +19,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Avvisi con le modifiche ai dati: un canale (email, Teams, Telegram…) può mandare anche le modifiche dello storico
   in un messaggio leggibile ("✏️ mrossi ha modificato il device sw-01: Stato planned → active"), filtrate per tipo di
   oggetto e azione, senza perderne nessuna se il canale non risponde.
+- Preferenze (menu utente → Preferenze): tema, lingua, posizione del menu (a lato o in alto), pagina iniziale e
+  righe per pagina negli elenchi. Valgono subito e restano nel browser.
 
 ### Modifiche
+
+- Menu: si vedono solo i nomi delle sezioni e un clic apre la sezione (a lato una alla volta, quella della pagina
+  aperta è già aperta); in alto le pagine compaiono in una tendina. Su telefono il menu sta sempre in alto.
+- Tema e lingua passano dal menu utente al nuovo dialogo Preferenze.
 
 - Menu: Avvisi si sposta da Amministrazione al nuovo gruppo "Avvisi e integrazioni", insieme a Webhook e Token API.
 - Import: le sedi o i gruppi da importare si scelgono da un menu con ricerca (vanno bene anche centinaia di

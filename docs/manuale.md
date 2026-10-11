@@ -37,23 +37,32 @@ Apri l'indirizzo di NetMap nel browser (per esempio `https://netmap.azienda.loca
 chiede di creare l'**amministratore**: nome utente, nome, cognome e password (almeno 8 caratteri). Da quel momento
 si entra con nome utente e password; la sessione dura 12 ore, poi si rientra.
 
-Nella pagina di accesso e nel menu utente (in alto a destra) scegli:
+Nella pagina di accesso scegli la **lingua** (italiano o inglese). Dopo l'accesso, menu utente (in alto a
+destra) → **Preferenze**:
 
-- **Lingua**: italiano o inglese. Vale per il browser che stai usando.
 - **Tema**: chiaro, scuro o automatico (segue il sistema operativo).
+- **Lingua**: italiano o inglese.
+- **Menu**: a lato (a sinistra) o in alto. Su telefono sta sempre in alto.
+- **Pagina iniziale**: quella che si apre entrando in NetMap o cliccando il logo (di solito le mappe).
+- **Righe per pagina** negli elenchi: 25, 50, 100 o 200.
+
+Le preferenze valgono subito e restano nel browser che stai usando: su un altro computer si scelgono di nuovo.
 
 Dopo 5 password sbagliate di fila sullo stesso utente bisogna aspettare un minuto, e l'attesa raddoppia a ogni
 errore successivo (fino a 15 minuti). È una protezione contro chi prova password a caso: aspetta e riprova.
 
 ## 2. Come è fatta l'interfaccia
 
-- **Menu a sinistra**, diviso in sezioni: Rete, Luoghi, Indirizzamento, Catalogo, Scansione SNMP, Attività e (solo
-  per gli amministratori) Amministrazione. Su telefono diventa una barra in alto che scorre di lato.
+- **Menu**, diviso in sezioni: Rete, Luoghi, Indirizzamento, Catalogo, Scansione SNMP, Attività e (solo per gli
+  amministratori) Avvisi e integrazioni, Amministrazione. Si vedono solo i nomi delle sezioni: cliccandone una si
+  apre con le sue pagine. A lato si apre una sezione alla volta e quella della pagina in cui sei è già aperta; in
+  alto (vedi Preferenze, e sempre su telefono) le pagine compaiono in una tendina. Il numero arancione accanto a
+  Scansione SNMP dice quante modifiche aspettano l'approvazione.
 - **Ricerca in alto**: trova device per nome, numero di serie o asset tag, indirizzi IP, MAC address (anche solo
   una parte, anche nel formato Cisco `aabb.ccdd.eeff`) e nomi DNS.
 - **Pallini dello stato live** accanto alla ricerca: quanti device rispondono (verde) e quanti no (rosso).
   Cliccandoli apri l'elenco dei device in quello stato.
-- **Menu utente** a destra: il tuo ruolo, tema, lingua, cambio password, documentazione delle API, esci.
+- **Menu utente** a destra: il tuo ruolo, preferenze, cambio password, manuale, token e documentazione delle API, esci.
 - In fondo a ogni pagina: la versione installata e il link al codice sorgente.
 
 I **pulsanti con la sola icona** dicono cosa fanno quando ci passi sopra con il mouse (o tieni premuto su

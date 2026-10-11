@@ -15,10 +15,10 @@ import ResourceForm from '../components/ResourceForm'
 import { ColumnFilter, ColumnsMenu, filterParams, filterSpec, sortFieldOf, useTableColumns } from '../components/TableTools'
 import { invalidate, useApi, useDebounced } from '../hooks'
 import { labelOf } from '../options'
+import { usePref } from '../prefs'
 import { resources } from '../resources'
 import { t, tn } from '../i18n'
 
-const LIMIT = 50
 
 // view.tree: elenco nell'ordine predefinito (es. posizioni ad albero), non ordinato per una colonna
 function Cell({ column, row, view }) {
@@ -81,7 +81,9 @@ export default function ResourcePage({ resourceKey }) {
       return next
     }, { replace: true })
   const [offset, setOffset] = useState(0)
-  useEffect(() => setOffset(0), [filtersKey])
+  const [pageSize] = usePref('pageSize')
+  const limit = Number(pageSize)
+  useEffect(() => setOffset(0), [filtersKey, limit])
   const [editing, setEditing] = useState(null) // null | 'new' | elemento
   const [importing, setImporting] = useState(false)
   const [probing, setProbing] = useState(false)
@@ -105,7 +107,7 @@ export default function ResourcePage({ resourceKey }) {
   const columnQuery = useMemo(() => JSON.parse(columnQueryKey), [columnQueryKey])
 
   const { data, error, loading, reload } = useApi(
-    `/${config.path}${qs({ limit: LIMIT, offset, q, ...filters, ...columnQuery, sort })}`,
+    `/${config.path}${qs({ limit, offset, q, ...filters, ...columnQuery, sort })}`,
   )
   const filtered = Boolean(q) || Object.values(filters).some((v) => v !== '' && v !== undefined) || columnQueryKey !== '{}'
 
@@ -399,13 +401,13 @@ export default function ResourcePage({ resourceKey }) {
         </div>
       )}
 
-      {data && data.total > LIMIT && (
+      {data && data.total > limit && (
         <div className="pager">
-          <IconButton icon="prev" label={t('Pagina precedente')} small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))} />
+          <IconButton icon="prev" label={t('Pagina precedente')} small className="btn--ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - limit))} />
           <span>
-            {offset + 1}–{Math.min(offset + LIMIT, data.total)} di {data.total}
+            {offset + 1}–{Math.min(offset + limit, data.total)} di {data.total}
           </span>
-          <IconButton icon="next" label={t('Pagina successiva')} small className="btn--ghost" disabled={offset + LIMIT >= data.total} onClick={() => setOffset(offset + LIMIT)} />
+          <IconButton icon="next" label={t('Pagina successiva')} small className="btn--ghost" disabled={offset + limit >= data.total} onClick={() => setOffset(offset + limit)} />
         </div>
       )}
 
