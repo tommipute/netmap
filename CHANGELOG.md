@@ -6,6 +6,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Modifiche
+
+- Menu: i nomi delle sezioni sono tutti nel colore d'accento (prima solo quello della sezione aperta cambiava colore,
+  e passando da una sezione all'altra ci si perdeva); la pagina aperta resta evidenziata.
+
 ## [1.2.0] - 2026-10-11
 
 Integrazioni e interfaccia: token API per script e altri programmi, webhook delle modifiche, modifiche ai dati anche

@@ -184,7 +184,7 @@ function SideNav({ groups, badges }) {
           const expanded = isOpen(group.title)
           return (
             <div key={group.title} className={`nav-group${expanded ? ' nav-group--open' : ''}`}>
-              <button type="button" className={`nav-group__title${current === group.title ? ' nav-group__title--current' : ''}`}
+              <button type="button" className="nav-group__title"
                 aria-expanded={expanded} onClick={() => toggle(group.title)}>
                 <span>{group.title}</span>
                 {!expanded && <Badge count={groupCount(group, badges)} />}
