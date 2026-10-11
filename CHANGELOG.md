@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.2.0] - 2026-10-11
+
+Integrazioni e interfaccia: token API per script e altri programmi, webhook delle modifiche, modifiche ai dati anche
+negli avvisi, menu a sezioni (a lato o in alto) e preferenze salvate per utente. Nessun cambiamento incompatibile:
+l'aggiornamento applica da solo le migration del database.
+
 ### Novità
 
 - Token API: chiavi di lunga durata per script e altri programmi (menu utente → Token API), con nome, scadenza
@@ -13,8 +19,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   modifiche fatte con un token finiscono nello storico con l'origine "API". Cambiare la password o disattivare
   l'utente revoca i suoi token.
 - Webhook (Avvisi e integrazioni → Webhook): NetMap manda le modifiche dello storico a un programma appena
-  succedono, in JSON con firma HMAC facoltativa (chiave generata con un pulsante) e intestazioni in più salvate cifrate (es. `Authorization`, per le
-  API di ServiceNow, Splunk e simili), filtrate per tipo di oggetto e azione; se il programma non risponde riprova
+  succedono, in JSON con firma HMAC facoltativa (chiave generata con un pulsante) e intestazioni in più salvate
+  cifrate (es. `Authorization`, per le API di ServiceNow, Splunk e simili), filtrate per tipo di oggetto e azione; se il programma non risponde riprova
   senza perderne nessuna. Pulsante per il messaggio di prova.
 - Avvisi con le modifiche ai dati: un canale (email, Teams, Telegram…) può mandare anche le modifiche dello storico
   in un messaggio leggibile ("✏️ mrossi ha modificato il device sw-01: Stato planned → active"), filtrate per tipo di
@@ -30,7 +36,6 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Menu: si vedono solo i nomi delle sezioni e un clic apre la sezione (a lato una alla volta, quella della pagina
   aperta è già aperta); in alto le pagine compaiono in una tendina. Su telefono il menu sta sempre in alto.
 - Tema e lingua passano dal menu utente al nuovo dialogo Preferenze.
-
 - Menu: Avvisi si sposta da Amministrazione al nuovo gruppo "Avvisi e integrazioni", insieme a Webhook e Token API.
 - Import: le sedi o i gruppi da importare si scelgono da un menu con ricerca (vanno bene anche centinaia di
   gruppi): quelli scelti diventano bolle con la ×, "Aggiungi tutti i N trovati" prende tutti quelli della ricerca e
