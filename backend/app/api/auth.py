@@ -21,7 +21,7 @@ from app.database import get_db
 from app.models import ApiToken, User
 from app.services import directory
 from app.models.enums import UserRole, UserSource
-from app.schemas.auth import AuthStatus, LoginRequest, LoginResult, PasswordChange, SetupRequest, UserRead
+from app.schemas.auth import AuthStatus, LoginRequest, LoginResult, MeRead, PasswordChange, Preferences, SetupRequest
 
 COOKIE = "netmap_session"
 READ_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -123,7 +123,7 @@ def _start_session(response: Response, user: User, db: Session) -> dict:
         COOKIE, token, max_age=settings.session_hours * 3600, httponly=True, samesite="lax",
         secure=settings.cookie_secure, path="/",
     )
-    return {"user": UserRead.model_validate(user), "token": token}
+    return {"user": MeRead.model_validate(user), "token": token}
 
 
 def _users_count(db: Session) -> int:
@@ -229,11 +229,21 @@ def logout():
     return response
 
 
-@router.get("/me", response_model=UserRead, summary="Utente collegato")
+@router.get("/me", response_model=MeRead, summary="Utente collegato")
 def me(user: User | None = Depends(current_user)):
     if user is None:
         raise HTTPException(404, "Login disattivato (AUTH_ENABLED=false)")
     return user
+
+
+@router.put("/me/preferences", response_model=Preferences, summary="Salva le proprie preferenze dell'interfaccia",
+            description="Tutte insieme (sostituiscono quelle salvate): chiavi `netmap.*` come nel browser, valori testo.")
+def save_preferences(payload: Preferences, user: User | None = Depends(no_api_token), db: Session = Depends(get_db)):
+    if user is None:
+        raise HTTPException(404, "Login disattivato (AUTH_ENABLED=false)")
+    user.preferences = payload
+    db.commit()
+    return user.preferences
 
 
 @router.post("/password", response_model=LoginResult, summary="Cambia la propria password")

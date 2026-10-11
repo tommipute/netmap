@@ -1,4 +1,5 @@
 import { LOCALE, t, tc } from './i18n'
+import { getPref } from './prefs'
 
 export const DEVICE_STATUS = [
   { value: 'active', label: t('Attivo') },
@@ -124,9 +125,25 @@ export const CHANGE_ACTIONS = {
 }
 
 /** "2026-10-05T20:31:52Z" -> "05/10/26, 22:31" */
-export function formatDateTime(value) {
+const RELATIVE_UNITS = [[60, 'second'], [3600, 'minute'], [86400, 'hour'], [7 * 86400, 'day']]
+
+/**
+ * Data e ora come scelto nelle preferenze: ora a 24 o 12 ore; "relative" = "3 ore fa" nell'ultima settimana.
+ * exact: sempre la data completa (es. la data di stampa).
+ */
+export function formatDateTime(value, { exact = false } = {}) {
   if (!value) return '—'
-  return new Date(value).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })
+  const date = new Date(value)
+  if (!exact && getPref('dates') === 'relative') {
+    const seconds = (date.getTime() - Date.now()) / 1000
+    const found = RELATIVE_UNITS.findIndex(([limit]) => Math.abs(seconds) < limit)
+    if (found >= 0) {
+      const rtf = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' })
+      if (found === 0) return rtf.format(0, 'second')
+      return rtf.format(Math.round(seconds / RELATIVE_UNITS[found - 1][0]), RELATIVE_UNITS[found][1])
+    }
+  }
+  return date.toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short', hour12: getPref('clock') === '12' })
 }
 
 /** Durata tra due date: "45 s", "3 min" */

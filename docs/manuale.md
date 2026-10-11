@@ -40,13 +40,19 @@ si entra con nome utente e password; la sessione dura 12 ore, poi si rientra.
 Nella pagina di accesso scegli la **lingua** (italiano o inglese). Dopo l'accesso, menu utente (in alto a
 destra) → **Preferenze**:
 
-- **Tema**: chiaro, scuro o automatico (segue il sistema operativo).
-- **Lingua**: italiano o inglese.
-- **Menu**: a lato (a sinistra) o in alto. Su telefono sta sempre in alto.
-- **Pagina iniziale**: quella che si apre entrando in NetMap o cliccando il logo (di solito le mappe).
-- **Righe per pagina** negli elenchi: 25, 50, 100 o 200.
+- **Aspetto**: tema chiaro, scuro o automatico (segue il sistema operativo); densità normale o **compatta**
+  (righe e pulsanti più bassi, più dati sullo schermo); lingua italiano o inglese.
+- **Menu**: a lato (a sinistra) o in alto (su telefono sta sempre in alto). A lato, le sezioni si aprono **una alla
+  volta** oppure sono **tutte aperte** come un elenco unico. **Pagina iniziale**: quella che si apre entrando in
+  NetMap o cliccando il logo (di solito le mappe).
+- **Elenchi e date**: righe per pagina (25, 50, 100 o 200); date complete o **"3 ore fa"** (per l'ultima settimana);
+  ora a 24 o 12 ore.
+- **Mappa e stato live**: quali caselle della mappa (Posizioni, Endpoint, Sfondo) sono accese quando la apri, e se
+  la mappa ricorda l'ultima scelta che fai lì; ogni quanto si aggiornano i pallini dello stato live (15 secondi,
+  30 secondi, 1 minuto, 5 minuti o mai: allora solo con il pulsante Aggiorna).
 
-Le preferenze valgono subito e restano nel browser che stai usando: su un altro computer si scelgono di nuovo.
+Le preferenze valgono subito e sono salvate **per il tuo utente**: le ritrovi su ogni computer da cui entri (anche
+le colonne scelte nelle tabelle). Con il login disattivato restano nel browser.
 
 Dopo 5 password sbagliate di fila sullo stesso utente bisogna aspettare un minuto, e l'attesa raddoppia a ogni
 errore successivo (fino a 15 minuti). È una protezione contro chi prova password a caso: aspetta e riprova.
@@ -77,8 +83,8 @@ Ogni voce del menu apre un elenco con:
 - **filtri sulle colonne** (pulsante a imbuto): una riga sotto le intestazioni per filtrare colonna per colonna;
   "(vuoto)" trova gli elementi senza quel dato;
 - **ordinamento** cliccando l'intestazione di una colonna;
-- **colonne** da mostrare, nascondere e riordinare (pulsante "Colonne della tabella"): la scelta resta salvata nel
-  browser;
+- **colonne** da mostrare, nascondere e riordinare (pulsante "Colonne della tabella"): la scelta resta salvata per
+  il tuo utente;
 - **selezione multipla** con le caselle a sinistra: poi puoi eliminare o modificare in blocco i selezionati (per
   esempio spostare 20 device in un'altra posizione o cambiare il ruolo a tutti).
 
@@ -321,7 +327,7 @@ serve perché il loro nome resti libero.
   primi sei, **e altri N** apre l'elenco completo dello switch. La scheda sta a destra del device, oppure a sinistra
   o sotto se lì c'è posto; con **Disponi** ogni switch con endpoint lascia spazio per la sua. Gli apparati che sono
   già device della mappa non compaiono.
-- **Stato live**: il pallino sul device è verde se risponde, rosso se no; lo stato si aggiorna da solo ogni 30 secondi. Per vedere subito device o
+- **Stato live**: il pallino sul device è verde se risponde, rosso se no; lo stato si aggiorna da solo ogni 30 secondi (si cambia nelle Preferenze). Per vedere subito device o
   cavi aggiunti da un'altra pagina usa **Aggiorna la mappa** (le due frecce in alto).
 - **Esporta**: immagine PNG, disegno SVG, oppure stampa / PDF.
 

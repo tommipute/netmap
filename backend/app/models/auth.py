@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, false, true
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base, JSONType, TimestampMixin
 from app.models.enums import DirectorySecurity, UserRole, UserSource
 
 
@@ -25,6 +25,8 @@ class User(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # local = password in NetMap; ad = utente di dominio: password e ruolo vengono da Active Directory a ogni accesso
     source: Mapped[str] = mapped_column(String(20), default=UserSource.LOCAL.value, server_default=UserSource.LOCAL.value)
+    # Preferenze dell'interfaccia {chiave del browser "netmap.*": valore}: seguono l'utente su ogni computer
+    preferences: Mapped[dict] = mapped_column(JSONType, default=dict, server_default="{}")
 
     @validates("first_name", "last_name")
     def _names(self, key: str, value: str | None) -> str | None:

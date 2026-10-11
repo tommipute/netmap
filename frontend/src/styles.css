@@ -557,9 +557,12 @@ textarea.input { resize: vertical; min-height: 72px; }
 .user-menu__head strong { display: block; }
 .user-menu__head .hint { margin-top: 4px; }
 /* Preferenze */
-.prefs { display: flex; flex-direction: column; gap: 16px; }
-.prefs .modal__footer { margin-top: 0; }
+.prefs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 28px; margin-bottom: 14px; }
+.prefs__group { display: flex; flex-direction: column; gap: 14px; }
+.prefs__group h3 { margin: 0; font-size: 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .prefs__row { display: flex; flex-direction: column; gap: 6px; }
+.prefs__checks { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+@media (max-width: 860px) { .prefs { grid-template-columns: minmax(0, 1fr); } }
 .prefs__row .segmented { display: flex; }
 .prefs__row .segmented__item { flex: 1; }
 .user-menu__item {
@@ -803,6 +806,23 @@ body.is-dragging, body.is-dragging * { user-select: none; cursor: grabbing !impo
 }
 
 /* ---------- Schermi piccoli ---------- */
+/* ---------- Densità compatta (preferenze): più righe sullo schermo ---------- */
+:root[data-density="compact"] .page { padding: 16px 24px 32px; }
+:root[data-density="compact"] .page-head { margin-bottom: 12px; }
+:root[data-density="compact"] .table th { padding: 6px 10px; }
+:root[data-density="compact"] .table td { padding: 4px 10px; }
+:root[data-density="compact"] .input { min-height: 30px; padding: 4px 8px; }
+:root[data-density="compact"] .btn { min-height: 30px; padding: 3px 10px; }
+:root[data-density="compact"] .btn--icon { padding: 3px 7px; }
+:root[data-density="compact"] .btn--icon.btn--sm { padding: 2px 5px; min-width: 26px; }
+:root[data-density="compact"] .topbar { height: 46px; }
+:root[data-density="compact"] .topbar__search .input { height: 30px; }
+:root[data-density="compact"] .nav-link { padding: 4px 8px; }
+:root[data-density="compact"] .nav-group__title { padding: 5px 8px; }
+:root[data-density="compact"] .topnav__group { padding: 8px 10px; }
+:root[data-density="compact"] .facts { gap: 8px 20px; padding: 10px 14px; margin-bottom: 18px; }
+:root[data-density="compact"] .form__grid { gap: 10px 14px; }
+
 @media (max-width: 860px) {
   .topnav { padding: 0 8px; gap: 4px; }
   .page { padding: 18px 16px 40px; }

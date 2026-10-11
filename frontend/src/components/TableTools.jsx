@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOptions } from '../hooks'
 import { resources } from '../resources'
+import { readLocal, store } from '../storage'
 import { IconButton } from './Icon'
 import { t } from '../i18n'
 
@@ -21,7 +22,7 @@ const storageKey = (resourceKey) => `netmap.table.${resourceKey}`
 
 function readSaved(resourceKey) {
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey(resourceKey)) || 'null')
+    const saved = JSON.parse(readLocal(storageKey(resourceKey)) || 'null')
     return Array.isArray(saved) ? saved : null
   } catch {
     return null
@@ -44,12 +45,7 @@ export function useTableColumns(resourceKey, columns) {
     const defaults = columns.map((c) => ({ name: c.name, visible: !c.hidden }))
     if (plain && JSON.stringify(plain) === JSON.stringify(defaults)) plain = null
     setSaved(plain)
-    try {
-      if (plain) localStorage.setItem(storageKey(resourceKey), JSON.stringify(plain))
-      else localStorage.removeItem(storageKey(resourceKey))
-    } catch {
-      // senza storage la scelta vale solo per questa pagina
-    }
+    store(storageKey(resourceKey), plain ? JSON.stringify(plain) : null)
   }
   // Anche una scelta salvata prima di questa regola, se coincide con la predefinita, non accende il pulsante
   const plain = JSON.stringify(layout.map((l) => ({ name: l.column.name, visible: l.visible })))

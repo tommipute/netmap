@@ -19,8 +19,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Avvisi con le modifiche ai dati: un canale (email, Teams, Telegram…) può mandare anche le modifiche dello storico
   in un messaggio leggibile ("✏️ mrossi ha modificato il device sw-01: Stato planned → active"), filtrate per tipo di
   oggetto e azione, senza perderne nessuna se il canale non risponde.
-- Preferenze (menu utente → Preferenze): tema, lingua, posizione del menu (a lato o in alto), pagina iniziale e
-  righe per pagina negli elenchi. Valgono subito e restano nel browser.
+- Preferenze (menu utente → Preferenze): tema, densità compatta, lingua, posizione del menu (a lato o in alto) e
+  sezioni una alla volta o tutte aperte, pagina iniziale, righe per pagina negli elenchi, date complete o "3 ore fa",
+  ora a 24 o 12 ore, caselle della mappa accese all'apertura (e se ricordare l'ultima scelta), ogni quanto si
+  aggiorna lo stato live (anche mai). Valgono subito e sono salvate per l'utente, insieme alle colonne scelte nelle
+  tabelle: si ritrovano su ogni computer.
 
 ### Modifiche
 

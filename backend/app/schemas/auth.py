@@ -47,6 +47,26 @@ class UserRead(ReadSchema):
     last_login_at: datetime | None = None
 
 
+PREFERENCES_MAX = 64 * 1024
+
+
+def _preferences(value: dict[str, str]) -> dict[str, str]:
+    if any(not key.startswith("netmap.") or len(key) > 100 for key in value):
+        raise ValueError("Le chiavi delle preferenze iniziano con netmap. (al massimo 100 caratteri)")
+    if len(value) > 200 or sum(len(k) + len(v) for k, v in value.items()) > PREFERENCES_MAX:
+        raise ValueError("Preferenze troppo grandi")
+    return value
+
+
+Preferences = Annotated[dict[str, str], AfterValidator(_preferences)]
+
+
+class MeRead(UserRead):
+    """L'utente collegato, con le sue preferenze dell'interfaccia."""
+
+    preferences: dict[str, str] = Field(default_factory=dict)
+
+
 class LoginRequest(BaseModel):
     username: str = Field(..., max_length=100)
     password: str = Field(..., max_length=200)
@@ -73,7 +93,7 @@ class AuthStatus(BaseModel):
 class LoginResult(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    user: UserRead
+    user: MeRead
     token: str = Field(..., description="Anche come cookie: serve solo a script e integrazioni (Authorization: Bearer)")
 
 

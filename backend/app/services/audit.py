@@ -56,7 +56,7 @@ IGNORED = {
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
     "last_login_at", "host", "sort_key", "path", "source", "last_sent_at", "last_error",
     "last_copy_at", "last_error_at", "host_key", "full_name", "oper_changed_at", "cursor", "gaps", "last_used_at",
-    "last_used_ip", "user_version", "prefix", "change_cursor", "change_gaps",
+    "last_used_ip", "user_version", "prefix", "change_cursor", "change_gaps", "preferences",
 }
 # Eccezioni a IGNORED per un modello: l'indirizzo di una destinazione dei backup conta (host degli IP no)
 NOT_IGNORED: dict[type, set[str]] = {BackupTarget: {"host"}}

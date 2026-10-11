@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, qs } from './api'
+import { refreshMs, usePref } from './prefs'
 
 // Cache delle liste usate nei menu a tendina (sedi, ruoli, VLAN...). Si svuota dopo ogni modifica.
 const cache = new Map()
@@ -117,9 +118,10 @@ export function usePendingCount() {
   return count
 }
 
-/** Riepilogo dello stato live (su/giù): si aggiorna ogni 30 s. */
+/** Riepilogo dello stato live (su/giù): si aggiorna come scelto nelle preferenze (di solito ogni 30 s). */
 export function useStatusSummary() {
   const [summary, setSummary] = useState(null)
+  const [refresh] = usePref('refresh')
   useEffect(() => {
     let alive = true
     const load = () =>
@@ -128,12 +130,12 @@ export function useStatusSummary() {
         .then((data) => alive && setSummary(data))
         .catch(() => {})
     load()
-    const timer = setInterval(load, 30000)
+    const timer = refreshMs(refresh) ? setInterval(() => !document.hidden && load(), refreshMs(refresh)) : null
     return () => {
       alive = false
       clearInterval(timer)
     }
-  }, [])
+  }, [refresh])
   return summary
 }
 

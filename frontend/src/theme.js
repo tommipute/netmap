@@ -3,33 +3,19 @@
  * nel browser. Il CSS usa :root[data-theme] (vedi styles.css); index.html la applica prima del primo disegno.
  */
 import { useEffect, useState } from 'react'
+import { applyDocument, readLocal, store } from './storage'
 
 const KEY = 'netmap.theme'
 const listeners = new Set()
 
 export function getTheme() {
-  try {
-    const value = localStorage.getItem(KEY)
-    return value === 'light' || value === 'dark' ? value : 'system'
-  } catch {
-    return 'system'
-  }
-}
-
-function apply(theme) {
-  const root = document.documentElement
-  if (theme === 'system') delete root.dataset.theme
-  else root.dataset.theme = theme
+  const value = readLocal(KEY)
+  return value === 'light' || value === 'dark' ? value : 'system'
 }
 
 export function setTheme(theme) {
-  try {
-    if (theme === 'system') localStorage.removeItem(KEY)
-    else localStorage.setItem(KEY, theme)
-  } catch {
-    // senza storage la scelta vale finché la pagina resta aperta
-  }
-  apply(theme)
+  store(KEY, theme === 'system' ? null : theme)
+  applyDocument()
   listeners.forEach((fn) => fn(theme))
 }
 

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
+import { startSync, stopSync } from './storage'
 import { t, tc } from './i18n'
 
 /** Utente collegato e permessi. Con il login disattivato nel backend tutto è permesso. */
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
       }
       let user = null
       if (!status.setup_required) user = await api.get('/auth/me').catch(() => null)
+      if (user && startSync(user.preferences)) return // lingua diversa: la pagina si ricarica
       setState({ loading: false, enabled: true, setupRequired: status.setup_required, directory: Boolean(status.directory), user, error: null })
     } catch (error) {
       setState((prev) => ({ ...prev, loading: false, error }))
@@ -41,7 +43,10 @@ export function AuthProvider({ children }) {
   }, [refresh])
 
   useEffect(() => {
-    const expired = () => setState((prev) => (prev.enabled ? { ...prev, user: null } : prev))
+    const expired = () => {
+      stopSync()
+      setState((prev) => (prev.enabled ? { ...prev, user: null } : prev))
+    }
     window.addEventListener('netmap:unauthorized', expired)
     return () => window.removeEventListener('netmap:unauthorized', expired)
   }, [])
@@ -52,8 +57,11 @@ export function AuthProvider({ children }) {
       ...state,
       canEdit: !state.enabled || WRITE_ROLES.includes(role),
       isAdmin: !state.enabled || role === 'admin',
-      signedIn: (user) => setState((prev) => ({ ...prev, user, setupRequired: false })),
+      signedIn: (user) => {
+        if (!startSync(user.preferences)) setState((prev) => ({ ...prev, user, setupRequired: false }))
+      },
       logout: async () => {
+        stopSync()
         await api.post('/auth/logout').catch(() => {})
         setState((prev) => ({ ...prev, user: null }))
       },

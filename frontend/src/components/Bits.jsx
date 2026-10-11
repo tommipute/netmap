@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { formatDateTime, formatSince, labelOf, SOURCES } from '../options'
 import { Icon } from './Icon'
-import { LOCALE, t } from '../i18n'
+import { t } from '../i18n'
 
 const TONE = {
   active: 'ok',
@@ -77,7 +77,7 @@ export function LiveStatus({ device, long = false }) {
 /** Riga che compare solo sul foglio stampato: quando e chi ha stampato. */
 export function PrintFooter() {
   const { user } = useAuth()
-  const when = new Date().toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })
+  const when = formatDateTime(new Date(), { exact: true })
   return (
     <p className="print-only print-footer">
       {user ? t('Stampato da NetMap il {when} da {user}', { when, user: user.full_name || user.username }) : t('Stampato da NetMap il {when}', { when })}

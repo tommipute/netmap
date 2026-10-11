@@ -8,6 +8,7 @@
  * tServer() traduce i testi che arrivano dal server (errori, riepiloghi della scansione, nomi dei campi nello
  * storico): frase esatta oppure uno dei modelli (patterns) di en.js.
  */
+import { store } from '../storage'
 import en from './en'
 
 const KEY = 'netmap.lang'
@@ -30,11 +31,7 @@ export const LOCALE = LANG === 'en' ? 'en-GB' : 'it-IT'
 if (typeof document !== 'undefined') document.documentElement.lang = LANG
 
 export function setLang(lang) {
-  try {
-    localStorage.setItem(KEY, lang)
-  } catch {
-    // senza storage la scelta non resta: si ricarica comunque
-  }
+  store(KEY, lang) // senza storage la scelta non resta: si ricarica comunque
   window.location.reload()
 }
 

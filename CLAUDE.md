@@ -365,7 +365,7 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   occupate rifiutate) o in "Nel rack senza unità" (unità tolta); X nell'elenco = fuori dal rack. Per i membri
   di uno stack si salva `rack_position` del membro (`member_id` nella vista rack). Uscendo dal rack (o cambiando
   rack) `device_hook` svuota le unità dei membri.
-  Mappa: aggiornamento ogni 30 s (senza toccare le posizioni; `buildFlowNodes` riusa gli oggetti dei device già in
+  Mappa: aggiornamento ogni 30 s di default, preferenza `refresh` (senza toccare le posizioni; `buildFlowNodes` riusa gli oggetti dei device già in
   mappa e `load` le parti della vista uguali: ricreandoli i device perdevano `measured` e la mappa lampeggiava) e
   pulsante "Aggiorna la mappa", export PNG/SVG con `html-to-image` (tutta la mappa,
   senza pallini di collegamento; il CSS di Google Fonts ha `crossorigin` apposta per incorporare i font), stampa.
@@ -585,7 +585,7 @@ Stack: Vite 5, React 18, react-router-dom 6, `@xyflow/react` 12 (React Flow), `h
   dei device in mappa più quelle che le contengono): riquadri uno dentro l'altro (edificio › piano › stanza), colore
   per profondità (`.loc-bubble--d0..3`), `zIndex` -10 + profondità (sotto i rack); i cavi le attraversano (non sono
   ostacoli, a differenza dei rack). Clic sul nome = seleziona i device di tutta la posizione. Interruttore
-  "Posizioni" (localStorage `netmap.map.locations`). Con le posizioni accese la disposizione automatica è
+  "Posizioni" (preferenza `mapLocations`, localStorage `netmap.map.locations`). Con le posizioni accese la disposizione automatica è
   `locationLayout` (layout.js): edifici affiancati, i loro figli impilati (anche figli con quota), il resto
   affiancato, tutto centrato; dentro ogni posizione i device propri con `hierarchicalLayout`; senza posizione in alto.
   `Location.floor` = piano/quota: tra posizioni sorelle il numero più alto sta in cima (vuoto = in fondo, per nome).
@@ -671,9 +671,17 @@ come `colorMode`; la stampa usa selettori con la stessa specificità per restare
 Barra in alto: ricerca (300 px), pallini dello stato live con i soli numeri (verde → `?reachable=true`, rosso →
 `?reachable=false`), menu utente a destra (iniziali + nome: ruolo e cosa può fare, preferenze, cambia password,
 documentazione API, esci). Con il login spento il menu resta, con Preferenze e documentazione.
-**Preferenze** (`components/PrefsDialog.jsx`, dal menu utente): tema, lingua, menu, pagina iniziale, righe per
-pagina; valgono subito, salvate nel browser. `prefs.js`: `PREFS` (chiave localStorage `netmap.menu` / `netmap.pageSize`
-/ `netmap.start`, default, valori ammessi), `usePref(name)` aggiorna tutti i componenti. Pagina iniziale: `StartPage`
+**Preferenze** (`components/PrefsDialog.jsx`, dal menu utente): tema, densità, lingua, menu (posizione, sezioni),
+pagina iniziale, righe per pagina, date (complete / relative, 24/12 ore: `formatDateTime`, `exact` per la data di
+stampa; cambiandole `Layout` ridisegna la pagina con la `key` di `<main>`), caselle della mappa all'apertura e
+`mapRemember`, intervallo dello stato live (`refresh`, `refreshMs`: chip in alto e mappa; 0 = mai). `prefs.js`:
+`PREFS` (chiave localStorage, default, valori ammessi), `getPref`/`setPref`, `usePref(name)` aggiorna tutti i
+componenti. **Salvate per utente** (`storage.js`): tutte le chiavi `netmap.*` del browser (anche tema, lingua,
+colonne delle tabelle) si scrivono con `store()`, che le manda subito a `PUT /api/auth/me/preferences`
+(`User.preferences`, JSON; fuori dallo storico; niente token API); `auth.jsx` dopo `/auth/me` o il login chiama
+`startSync(user.preferences)` prima di disegnare l'app: quelle del server sostituiscono quelle del browser (la prima
+volta il contrario), lingua diversa = ricarica. Densità compatta: `:root[data-density="compact"]` (applicata anche
+da `index.html`). Pagina iniziale: `StartPage`
 in `App.jsx` (se l'utente non la vede più nel menu, le mappe). **Menu** (`Layout.jsx`): solo i nomi delle sezioni;
 `SideNav` a fisarmonica (una sezione alla volta, quella della pagina aperta si apre da sola, `navGroupOf`; il numero
 in attesa sta sul nome quando è chiusa), `TopNav` in alto con tendine (si chiudono con clic fuori, Esc o cambio

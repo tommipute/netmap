@@ -154,26 +154,38 @@ const Brand = () => (
   </NavLink>
 )
 
-/** Menu a lato: solo i nomi delle sezioni; un clic apre la sezione (una alla volta). Quella della pagina aperta
- * si apre da sola. */
+/** Menu a lato: solo i nomi delle sezioni; un clic apre o chiude la sezione. Di solito una alla volta, e quella
+ * della pagina aperta si apre da sola; con "tutte aperte" nelle preferenze ognuna si chiude per conto suo. */
 function SideNav({ groups, badges }) {
   const { pathname } = useLocation()
+  const [sections] = usePref('menuSections')
+  const all = sections === 'all'
   const current = navGroupOf(groups, pathname)?.title
-  const [open, setOpen] = useState(current)
+  const [open, setOpen] = useState(current) // una alla volta: quella aperta
+  const [closed, setClosed] = useState(() => new Set()) // tutte aperte: quelle chiuse
   useEffect(() => {
     if (current) setOpen(current)
   }, [current])
+  const isOpen = (title) => (all ? !closed.has(title) : open === title)
+  const toggle = (title) => {
+    if (!all) return setOpen(open === title ? null : title)
+    return setClosed((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(title)) next.add(title)
+      return next
+    })
+  }
 
   return (
     <aside className="sidebar">
       <Brand />
       <nav aria-label={t('Sezioni')}>
         {groups.map((group) => {
-          const expanded = open === group.title
+          const expanded = isOpen(group.title)
           return (
             <div key={group.title} className={`nav-group${expanded ? ' nav-group--open' : ''}`}>
               <button type="button" className={`nav-group__title${current === group.title ? ' nav-group__title--current' : ''}`}
-                aria-expanded={expanded} onClick={() => setOpen(expanded ? null : group.title)}>
+                aria-expanded={expanded} onClick={() => toggle(group.title)}>
                 <span>{group.title}</span>
                 {!expanded && <Badge count={groupCount(group, badges)} />}
                 <Icon name={expanded ? 'up' : 'down'} size={14} />
@@ -250,6 +262,8 @@ export default function Layout() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
   const [menu] = usePref('menu')
+  const [dates] = usePref('dates')
+  const [clock] = usePref('clock')
   const narrow = useNarrow()
   const [query, setQuery] = useState('')
   const badges = { pending: usePendingCount() }
@@ -281,7 +295,8 @@ export default function Layout() {
           <span className="topbar__spacer" />
           <UserMenu />
         </header>
-        <main className="content">
+        {/* Cambiando il formato delle date la pagina si ridisegna */}
+        <main className="content" key={`${dates}-${clock}`}>
           <Outlet />
         </main>
         <footer className="appfoot no-print"><VersionLabel /></footer>

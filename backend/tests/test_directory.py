@@ -179,7 +179,7 @@ def test_accesso_con_utente_di_dominio(client, anonymous, domain):
     me = login(anonymous, "Mario.Rossi", "Mario-2026")
     assert me.status_code == 200, me.text
     assert me.json()["user"] | {"id": 0, "created_at": None, "updated_at": None, "last_login_at": None} == {
-        "id": 0, "username": "mario.rossi", "first_name": "Mario", "last_name": "Rossi", "full_name": "Mario Rossi", "role": "admin", "active": True, "source": "ad",
+        "id": 0, "username": "mario.rossi", "first_name": "Mario", "last_name": "Rossi", "full_name": "Mario Rossi", "role": "admin", "active": True, "source": "ad", "preferences": {},
         "created_at": None, "updated_at": None, "last_login_at": None,
     }
     assert domain.binds[-1] == "Mario.Rossi@prova.lan"

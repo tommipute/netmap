@@ -19,6 +19,7 @@
       try {
         var t = localStorage.getItem('netmap.theme')
         if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
+        if (localStorage.getItem('netmap.density') === 'compact') document.documentElement.dataset.density = 'compact'
       } catch (e) {}
     </script>
     <div id="root"></div>

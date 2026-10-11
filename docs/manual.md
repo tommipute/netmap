@@ -42,13 +42,19 @@ you sign in with user name and password; a session lasts 12 hours.
 On the sign-in page you pick the **language** (Italian or English). After signing in, user menu (top right) →
 **Preferences**:
 
-- **Theme**: light, dark or automatic (follows the operating system).
-- **Language**: Italian or English.
-- **Menu**: at the side (left) or at the top. On a phone it is always at the top.
-- **Start page**: the page that opens when you enter NetMap or click the logo (normally the maps).
-- **Rows per page** in the lists: 25, 50, 100 or 200.
+- **Appearance**: light, dark or automatic theme (follows the operating system); normal or **compact** density
+  (lower rows and buttons, more data on screen); Italian or English language.
+- **Menu**: at the side (left) or at the top (on a phone it is always at the top). At the side, sections open **one
+  at a time** or are **all open** as a single list. **Start page**: the page that opens when you enter NetMap or
+  click the logo (normally the maps).
+- **Lists and dates**: rows per page (25, 50, 100 or 200); full dates or **"3 hours ago"** (for the last week);
+  24-hour or 12-hour time.
+- **Map and live status**: which map boxes (Locations, Endpoints, Background) are on when you open it, and whether
+  the map remembers the last choice you make there; how often the live status dots refresh (15 seconds, 30 seconds,
+  1 minute, 5 minutes or never: then only with the Refresh button).
 
-Preferences apply at once and are kept in the browser you are using: on another computer you choose them again.
+Preferences apply at once and are saved **for your user**: you find them on every computer you sign in from (the
+columns chosen in the tables too). With sign-in disabled they stay in the browser.
 
 After 5 wrong passwords in a row for the same user you have to wait a minute, and the wait doubles with every
 further mistake (up to 15 minutes). It protects against password guessing: wait and try again.
@@ -79,7 +85,7 @@ Every menu item opens a list with:
 - **column filters** (funnel button): a row under the headers to filter column by column; "(empty)" finds items
   without that value;
 - **sorting** by clicking a column header;
-- **columns** to show, hide and reorder (**Table columns** button), remembered by the browser;
+- **columns** to show, hide and reorder (**Table columns** button), remembered for your user;
 - **multiple selection** with the boxes on the left: then delete or edit the selected items in bulk (for example
   move 20 devices to another location or change their role).
 
@@ -321,7 +327,7 @@ keep their name clear.
   the switch's full list. The card sits to the right of the device, or to the left or below if there is room
   there; with **Arrange** each switch with endpoints leaves room for its card. Devices that are already on the map
   are not shown.
-- **Live status**: the dot on a device is green if it responds, red if not; the status refreshes by itself every 30 seconds. To see devices or
+- **Live status**: the dot on a device is green if it responds, red if not; the status refreshes by itself every 30 seconds (changed in Preferences). To see devices or
   cables added from another page straight away, use **Refresh the map** (the two arrows at the top).
 - **Export…**: PNG image, SVG drawing, or print / PDF.
 

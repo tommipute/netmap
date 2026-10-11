@@ -272,3 +272,21 @@ def test_vista_frontale_del_rack(client):
     nodes = {n["name"]: n for n in client.get(f"/api/maps/{the_map['id']}/view").json()["nodes"]}
     assert (nodes["router"]["rack_id"], nodes["router"]["rack_name"], nodes["router"]["rack_position"]) == (rack["id"], "R01", 10)
     assert nodes["fuori-rack"]["rack_id"] is None and nodes["fuori-rack"]["rack_name"] is None
+
+
+def test_preferenze_dell_utente(client, anonymous):
+    create(client, "/users", {"username": "lettore", "password": "lettore-123", "role": "viewer"})
+    login = anonymous.post("/api/auth/login", json={"username": "lettore", "password": "lettore-123"})
+    assert login.json()["user"]["preferences"] == {}
+    prefs = {"netmap.menu": "top", "netmap.table.devices": '{"order":["name"]}'}
+    assert anonymous.put("/api/auth/me/preferences", json=prefs).json() == prefs  # anche chi legge soltanto
+    assert anonymous.get("/api/auth/me").json()["preferences"] == prefs
+    login = anonymous.post("/api/auth/login", json={"username": "lettore", "password": "lettore-123"})
+    assert login.json()["user"]["preferences"] == prefs
+    # Solo chiavi netmap.*, non troppe; le altre persone non le vedono e lo storico non le registra
+    assert anonymous.put("/api/auth/me/preferences", json={"altro": "x"}).status_code == 422
+    assert anonymous.put("/api/auth/me/preferences", json={"netmap.x": "y" * 70000}).status_code == 422
+    assert "preferences" not in client.get("/api/users").json()["items"][0]
+    assert client.get("/api/auth/me").json()["preferences"] == {}
+    history = client.get("/api/audit-log", params={"object_type": "user"}).json()["items"]
+    assert not [e for e in history if e["action"] == "update"]

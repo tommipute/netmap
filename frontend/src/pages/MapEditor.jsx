@@ -35,12 +35,12 @@ import MapLabels from '../map/MapLabels'
 import RackNode from '../map/RackNode'
 import { LOC_PAD, X_GAP, Y_GAP, effectiveLevels, hierarchicalLayout, locationLayout } from '../map/layout'
 import { CABLE_STATUS, CABLE_TYPES, DEVICE_STATUS, formatDateTime, formatSpeed, labelOf } from '../options'
+import { getPref, refreshMs, setPref, usePref } from '../prefs'
 import { t } from '../i18n'
 
 const nodeTypes = { device: DeviceNode, rack: RackNode, location: LocationNode, background: BackgroundNode, endpoints: EndpointsNode }
 const edgeTypes = { cable: CableEdge }
 const HINT_MS = 6000 // il suggerimento in alto resta per qualche secondo
-const REFRESH_MS = 30000 // stato live: la mappa si aggiorna da sola
 const EXPORT_PADDING = 40
 
 function download(dataUrl, filename) {
@@ -52,23 +52,11 @@ function download(dataUrl, filename) {
   a.remove()
 }
 
-// Bolle delle posizioni e immagine di sfondo accese o spente (scelta ricordata nel browser)
-const LOCATIONS_PREF = 'netmap.map.locations'
-const BACKGROUND_PREF = 'netmap.map.background'
-const ENDPOINTS_PREF = 'netmap.map.endpoints'
-function readPref(key) {
-  try {
-    return localStorage.getItem(key) !== '0'
-  } catch {
-    return true
-  }
-}
-function writePref(key, on) {
-  try {
-    localStorage.setItem(key, on ? '1' : '0')
-  } catch {
-    // senza localStorage la scelta vale solo per questa pagina
-  }
+// Bolle delle posizioni, endpoint e immagine di sfondo accesi o spenti: all'apertura come nelle preferenze; se lì
+// "Ricorda l'ultima scelta" è acceso, la casella cambia anche la preferenza
+const isOn = (name) => getPref(name) === '1'
+function remember(name, on) {
+  if (isOn('mapRemember')) setPref(name, on ? '1' : '0')
 }
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
@@ -78,7 +66,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
  * oggetto (con le misure di React Flow): ricreandolo i device restavano un attimo senza misure, cavi e bolle
  * sparivano e la mappa lampeggiava a ogni aggiornamento dello stato live.
  */
-function buildFlowNodes(view, previous) {
+function buildFlowNodes(view, previous, byLocation) {
   const known = new Map(previous.map((n) => [n.id, n]))
   const nodes = view.nodes.map((n) => {
     const id = String(n.id)
@@ -92,7 +80,7 @@ function buildFlowNodes(view, previous) {
 
   if (missing.length === nodes.length) {
     // Con le posizioni accese i device si raggruppano per edificio/piano/stanza, altrimenti righe per ruolo
-    const layout = readPref(LOCATIONS_PREF) && view.locations.length
+    const layout = byLocation && view.locations.length
       ? locationLayout(view.nodes, view.edges, view.locations)
       : hierarchicalLayout(view.nodes, view.edges)
     return { nodes: nodes.map((n) => ({ ...n, position: layout[n.id] })), changed: true }
@@ -386,9 +374,11 @@ function Editor() {
   const [saving, setSaving] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
   const [cableTypes, setCableTypes] = useState([]) // tipi di cavo scelti nella legenda, vuoto = tutti
-  const [showLocations, setShowLocations] = useState(() => readPref(LOCATIONS_PREF))
+  const [showLocations, setShowLocations] = useState(() => isOn('mapLocations'))
+  const showLocationsRef = useRef(showLocations)
+  showLocationsRef.current = showLocations
   const [selection, setSelection] = useState(null) // { kind: 'node' | 'edge' | 'endpoint', id, found? }
-  const [showEndpoints, setShowEndpoints] = useState(() => readPref(ENDPOINTS_PREF))
+  const [showEndpoints, setShowEndpoints] = useState(() => isOn('mapEndpoints'))
   const [vlanId, setVlanId] = useState(null) // vista VLAN: evidenzia device e cavi che la portano
   // Cavi sistemati a mano: { cableId: { points: spigoli dal lato A al lato B, a_end, b_end: { side, f } | null } }
   const [routes, setRoutes] = useState({})
@@ -398,7 +388,7 @@ function Editor() {
   const [checking, setChecking] = useState(false)
   // Immagine di sfondo (una per mappa). bg è quella disegnata: con "Sfondo della mappa" aperto cambia subito mentre
   // la si sposta, poi si salva da sola; il resto del tempo segue la vista caricata.
-  const [showBackground, setShowBackground] = useState(() => readPref(BACKGROUND_PREF))
+  const [showBackground, setShowBackground] = useState(() => isOn('mapBackground'))
   const [bgEditing, setBgEditing] = useState(false)
   const [bg, setBg] = useState(null)
   const [bgBusy, setBgBusy] = useState(false)
@@ -418,7 +408,7 @@ function Editor() {
     async (keepPositions) => {
       try {
         const data = await api.get(`/maps/${id}/view`)
-        const { nodes: built, changed } = buildFlowNodes(data, keepPositions ? nodesRef.current : [])
+        const { nodes: built, changed } = buildFlowNodes(data, keepPositions ? nodesRef.current : [], showLocationsRef.current)
         // Ricaricando (stato live ogni 30 s) restano i punti che si stanno modificando
         if (!keepPositions) setRoutes(Object.fromEntries(data.routes.map(({ cable_id: cableId, ...route }) => [cableId, route])))
         // Le parti della vista che non cambiano restano gli stessi oggetti: niente ricalcolo di cavi e bolle
@@ -472,12 +462,14 @@ function Editor() {
   // Stato live: ricarico i dati dei device senza toccare le posizioni
   const connectingRef = useRef(connecting)
   connectingRef.current = connecting
+  const [refresh] = usePref('refresh')
   useEffect(() => {
+    if (!refreshMs(refresh)) return undefined
     const timer = setInterval(() => {
       if (!document.hidden && !connectingRef.current) load(true)
-    }, REFRESH_MS)
+    }, refreshMs(refresh))
     return () => clearInterval(timer)
-  }, [load])
+  }, [load, refresh])
 
   // Avviso se si chiude la pagina con modifiche non salvate
   useEffect(() => {
@@ -1050,7 +1042,7 @@ function Editor() {
             <label className="check check--inline" title={t('Edifici, piani e stanze come riquadri colorati; "Disponi" raggruppa i device per posizione')}>
               <input type="checkbox" checked={showLocations} onChange={(e) => {
                   setShowLocations(e.target.checked)
-                  writePref(LOCATIONS_PREF, e.target.checked)
+                  remember('mapLocations', e.target.checked)
                 }} />
               {t('Posizioni')}
             </label>
@@ -1062,7 +1054,7 @@ function Editor() {
                 : t('Gli apparati visti nelle tabelle MAC degli switch: PC, stampanti, telefoni…')}>
               <input type="checkbox" checked={showEndpoints} onChange={(e) => {
                   setShowEndpoints(e.target.checked)
-                  writePref(ENDPOINTS_PREF, e.target.checked)
+                  remember('mapEndpoints', e.target.checked)
                   if (!e.target.checked && selection?.kind === 'endpoint') setSelection(null)
                 }} />
               {t('Endpoint')} <span className="muted">{view.endpoint_total}</span>
@@ -1072,7 +1064,7 @@ function Editor() {
             <label className="check check--inline" title={t("L'immagine sotto la mappa (planimetria, foto…)")}>
               <input type="checkbox" checked={showBackground} onChange={(e) => {
                   setShowBackground(e.target.checked)
-                  writePref(BACKGROUND_PREF, e.target.checked)
+                  remember('mapBackground', e.target.checked)
                 }} />
               {t('Sfondo')}
             </label>
