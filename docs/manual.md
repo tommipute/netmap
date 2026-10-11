@@ -406,7 +406,7 @@ Every minute NetMap checks the **active devices with a management IP**: a device
 SNMP. The status shows in the dots at the top, in the device list (**Live status** column and filter), on the device
 page and in maps. On the device page, **Check now** runs the check immediately.
 
-**Alerts** (Administration → Alerts) sends a message when a device has not responded for a number of minutes and,
+**Alerts** (Alerts and integrations → Alerts) sends a message when a device has not responded for a number of minutes and,
 if you want, when it responds again. Channels:
 
 - **Email**: SMTP server (STARTTLS 587, SSL 465 or no security on 25), user, password, sender, recipients;
@@ -433,6 +433,13 @@ the default text applies, shown in grey. Parts in brackets, or after `·` and `�
 (a device without a location shows no "›"). Below there is a **preview** with sample data; an unknown placeholder is
 flagged and left as written.
 
+**Changes to the data.** With **Also send changes to the data** the channel also notifies when someone creates,
+updates or deletes something: the same rows as the history, as a readable message, e.g.
+"✏️ jsmith updated device sw-floor1: Stato planned → active" (field names stay in Italian). Choose the objects
+(devices, cables, IPs…) and the actions (nothing chosen = all). Changes arrive within a few seconds; those made
+together (an import, a bulk edit) arrive in one message with the first 25 lines and the count of the others. If
+the channel does not answer NetMap retries later without losing any; switched off and on again, it starts from
+the changes of that moment. To send changes to another program, as JSON, use **Webhooks** (section 20).
 ## 15. What changed and history
 
 - **What changed**: a summary of the period you choose (last 24 hours, 7 days or 30 days): changes by origin,
@@ -576,7 +583,7 @@ Everything the interface does goes through a REST API, documented under **API do
 ### API tokens
 
 For scripts and other programs use an **API token**: user menu → **API tokens** (administrators also find them
-under Administration, with every user's tokens) → **+**. Pick a name, the expiry (**Expires**: never, 30 days,
+under Alerts and integrations, with every user's tokens) → **+**. Pick a name, the expiry (**Expires**: never, 30 days,
 90 days, a year) and whether it is **Read only**; an administrator can create it for another user. The token
 (`nmt_…`) is shown **only once**, in the window that opens: copy it right away. Use it like this:
 
@@ -596,10 +603,13 @@ like interface sessions.
 
 ### Webhooks
 
-With webhooks NetMap notifies other programs: Administration → **Webhooks** → **+**. For each webhook choose the
+With webhooks NetMap notifies other programs: Alerts and integrations → **Webhooks** → **+**. For each webhook choose the
 **Address** (receives a POST request, stored encrypted), an optional **Signing key**, the **Objects** (devices,
-cables, IPs…) and the **Actions** (created, updated, deleted) to send; nothing chosen = all. The ▶ button in the
-table sends a test message.
+cables, IPs…) and the **Actions** (created, updated, deleted) to send; nothing chosen = all. If the program wants a key in a
+header (e.g. `Authorization: Bearer …` or `Basic …`, like the ServiceNow or Splunk APIs), add it under **Extra
+headers**: they are stored encrypted and, reopening the webhook, only the name shows (empty value = the saved one is
+kept). The ▶ button in the table sends a test message. To notify people in Teams, email or Telegram use **Alerts**
+with changes to the data instead (section 14).
 
 Changes are the same rows as the **history**: they arrive within about ten seconds, in order, in batches of at most
 200. A new webhook starts from the changes of that moment (it does not send old history). If the program does not

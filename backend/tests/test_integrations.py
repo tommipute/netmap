@@ -182,3 +182,83 @@ def test_webhook_righe_arrivate_dopo(client, session_factory, sent):
         assert [g[:2] for g in row.gaps] == [[base + 1, base + 2], [base + 4, base + 4], [base + 6, base + 9]]
     labels = [e["object"] for call in sent for e in json.loads(call["body"])["events"]]
     assert labels[-3:] == ["dopo", "in ritardo", "in ritardo 2"]
+
+
+def test_webhook_intestazioni(client, session_factory, sent):
+    hook = client.post("/api/webhooks", json={
+        "name": "ServiceNow", "url": "https://sn.example.com/api", "headers": {"Authorization": "Basic abc", "X-Ambiente": "prod"},
+    })
+    assert hook.status_code == 201, hook.text
+    hook = hook.json()
+    assert hook["headers"] == {"Authorization": "", "X-Ambiente": ""}  # i valori non tornano mai
+    path = f"/api/webhooks/{hook['id']}"
+    assert client.patch(path, json={"headers": {"Content-Type": "text/plain"}}).status_code == 422
+    assert client.patch(path, json={"headers": {"Nome sbagliato": "x"}}).status_code == 422
+    assert client.patch(path, json={"headers": {"X-Nuova": ""}}).status_code == 422  # nuova senza valore
+
+    # Valore vuoto = quello salvato; nome tolto = intestazione tolta; PATCH senza headers = invariate
+    assert client.patch(path, json={"headers": {"Authorization": "", "X-Altra": "1"}}).json()["headers"] == {
+        "Authorization": "", "X-Altra": ""}
+    client.patch(path, json={"description": "CMDB aziendale"})
+    client.post(f"{path}/test")
+    headers = sent[-1]["headers"]
+    assert headers["Authorization"] == "Basic abc" and headers["X-altra"] == "1" and "X-ambiente" not in headers
+    assert headers["X-netmap-event"] == "test" and headers["Content-type"] == "application/json"
+    assert client.patch(path, json={"headers": {}}).json()["headers"] == {}
+
+    # Nello storico solo "cambiata"
+    entry = client.get("/api/audit-log?object_type=webhook&limit=1").json()["items"][0]
+    assert "Basic abc" not in json.dumps(entry)
+
+
+def test_avvisi_con_le_modifiche(client, session_factory):
+    from app.models import AlertChannel
+    from app.services.alerts import AlertError, deliver_channel_changes
+    from app.services.webhooks import WebhookError
+
+    channel = create(client, "/alert-channels", {
+        "name": "Teams rete", "type": "webhook", "webhook_url": "https://teams.example.com/hook",
+        "changes_enabled": True, "change_object_types": ["device", "cable"],
+    })
+    assert channel["changes_enabled"] and channel["change_object_types"] == ["device", "cable"]
+    assert client.post("/api/alert-channels", json={
+        "name": "X", "type": "webhook", "webhook_url": "https://x", "change_object_types": ["boh"]}).status_code == 422
+
+    site = create(client, "/sites", {"name": "Sede"})
+    device = create(client, "/devices", {"name": "sw-01", "site_id": site["id"]})
+    client.patch(f"/api/devices/{device['id']}", json={"name": "sw-02", "serial": "ABC123"})
+
+    messages = []
+    with session_factory() as db:
+        row = db.get(AlertChannel, channel["id"])
+        assert deliver_channel_changes(db, row, sender=lambda c, subject, text: messages.append((subject, text))) == 2
+        assert deliver_channel_changes(db, row, sender=lambda *a: messages.append(a)) == 0
+    [(subject, text)] = messages
+    assert subject == "NetMap: 2 modifiche"
+    assert text.splitlines() == [
+        "➕ admin ha creato il device sw-01",
+        "✏️ admin ha modificato il device sw-02: Nome sw-01 → sw-02; Numero di serie — → ABC123",
+    ]
+
+    # Canale giù: il cursore resta, al giro dopo arriva tutto; in inglese
+    client.patch(f"/api/alert-channels/{channel['id']}", json={"language": "en"})
+    client.delete(f"/api/devices/{device['id']}")
+
+    def broken(*args):
+        raise AlertError("Servizio non raggiungibile: timeout")
+
+    with session_factory() as db:
+        row = db.get(AlertChannel, channel["id"])
+        with pytest.raises(WebhookError):
+            deliver_channel_changes(db, row, sender=broken)
+        db.rollback()
+        assert deliver_channel_changes(db, db.get(AlertChannel, channel["id"]),
+                                       sender=lambda c, subject, text: messages.append((subject, text))) == 1
+    assert messages[-1] == ("NetMap: 1 change", "🗑️ admin deleted device sw-02")
+
+    # Spento e riacceso: niente arretrato
+    client.patch(f"/api/alert-channels/{channel['id']}", json={"changes_enabled": False})
+    create(client, "/devices", {"name": "sw-03", "site_id": site["id"]})
+    client.patch(f"/api/alert-channels/{channel['id']}", json={"changes_enabled": True})
+    with session_factory() as db:
+        assert deliver_channel_changes(db, db.get(AlertChannel, channel["id"]), sender=lambda *a: messages.append(a)) == 0

@@ -56,12 +56,12 @@ IGNORED = {
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
     "last_login_at", "host", "sort_key", "path", "source", "last_sent_at", "last_error",
     "last_copy_at", "last_error_at", "host_key", "full_name", "oper_changed_at", "cursor", "gaps", "last_used_at",
-    "last_used_ip", "user_version", "prefix",
+    "last_used_ip", "user_version", "prefix", "change_cursor", "change_gaps",
 }
 # Eccezioni a IGNORED per un modello: l'indirizzo di una destinazione dei backup conta (host degli IP no)
 NOT_IGNORED: dict[type, set[str]] = {BackupTarget: {"host"}}
 SECRETS = {"community_enc", "auth_key_enc", "priv_key_enc", "password_hash", "secret_enc", "private_key_enc",
-           "ca_cert", "url_enc", "token_hash"}  # il certificato non è segreto, ma è troppo lungo per lo storico
+           "ca_cert", "url_enc", "token_hash", "headers_enc"}  # il certificato non è segreto, ma è troppo lungo per lo storico
 
 LABELS = {
     "name": "Nome", "status": "Stato", "site_id": "Sede", "location_id": "Posizione", "rack_id": "Rack",
@@ -85,6 +85,8 @@ LABELS = {
     "admin_group": "Gruppo amministratori", "editor_group": "Gruppo modifica", "viewer_group": "Gruppo lettura",
     "default_role": "Ruolo predefinito", "user_id": "Utente", "read_only": "Sola lettura", "expires_at": "Scadenza",
     "url_enc": "Indirizzo", "object_types": "Tipi di oggetto", "actions": "Azioni", "verify_tls": "Verifica del certificato",
+    "headers_enc": "Intestazioni", "changes_enabled": "Modifiche ai dati", "change_object_types": "Tipi di oggetto delle modifiche",
+    "change_actions": "Azioni delle modifiche",
 }
 
 # Colonne che puntano ad altri oggetti: nello storico il nome, non l'id

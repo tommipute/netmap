@@ -12,12 +12,17 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   facoltativa e sola lettura; agiscono come il loro utente, si revocano dalla tabella e mostrano l'ultimo uso. Le
   modifiche fatte con un token finiscono nello storico con l'origine "API". Cambiare la password o disattivare
   l'utente revoca i suoi token.
-- Webhook (Amministrazione → Webhook): NetMap manda le modifiche dello storico a un indirizzo appena succedono, in
-  JSON con firma HMAC facoltativa, filtrate per tipo di oggetto e azione; se il programma non risponde riprova
+- Webhook (Avvisi e integrazioni → Webhook): NetMap manda le modifiche dello storico a un programma appena
+  succedono, in JSON con firma HMAC facoltativa e intestazioni in più salvate cifrate (es. `Authorization`, per le
+  API di ServiceNow, Splunk e simili), filtrate per tipo di oggetto e azione; se il programma non risponde riprova
   senza perderne nessuna. Pulsante per il messaggio di prova.
+- Avvisi con le modifiche ai dati: un canale (email, Teams, Telegram…) può mandare anche le modifiche dello storico
+  in un messaggio leggibile ("✏️ mrossi ha modificato il device sw-01: Stato planned → active"), filtrate per tipo di
+  oggetto e azione, senza perderne nessuna se il canale non risponde.
 
 ### Modifiche
 
+- Menu: Avvisi si sposta da Amministrazione al nuovo gruppo "Avvisi e integrazioni", insieme a Webhook e Token API.
 - Import: le sedi o i gruppi da importare si scelgono da un menu con ricerca (vanno bene anche centinaia di
   gruppi): quelli scelti diventano bolle con la ×, "Aggiungi tutti i N trovati" prende tutti quelli della ricerca e
   sotto c'è quanti device comprendono.

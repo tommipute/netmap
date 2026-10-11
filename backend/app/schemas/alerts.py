@@ -52,6 +52,9 @@ class AlertChannelBase(InputSchema):
     ports: Ports = Field("none", description="Porte: nessuna, quelle con un cavo documentato, quelle scelte")
     interface_ids: list[int] = Field(default_factory=list, description="Porte scelte (con ports = selected)")
     templates: dict[TemplateKey, Template] = Field(default_factory=dict, description="Modelli delle righe")
+    changes_enabled: bool = Field(False, description="Manda anche le modifiche ai dati (righe dello storico)")
+    change_object_types: list[str] = Field(default_factory=list, description="Tipi di oggetto delle modifiche; vuoto = tutti")
+    change_actions: list[Literal["create", "update", "delete"]] = Field(default_factory=list, description="Azioni; vuoto = tutte")
     # Solo scrittura (salvati cifrati): assenti = invariati, vuoti = cancellati
     smtp_password: str | None = Field(None, max_length=255)
     webhook_url: str | None = Field(None, max_length=2000)
@@ -88,6 +91,9 @@ class AlertChannelRead(ReadSchema):
     ports: str = "none"
     interface_ids: list[int] = []
     templates: dict[str, str] = {}
+    changes_enabled: bool = False
+    change_object_types: list[str] = []
+    change_actions: list[str] = []
     has_secret: bool
     last_sent_at: datetime | None = None
     last_error: str | None = None

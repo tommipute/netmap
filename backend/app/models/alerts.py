@@ -1,7 +1,7 @@
 """Avvisi quando un device smette di rispondere (e quando torna): canali di invio e stato degli avvisi mandati."""
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, true
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, false, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, JSONType, TimestampMixin
@@ -48,6 +48,13 @@ class AlertChannel(TimestampMixin, Base):
     interface_ids: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
     # Modelli dei messaggi (down, up, port_down, port_up): chiave assente = testo predefinito della lingua
     templates: Mapped[dict] = mapped_column(JSONType, default=dict, server_default="{}")
+    # Modifiche ai dati (righe dello storico) in un messaggio leggibile, come i webhook ma per le persone:
+    # tipi di oggetto e azioni (vuoto = tutto); cursore e buchi come in Webhook (services/webhooks.py)
+    changes_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    change_object_types: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    change_actions: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    change_cursor: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    change_gaps: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
 
     @property
     def has_secret(self) -> bool:

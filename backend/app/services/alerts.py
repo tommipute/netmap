@@ -122,6 +122,21 @@ TEXTS = {
         "ports_up_many": "{n} porte di nuovo su",
         "minutes": "{n} min",
         "hours": "{n} ore",
+        "changes_one": "NetMap: 1 modifica",
+        "changes_many": "NetMap: {n} modifiche",
+        "more": "… e altre {n}",
+        "more_fields": "+{n} campi",
+        "change_actions": {"create": "ha creato", "update": "ha modificato", "delete": "ha eliminato"},
+        "yes": "sì", "no": "no",
+        "sources": {"scansione": "scansione SNMP", "import": "import CSV", "api": "API", "directory": "Active Directory",
+                    "sistema": "sistema"},
+        "types": {"site": "la sede", "location": "la posizione", "rack": "il rack", "manufacturer": "il produttore",
+                  "device_type": "il modello", "device_role": "il ruolo", "device": "il device", "interface": "la porta",
+                  "cable": "il cavo", "vlan": "la VLAN", "vrf": "la VRF", "prefix": "la subnet", "ip": "l'IP",
+                  "map": "la mappa", "snmp_profile": "il profilo SNMP", "discovery_job": "la scansione",
+                  "user": "l'utente", "alert_channel": "il canale di avviso", "stack_member": "il membro dello stack",
+                  "backup_target": "la destinazione dei backup", "directory": "Active Directory",
+                  "api_token": "il token API", "webhook": "il webhook"},
         "templates": {
             "down": "🔴 {device} ({ip}) non risponde da {durata} · {sede} › {posizione}",
             "up": "🟢 {device} ({ip}) risponde di nuovo (giù per {durata}) · {sede} › {posizione}",
@@ -145,6 +160,20 @@ TEXTS = {
         "ports_up_many": "{n} ports up again",
         "minutes": "{n} min",
         "hours": "{n} hours",
+        "changes_one": "NetMap: 1 change",
+        "changes_many": "NetMap: {n} changes",
+        "more": "… and {n} more",
+        "more_fields": "+{n} fields",
+        "change_actions": {"create": "created", "update": "updated", "delete": "deleted"},
+        "yes": "yes", "no": "no",
+        "sources": {"scansione": "SNMP scan", "import": "CSV import", "api": "API", "directory": "Active Directory",
+                    "sistema": "system"},
+        "types": {"site": "site", "location": "location", "rack": "rack", "manufacturer": "manufacturer",
+                  "device_type": "model", "device_role": "role", "device": "device", "interface": "port",
+                  "cable": "cable", "vlan": "VLAN", "vrf": "VRF", "prefix": "subnet", "ip": "IP", "map": "map",
+                  "snmp_profile": "SNMP profile", "discovery_job": "scan", "user": "user",
+                  "alert_channel": "alert channel", "stack_member": "stack member", "backup_target": "backup destination",
+                  "directory": "Active Directory", "api_token": "API token", "webhook": "webhook"},
         "templates": {
             "down": "🔴 {device} ({ip}) not responding for {time} · {site} › {location}",
             "up": "🟢 {device} ({ip}) responding again (down for {time}) · {site} › {location}",
@@ -409,3 +438,66 @@ def process_alerts(db: Session, now: datetime | None = None, sender: Sender = se
                 totals["up"] += len(back_devices) + len(back_ports)
     db.commit()
     return totals
+
+
+# ---------------------------------------------------------------- modifiche ai dati
+CHANGE_LINES = 25  # righe nel messaggio: oltre, "… e altre N"
+CHANGE_BATCH = 1000  # righe dello storico riassunte in un messaggio
+CHANGE_FIELDS = 4  # campi per riga
+CHANGE_ICONS = {"create": "➕", "update": "✏️", "delete": "🗑️"}
+
+
+def _value(value, texts: dict) -> str:
+    if value is None or value == "":
+        return "—"
+    if value is True or value is False:
+        return texts["yes"] if value else texts["no"]
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    return text if len(text) <= 60 else text[:59] + "…"
+
+
+def change_line(entry, texts: dict) -> str:
+    """Una riga leggibile: "✏️ mrossi ha modificato il device sw-01: Stato planned → active"."""
+    who = entry.username or texts["sources"].get(entry.source, entry.source or "NetMap")
+    action = texts["change_actions"].get(entry.action, entry.action)
+    kind = texts["types"].get(entry.object_type, entry.object_type)
+    line = f"{CHANGE_ICONS.get(entry.action, '•')} {who} {action} {kind} {entry.label or entry.object_id}"
+    if entry.username and entry.source not in ("utente", None):
+        line += f" ({texts['sources'].get(entry.source, entry.source)})"
+    if entry.action == "update" and entry.changes:
+        fields = [f"{field} {_value(before, texts)} → {_value(after, texts)}"
+                  for field, before, after in entry.changes[:CHANGE_FIELDS]]
+        if len(entry.changes) > CHANGE_FIELDS:
+            fields.append(texts["more_fields"].format(n=len(entry.changes) - CHANGE_FIELDS))
+        line += ": " + "; ".join(fields)
+    return line
+
+
+def change_message(channel: AlertChannel, entries: list) -> tuple[str, str]:
+    texts = _texts(channel)
+    n = len(entries)
+    subject = texts["changes_one"] if n == 1 else texts["changes_many"].format(n=n)
+    lines = [change_line(e, texts) for e in entries[:CHANGE_LINES]]
+    if n > CHANGE_LINES:
+        lines.append(texts["more"].format(n=n - CHANGE_LINES))
+    return subject, "\n".join(lines)
+
+
+def change_matches(channel: AlertChannel, entry) -> bool:
+    return (not channel.change_object_types or entry.object_type in channel.change_object_types) and (
+        not channel.change_actions or entry.action in channel.change_actions)
+
+
+def deliver_channel_changes(db: Session, channel: AlertChannel, sender: Sender = send) -> int:
+    """Manda al canale le modifiche nuove in un messaggio (o più, se sono tante). Errore = WebhookError, come i
+    webhook: il thread del worker riprova con attesa crescente senza perdere niente."""
+    from app.services.webhooks import WebhookError, deliver_changes
+
+    def send_entries(entries: list) -> None:
+        try:
+            sender(channel, *change_message(channel, entries))
+        except AlertError as exc:
+            raise WebhookError(str(exc)) from exc
+
+    return deliver_changes(db, channel, lambda e: change_matches(channel, e), send_entries,
+                           cursor="change_cursor", gaps_attr="change_gaps", batch=CHANGE_BATCH)

@@ -1,5 +1,7 @@
 """Regole di coerenza dei dati, eseguite prima del salvataggio (hook dei router CRUD)."""
 import ipaddress
+import json
+import re
 from typing import Any
 
 from fastapi import HTTPException
@@ -293,9 +295,52 @@ def alert_channel_hook(db: Session, channel, data: dict[str, Any], is_create: bo
         channel.templates = {k: v.strip() for k, v in (channel.templates or {}).items() if v and v.strip()}
     if channel.ports == "selected" and not channel.interface_ids:
         _fail("Scegli almeno una porta da seguire")
+    # Modifiche ai dati: si parte da quelle di adesso, anche quando si riaccendono (niente arretrato)
+    from app.services.audit import TRACKED
+    from app.services.webhooks import current_cursor
+
+    unknown = set(channel.change_object_types or []) - set(TRACKED.values())
+    if unknown:
+        _fail(f"Tipi di oggetto sconosciuti: {', '.join(sorted(unknown))}")
+    if channel.changes_enabled and (is_create or inspect(channel).attrs.changes_enabled.history.added):
+        channel.change_cursor = current_cursor(db)
+        channel.change_gaps = []
 
 
 # ---------- Webhook delle modifiche ----------
+_HEADER_NAME = re.compile(r"^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")
+# Le mette NetMap: non si sostituiscono
+_RESERVED_HEADERS = {"content-type", "content-length", "host", "user-agent", "connection", "transfer-encoding",
+                     "x-netmap-event", "x-netmap-signature"}
+
+
+def _webhook_headers(hook, headers: dict) -> None:
+    """Intestazioni in più: valore vuoto = quello già salvato; si salvano cifrate."""
+    try:
+        saved = hook.header_values()
+    except (SecretError, ValueError):
+        saved = {}
+    out = {}
+    if len(headers) > 20:
+        _fail("Al massimo 20 intestazioni")
+    for name, value in headers.items():
+        name = name.strip()
+        if not _HEADER_NAME.match(name):
+            _fail(f"Nome di intestazione non valido: {name}")
+        if name.lower() in _RESERVED_HEADERS:
+            _fail(f"L'intestazione {name} la mette NetMap")
+        value = (value or "").strip() or saved.get(name)
+        if not value:
+            _fail(f"Manca il valore dell'intestazione {name}")
+        if "\n" in value or "\r" in value or len(value) > 4000:
+            _fail(f"Valore dell'intestazione {name} non valido")
+        out[name] = value
+    try:
+        hook.headers_enc = encrypt(json.dumps(out)) if out else None
+    except SecretError as exc:
+        raise HTTPException(500, str(exc)) from exc
+
+
 def webhook_hook(db: Session, hook, data: dict[str, Any], is_create: bool) -> None:
     """Indirizzo e chiave solo cifrati; un webhook nuovo parte dalle modifiche di adesso (non manda lo storico)."""
     from app.services.audit import TRACKED
@@ -313,6 +358,8 @@ def webhook_hook(db: Session, hook, data: dict[str, Any], is_create: bool) -> No
         raise HTTPException(500, str(exc)) from exc
     if not hook.url_enc:
         _fail("Serve l'indirizzo del webhook")
+    if data.get("headers") is not None:
+        _webhook_headers(hook, data["headers"])
     unknown = set(hook.object_types or []) - set(TRACKED.values())
     if unknown:
         _fail(f"Tipi di oggetto sconosciuti: {', '.join(sorted(unknown))}")

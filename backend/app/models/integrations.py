@@ -1,5 +1,6 @@
 """Integrazioni con altri programmi: token API (gli altri leggono o scrivono NetMap) e webhook (NetMap avvisa gli
 altri quando cambia qualcosa)."""
+import json
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -43,6 +44,7 @@ class Webhook(TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     url_enc: Mapped[str | None] = mapped_column(Text)  # cifrato: spesso contiene una chiave
     secret_enc: Mapped[str | None] = mapped_column(Text)  # chiave della firma HMAC (facoltativa), cifrata
+    headers_enc: Mapped[str | None] = mapped_column(Text)  # intestazioni in più {nome: valore} (es. Authorization), JSON cifrato
     # Cosa mandare: tipi di oggetto dello storico (device, cable, ip…) e azioni (create, update, delete); vuoto = tutto
     object_types: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
     actions: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
@@ -60,6 +62,18 @@ class Webhook(TimestampMixin, Base):
     @property
     def has_secret(self) -> bool:
         return bool(self.secret_enc)
+
+    def header_values(self) -> dict[str, str]:
+        """Intestazioni in più, decifrate (SecretError se la chiave non le legge)."""
+        return json.loads(decrypt(self.headers_enc)) if self.headers_enc else {}
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Da mostrare: solo i nomi, i valori restano segreti."""
+        try:
+            return {name: "" for name in self.header_values()}
+        except (SecretError, ValueError):
+            return {}
 
     @property
     def url_host(self) -> str | None:

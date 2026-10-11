@@ -2,9 +2,11 @@
  * Configurazione delle entità: colonne della tabella e campi del modulo.
  * Per aggiungere un'entità basta una voce qui (più il backend).
  */
+import { Link } from 'react-router-dom'
 import { ROLES, USER_SOURCES } from './auth'
 import { AlertTemplates, DeviceMulti, PortPicker } from './components/AlertFields'
 import AlertTestButton from './components/AlertTestButton'
+import HeadersField from './components/HeadersField'
 import { OBJECT_TYPES as HISTORY_TYPES } from './components/HistoryList'
 import { CUSTOM_FIELD_TYPES, CustomFieldsEditor, ObjectTypesPicker } from './components/CustomFields'
 import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
@@ -745,8 +747,13 @@ resources.webhooks = {
   title: tc('elenco', 'Webhook'),
   newLabel: t('Nuovo webhook'),
   editLabel: t('Modifica webhook'),
-  intro:
-    t('Indirizzi a cui NetMap manda le modifiche appena succedono (le stesse righe dello storico), per tenere aggiornati altri programmi: CMDB, ticketing, automazioni. Le modifiche arrivano in ordine, a gruppi, in JSON con una firma; se il programma non risponde si riprova più tardi senza perderne nessuna. Il formato è nel manuale.'),
+  intro: (
+    <>
+      {t('Indirizzi a cui NetMap manda le modifiche appena succedono (le stesse righe dello storico), per tenere aggiornati altri programmi: CMDB, ticketing, automazioni. Le modifiche arrivano in ordine, a gruppi, in JSON con una firma; se il programma non risponde si riprova più tardi senza perderne nessuna. Il formato è nel manuale.')}{' '}
+      {t('Per avvisare le persone (email, Teams, Telegram), anche delle modifiche, usa gli')}{' '}
+      <Link to="/alert-channels">{t('Avvisi')}</Link>.
+    </>
+  ),
   label: (o) => o.name,
   filters: [{ name: 'enabled', label: t('Attivo'), options: [{ value: 'true', label: t('sì') }, { value: 'false', label: t('no') }] }],
   columns: [
@@ -780,6 +787,10 @@ resources.webhooks = {
       savedHint: (item) => (item?.has_secret ? t('Salvata: lascia vuoto per non cambiarla') : t('Facoltativa')),
       help: t('Con una chiave ogni richiesta ha l\'intestazione X-NetMap-Signature (HMAC-SHA256 del corpo): chi riceve controlla che venga da NetMap.'),
     },
+    {
+      name: 'headers', label: t('Intestazioni in più'), type: 'custom', Component: HeadersField, empty: null,
+      help: t('Per i programmi che vogliono una chiave nell\'intestazione (es. Authorization: Bearer … o Basic …). Si salvano cifrate.'),
+    },
     { name: 'object_types', label: t('Oggetti'), type: 'custom', Component: WebhookTypes, empty: [], help: t('Nessuna scelta = tutti.') },
     { name: 'actions', label: t('Azioni'), type: 'custom', Component: WebhookActions, empty: [], help: t('Nessuna scelta = tutte.') },
     { name: 'verify_tls', label: t('Controlla il certificato HTTPS'), type: 'bool', default: true },
@@ -792,8 +803,13 @@ resources['alert-channels'] = {
   title: t('Avvisi'),
   newLabel: t('Nuovo canale di avviso'),
   editLabel: t('Modifica canale di avviso'),
-  intro:
-    t('Dove arrivano gli avvisi quando un device con IP di management smette di rispondere, o una porta va giù (e quando tornano). Ogni canale può seguire tutti i device o solo alcune sedi, posizioni, ruoli o device scelti. Il ritardo evita avvisi per un singolo ping perso; più problemi insieme arrivano in un solo messaggio.'),
+  intro: (
+    <>
+      {t('Dove arrivano gli avvisi quando un device con IP di management smette di rispondere, o una porta va giù (e quando tornano). Ogni canale può seguire tutti i device o solo alcune sedi, posizioni, ruoli o device scelti. Il ritardo evita avvisi per un singolo ping perso; più problemi insieme arrivano in un solo messaggio. Un canale può mandare anche le modifiche ai dati, in un messaggio leggibile.')}{' '}
+      {t('Per mandare i dati a un altro programma usa i')}{' '}
+      <Link to="/webhooks">{t('Webhook')}</Link>.
+    </>
+  ),
   label: (o) => o.name,
   filters: [{ name: 'type', label: t('Tipo'), options: ALERT_TYPES }],
   columns: [
@@ -801,6 +817,7 @@ resources['alert-channels'] = {
     { name: 'type', label: t('Tipo'), type: 'select', options: ALERT_TYPES },
     { name: 'enabled', label: t('Attivo'), type: 'bool' },
     { name: 'delay_minutes', label: t('Ritardo'), render: (o) => `${o.delay_minutes} min` },
+    { name: 'changes_enabled', label: t('Modifiche'), type: 'bool' },
     {
       name: 'last_sent_at',
       label: t('Ultimo invio'),
@@ -836,6 +853,10 @@ resources['alert-channels'] = {
     },
     { name: 'interface_ids', label: t('Porte da seguire'), type: 'custom', Component: PortPicker, empty: [], showIf: (v) => v.ports === 'selected' },
     { name: 'templates', label: t('Messaggi'), type: 'custom', Component: AlertTemplates, empty: {} },
+    // Modifiche ai dati
+    { name: 'changes_enabled', label: t('Manda anche le modifiche ai dati (device, cavi, IP…)'), type: 'bool', default: false },
+    { name: 'change_object_types', label: t('Modifiche: oggetti'), type: 'custom', Component: WebhookTypes, empty: [], showIf: (v) => v.changes_enabled, help: t('Nessuna scelta = tutti.') },
+    { name: 'change_actions', label: t('Modifiche: azioni'), type: 'custom', Component: WebhookActions, empty: [], showIf: (v) => v.changes_enabled, help: t('Nessuna scelta = tutte. Le modifiche arrivano entro pochi secondi, più insieme in un solo messaggio.') },
     // Webhook
     {
       name: 'webhook_url', label: t('Indirizzo del webhook'), type: 'secret', showIf: isType('webhook'),
@@ -962,5 +983,6 @@ export const NAV = [
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
   { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }, 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Avvisi e integrazioni'), admin: true, items: ['alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }] },
+  { title: t('Amministrazione'), admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]

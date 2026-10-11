@@ -50,6 +50,9 @@ class WebhookBase(InputSchema):
     # Solo scrittura (salvati cifrati): assenti = invariati, vuoti = cancellati
     url: str | None = Field(None, max_length=2000)
     secret: str | None = Field(None, max_length=255, description="Chiave per la firma X-NetMap-Signature (HMAC-SHA256)")
+    headers: dict[str, str | None] | None = Field(
+        None, description="Intestazioni in più (es. Authorization), salvate cifrate: assente o null = invariate, "
+                          "valore vuoto = quello già salvato, nome tolto = intestazione tolta")
 
 
 class WebhookCreate(WebhookBase):
@@ -68,6 +71,7 @@ class WebhookRead(ReadSchema):
     description: str | None = None
     url_host: str | None = None
     has_secret: bool
+    headers: dict[str, str] = Field(default_factory=dict, description="Nomi delle intestazioni in più (valori mai)")
     cursor: int
     last_sent_at: datetime | None = None
     last_error: str | None = None

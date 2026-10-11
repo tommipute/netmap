@@ -15,6 +15,7 @@ import ssl
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
@@ -23,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.secrets import SecretError, decrypt
-from app.models import AuditEntry, Webhook
+from app.models import AlertChannel, AuditEntry, Webhook
 
 logger = logging.getLogger("netmap.webhooks")
 BATCH = 200
@@ -74,13 +75,14 @@ def post(hook: Webhook, kind: str, events: list[dict]) -> None:
     try:
         url = decrypt(hook.url_enc) if hook.url_enc else None
         secret = decrypt(hook.secret_enc) if hook.secret_enc else None
-    except SecretError as exc:
+        extra = hook.header_values()
+    except (SecretError, ValueError) as exc:
         raise WebhookError(str(exc)) from exc
     if not url:
         raise WebhookError("Manca l'indirizzo del webhook")
     body = json.dumps({"event": kind, "sent_at": datetime.now(timezone.utc).isoformat(),
                        "netmap": settings.app_version or None, "events": events}, default=str).encode()
-    headers = {"Content-Type": "application/json", "User-Agent": "NetMap", "X-NetMap-Event": kind}
+    headers = {**extra, "Content-Type": "application/json", "User-Agent": "NetMap", "X-NetMap-Event": kind}
     if secret:
         headers["X-NetMap-Signature"] = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
     context = None
@@ -124,65 +126,90 @@ def _without(gaps: list, found: list[int]) -> list:
     return out
 
 
-def deliver(db: Session, hook: Webhook) -> int:
-    """Manda le righe nuove (e quelle arrivate nei buchi). Restituisce quante ne ha mandate; errore = WebhookError."""
+def deliver_changes(db: Session, target, match: Callable[[AuditEntry], bool], send: Callable[[list[AuditEntry]], None],
+                    cursor: str = "cursor", gaps_attr: str = "gaps", batch: int = BATCH) -> int:
+    """Manda le righe nuove dello storico (e quelle arrivate nei buchi) con `send`, che solleva WebhookError se
+    l'invio non riesce. Usata dai webhook e dai canali di avviso con le modifiche (attributi `cursor`/`gaps_attr`
+    dell'oggetto). Restituisce quante righe ha mandato."""
     sent = 0
-    for _ in range(20):  # al massimo 20 gruppi per giro: gli altri webhook non aspettano troppo
-        gaps = [g for g in (hook.gaps or []) if g[2] > time.time() - GAP_HOURS * 3600]
+    for _ in range(20):  # al massimo 20 gruppi per giro: gli altri non aspettano troppo
+        known = getattr(target, gaps_attr) or []
+        gaps = [g for g in known if g[2] > time.time() - GAP_HOURS * 3600]
         late = list(db.scalars(select(AuditEntry).where(or_(*(AuditEntry.id.between(lo, hi) for lo, hi, _ in gaps)))
-                               .order_by(AuditEntry.id).limit(BATCH))) if gaps else []
-        new = list(db.scalars(select(AuditEntry).where(AuditEntry.id > hook.cursor).order_by(AuditEntry.id).limit(BATCH)))
-        if not late and not new and gaps == (hook.gaps or []):
+                               .order_by(AuditEntry.id).limit(batch))) if gaps else []
+        start = getattr(target, cursor)
+        new = list(db.scalars(select(AuditEntry).where(AuditEntry.id > start).order_by(AuditEntry.id).limit(batch)))
+        if not late and not new and gaps == known:
             return sent
-        events = [event_of(e) for e in [*late, *new] if matches(hook, e)]
-        if events:
-            post(hook, "changes", events)
-            hook.last_sent_at = datetime.now(timezone.utc)
-            sent += len(events)
+        entries = [e for e in [*late, *new] if match(e)]
+        if entries:
+            send(entries)
+            target.last_sent_at = datetime.now(timezone.utc)
+            sent += len(entries)
         # Buchi nuovi: id saltati tra il cursore e le righe nuove
-        previous = hook.cursor
+        previous = start
         for e in new:
             if e.id > previous + 1:
                 gaps.append([previous + 1, e.id - 1, time.time()])
             previous = e.id
-        hook.gaps = _without(gaps, [e.id for e in late])
-        hook.cursor = previous
-        hook.last_error = None
-        hook.last_error_at = None
+        setattr(target, gaps_attr, _without(gaps, [e.id for e in late]))
+        setattr(target, cursor, previous)
+        target.last_error = None
+        if hasattr(target, "last_error_at"):
+            target.last_error_at = None
         db.commit()
-        if len(new) < BATCH and len(late) < BATCH:
+        if len(new) < batch and len(late) < batch:
             return sent
     return sent
 
 
-def _fail(db: Session, hook: Webhook, message: str) -> None:
+def deliver(db: Session, hook: Webhook) -> int:
+    """Manda a un webhook le modifiche nuove; errore = WebhookError."""
+    return deliver_changes(db, hook, lambda e: matches(hook, e),
+                           lambda entries: post(hook, "changes", [event_of(e) for e in entries]))
+
+
+def _fail(db: Session, target, message: str) -> None:
     db.rollback()
-    hook.last_error = message[:1000]
-    hook.last_error_at = datetime.now(timezone.utc)
+    target.last_error = message[:1000]
+    if hasattr(target, "last_error_at"):
+        target.last_error_at = datetime.now(timezone.utc)
     db.commit()
 
 
+def _targets(db: Session):
+    """Chi riceve le modifiche: webhook attivi e canali di avviso con le modifiche accese."""
+    from app.services.alerts import deliver_channel_changes
+
+    for hook in db.scalars(select(Webhook).where(Webhook.enabled.is_(True))).all():
+        yield ("webhook", hook.id), hook, deliver
+    channels = select(AlertChannel).where(AlertChannel.enabled.is_(True), AlertChannel.changes_enabled.is_(True))
+    for channel in db.scalars(channels).all():
+        yield ("alert", channel.id), channel, deliver_channel_changes
+
+
 def webhook_loop(session_factory) -> None:
-    """Thread del worker: ogni POLL_SECONDS manda le modifiche nuove a ogni webhook attivo."""
-    failures: dict[int, int] = {}
-    retry_at: dict[int, float] = {}
+    """Thread del worker: ogni POLL_SECONDS manda le modifiche nuove a ogni webhook attivo e ai canali di avviso
+    che le vogliono."""
+    failures: dict[tuple, int] = {}
+    retry_at: dict[tuple, float] = {}
     while True:
         try:
             with session_factory() as db:
-                for hook in db.scalars(select(Webhook).where(Webhook.enabled.is_(True))).all():
-                    if retry_at.get(hook.id, 0) > time.monotonic():
+                for key, target, send in _targets(db):
+                    if retry_at.get(key, 0) > time.monotonic():
                         continue
                     try:
-                        if count := deliver(db, hook):
-                            logger.info("Webhook %s: %s modifiche mandate", hook.name, count)
-                        failures.pop(hook.id, None)
-                        retry_at.pop(hook.id, None)
+                        if count := send(db, target):
+                            logger.info("Modifiche mandate a %s: %s", target.name, count)
+                        failures.pop(key, None)
+                        retry_at.pop(key, None)
                     except WebhookError as exc:
-                        n = failures.get(hook.id, 0)
-                        failures[hook.id] = n + 1
-                        retry_at[hook.id] = time.monotonic() + RETRY[min(n, len(RETRY) - 1)]
-                        logger.warning("Webhook %s non riuscito: %s", hook.name, exc)
-                        _fail(db, hook, str(exc))
+                        n = failures.get(key, 0)
+                        failures[key] = n + 1
+                        retry_at[key] = time.monotonic() + RETRY[min(n, len(RETRY) - 1)]
+                        logger.warning("Invio delle modifiche a %s non riuscito: %s", target.name, exc)
+                        _fail(db, target, str(exc))
         except (OperationalError, ProgrammingError):
             time.sleep(30)  # database non pronto o migration non ancora applicata
             continue

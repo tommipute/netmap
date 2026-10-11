@@ -408,7 +408,7 @@ Ogni minuto NetMap controlla i device **attivi con un IP di management**: uno ri
 all'SNMP. Lo stato si vede nei pallini in alto, nell'elenco dei device (colonna e filtro "Stato live"), nella
 scheda e in mappa. Nella scheda, **Controlla ora** rifà il controllo subito.
 
-**Avvisi** (Amministrazione → Avvisi) manda un messaggio quando un device non risponde da un certo numero di
+**Avvisi** (Avvisi e integrazioni → Avvisi) manda un messaggio quando un device non risponde da un certo numero di
 minuti, e (se vuoi) quando torna a rispondere. Canali:
 
 - **Email**: server SMTP (STARTTLS 587, SSL 465 o nessuna sicurezza sulla 25), utente, password, mittente,
@@ -437,6 +437,14 @@ testo con i segnaposto `{device}` `{ip}` `{sede}` `{posizione}` `{ruolo}` `{dura
 grigio. Le parti tra parentesi, o dopo `·` e `›`, spariscono se il dato manca (un device senza posizione non mostra
 "›"). Sotto c'è l'**anteprima** con dati di esempio; un segnaposto sconosciuto viene segnalato e resta scritto
 com'è.
+
+**Modifiche ai dati.** Con **Manda anche le modifiche ai dati** il canale avvisa anche quando qualcuno crea,
+modifica o elimina qualcosa: le stesse righe dello storico, in un messaggio leggibile, ad esempio
+"✏️ mrossi ha modificato il device sw-piano1: Stato planned → active". Si scelgono gli oggetti (device, cavi, IP…)
+e le azioni (nessuna scelta = tutto). Le modifiche arrivano entro pochi secondi; quelle fatte insieme (un import,
+una modifica in blocco) arrivano in un solo messaggio con le prime 25 righe e il numero delle altre. Se il canale
+non risponde si riprova più tardi senza perderne nessuna; spento e riacceso, riparte dalle modifiche di quel
+momento. Per mandare le modifiche a un altro programma, in JSON, ci sono i **Webhook** (sezione 20).
 
 ## 15. Cosa è cambiato e storico
 
@@ -586,7 +594,7 @@ Tutto quello che fa l'interfaccia passa da un'API REST, documentata in **Documen
 ### Token API
 
 Per gli script e gli altri programmi usa un **token API**: menu utente → **Token API** (gli amministratori li
-trovano anche in Amministrazione, con quelli di tutti gli utenti) → **+**. Scegli un nome, la **Scadenza** (mai,
+trovano anche in Avvisi e integrazioni, con quelli di tutti gli utenti) → **+**. Scegli un nome, la **Scadenza** (mai,
 30 giorni, 90 giorni, un anno) e se è **Solo lettura**; l'amministratore può crearlo per un altro utente. Il token
 (`nmt_…`) si vede **una volta sola**, nella finestra che si apre: copialo subito. Si usa così:
 
@@ -606,10 +614,13 @@ scade come le sessioni dell'interfaccia.
 
 ### Webhook
 
-Con i webhook è NetMap ad avvisare gli altri programmi: Amministrazione → **Webhook** → **+**. Per ogni webhook
+Con i webhook è NetMap ad avvisare gli altri programmi: Avvisi e integrazioni → **Webhook** → **+**. Per ogni webhook
 scegli l'**Indirizzo** (riceve una richiesta POST, si salva cifrato), una **Chiave della firma** facoltativa, gli
 **Oggetti** (device, cavi, IP…) e le **Azioni** (creato, modificato, eliminato) da mandare; nessuna scelta = tutti.
-Il pulsante ▶ della tabella manda un messaggio di prova.
+Se il programma vuole una chiave in un'intestazione (es. `Authorization: Bearer …` o `Basic …`, come le API di
+ServiceNow o Splunk), aggiungila in **Intestazioni in più**: si salvano cifrate e, riaprendo il webhook, si vede solo
+il nome (valore vuoto = resta quello salvato). Il pulsante ▶ della tabella manda un messaggio di prova.
+Per avvisare le persone in Teams, email o Telegram usa invece gli **Avvisi** con le modifiche ai dati (sezione 14).
 
 Le modifiche sono le stesse righe dello **storico**: arrivano entro una decina di secondi, in ordine, a gruppi di
 al massimo 200. Un webhook nuovo parte dalle modifiche di quel momento (non manda lo storico vecchio). Se il

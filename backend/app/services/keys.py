@@ -19,7 +19,7 @@ ENCRYPTED: dict[type, tuple[str, ...]] = {
     AlertChannel: ("secret_enc",),
     BackupTarget: ("secret_enc", "private_key_enc"),
     ImportRun: ("token_enc",),
-    Webhook: ("url_enc", "secret_enc"),
+    Webhook: ("url_enc", "secret_enc", "headers_enc"),
 }
 
 

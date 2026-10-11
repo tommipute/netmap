@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (134 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (136 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -486,6 +486,16 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   cursore resta, `last_error`, riprova dopo 1/2/5/10/30 minuti. Id saltati sotto il cursore (transazioni lunghe
   ancora aperte) finiscono in `gaps` e si ricontrollano per 6 ore. Un webhook nuovo parte dal massimo id attuale.
   Formato degli eventi (`event_of`) documentato nel manuale: cambiarlo = cambiamento incompatibile.
+- **Intestazioni in più** dei webhook (`headers_enc`, JSON cifrato): la lettura dà `headers` = `{nome: ""}`;
+  in scrittura valore vuoto = quello salvato, nome assente = tolto, `headers` assente o null = invariate
+  (`_webhook_headers` in rules.py; nomi riservati come Content-Type e X-NetMap-* rifiutati). Frontend `HeadersField`.
+- **Avvisi con le modifiche** (deciso l'11/10/2026: Avvisi = alle persone, Webhook = ai programmi): `AlertChannel`
+  `changes_enabled`, `change_object_types`, `change_actions`, `change_cursor`, `change_gaps`. Stesso motore dei
+  webhook (`deliver_changes` in webhooks.py, attributi di cursore e buchi come parametri; il thread `webhook_loop`
+  serve webhook e canali), messaggio leggibile da `change_message`/`change_line` in alerts.py (testi in `TEXTS`,
+  25 righe, fino a 1000 modifiche per messaggio; i nomi dei campi restano quelli italiani dello storico).
+  Acceso (creazione o da spento) = cursore al massimo id attuale: niente arretrato.
+- Menu: gruppo "Avvisi e integrazioni" (Avvisi, Webhook, Token API); le due pagine si rimandano a vicenda nell'intro.
 - Test `tests/test_integrations.py` (urlopen finto). Provato nel browser l'11/10/2026 con un ricevitore nel worker.
 
 ## Campi personalizzati (`services/custom_fields.py`, tabella `custom_field_definitions`)
