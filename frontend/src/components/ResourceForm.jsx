@@ -6,6 +6,7 @@ import { resources } from '../resources'
 import InterfacePicker from './InterfacePicker'
 import KeyValueEditor from './KeyValueEditor'
 import Modal from './Modal'
+import SecretInput from './SecretInput'
 import { RefMulti, RefSelect } from './RefSelect'
 import { t } from '../i18n'
 
@@ -80,6 +81,9 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
           validate={field.validate} summary={field.summary} label={field.label} spaces={field.spaces} />
       )
     case 'secret':
+      if (field.generate) {
+        return <SecretInput id={id} value={value} onChange={onChange} disabled={disabled} placeholder={field.savedHint?.(item) ?? field.placeholder} />
+      }
       return (
         <input id={id} type="password" className="input" value={value} autoComplete="new-password" disabled={disabled}
           placeholder={field.savedHint?.(item) ?? field.placeholder} onChange={(e) => onChange(e.target.value)} />

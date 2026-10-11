@@ -4,6 +4,7 @@ import { ROLES, useAuth } from '../auth'
 import { ErrorBox, Loading } from '../components/Bits'
 import { IconButton } from '../components/Icon'
 import Modal from '../components/Modal'
+import { copyText } from '../components/SecretInput'
 import { useApi, useOptions } from '../hooks'
 import { formatDateTime, labelOf } from '../options'
 import { t, tc } from '../i18n'
@@ -45,7 +46,7 @@ function NewTokenDialog({ onClose, onCreated }) {
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(created.token)
+      await copyText(created.token)
       setCopied(true)
     } catch {
       setCopied(false)

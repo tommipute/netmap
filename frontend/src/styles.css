@@ -937,3 +937,7 @@ details.directory-test:not([open]) > summary { margin-bottom: 0; }
 .token-box { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
 .token-box code { flex: 1; word-break: break-all; font-size: 13px; }
 .token-example { margin: 0; padding: 8px 10px; border-radius: var(--radius); background: var(--surface-2); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+
+/* Campo segreto con pulsanti (genera, copia) */
+.secret-input { display: flex; gap: 6px; align-items: center; }
+.secret-input .input { flex: 1; min-width: 0; }

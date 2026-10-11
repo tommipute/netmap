@@ -1528,6 +1528,9 @@ const strings = {
   'protocollo di autenticazione non supportato': 'authentication protocol not supported',
   'protocollo di cifratura non supportato': 'privacy protocol not supported',
   // token API e webhook
+  'Genera una chiave': 'Generate a key',
+  'Copia la chiave': 'Copy the key',
+  "Facoltativa. Generala con la chiave a destra (o inventala) e mettila uguale nel programma che riceve: con l'intestazione X-NetMap-Signature (HMAC-SHA256 del corpo) controlla che il messaggio venga da NetMap.": 'Optional. Generate it with the key button on the right (or make one up) and put the same one in the receiving program: with the X-NetMap-Signature header (HMAC-SHA256 of the body) it checks that the message comes from NetMap.',
   'Tipi di oggetto': 'Object types',
   'Sola lettura': 'Read only',
   'Intestazioni': 'Headers',

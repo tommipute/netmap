@@ -13,7 +13,7 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   modifiche fatte con un token finiscono nello storico con l'origine "API". Cambiare la password o disattivare
   l'utente revoca i suoi token.
 - Webhook (Avvisi e integrazioni → Webhook): NetMap manda le modifiche dello storico a un programma appena
-  succedono, in JSON con firma HMAC facoltativa e intestazioni in più salvate cifrate (es. `Authorization`, per le
+  succedono, in JSON con firma HMAC facoltativa (chiave generata con un pulsante) e intestazioni in più salvate cifrate (es. `Authorization`, per le
   API di ServiceNow, Splunk e simili), filtrate per tipo di oggetto e azione; se il programma non risponde riprova
   senza perderne nessuna. Pulsante per il messaggio di prova.
 - Avvisi con le modifiche ai dati: un canale (email, Teams, Telegram…) può mandare anche le modifiche dello storico

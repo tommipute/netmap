@@ -615,7 +615,8 @@ scade come le sessioni dell'interfaccia.
 ### Webhook
 
 Con i webhook è NetMap ad avvisare gli altri programmi: Avvisi e integrazioni → **Webhook** → **+**. Per ogni webhook
-scegli l'**Indirizzo** (riceve una richiesta POST, si salva cifrato), una **Chiave della firma** facoltativa, gli
+scegli l'**Indirizzo** (riceve una richiesta POST, si salva cifrato), una **Chiave della firma** facoltativa (il pulsante con la chiave ne genera una casuale e la mostra per
+copiarla: va messa uguale nel programma che riceve), gli
 **Oggetti** (device, cavi, IP…) e le **Azioni** (creato, modificato, eliminato) da mandare; nessuna scelta = tutti.
 Se il programma vuole una chiave in un'intestazione (es. `Authorization: Bearer …` o `Basic …`, come le API di
 ServiceNow o Splunk), aggiungila in **Intestazioni in più**: si salvano cifrate e, riaprendo il webhook, si vede solo

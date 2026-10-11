@@ -783,9 +783,9 @@ resources.webhooks = {
       help: t('Riceve una richiesta POST con le modifiche in JSON. Si salva cifrato: può contenere una chiave.'),
     },
     {
-      name: 'secret', label: t('Chiave della firma'), type: 'secret',
+      name: 'secret', label: t('Chiave della firma'), type: 'secret', generate: true,
       savedHint: (item) => (item?.has_secret ? t('Salvata: lascia vuoto per non cambiarla') : t('Facoltativa')),
-      help: t('Con una chiave ogni richiesta ha l\'intestazione X-NetMap-Signature (HMAC-SHA256 del corpo): chi riceve controlla che venga da NetMap.'),
+      help: t('Facoltativa. Generala con la chiave a destra (o inventala) e mettila uguale nel programma che riceve: con l\'intestazione X-NetMap-Signature (HMAC-SHA256 del corpo) controlla che il messaggio venga da NetMap.'),
     },
     {
       name: 'headers', label: t('Intestazioni in più'), type: 'custom', Component: HeadersField, empty: null,

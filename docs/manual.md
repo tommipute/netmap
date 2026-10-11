@@ -604,7 +604,8 @@ like interface sessions.
 ### Webhooks
 
 With webhooks NetMap notifies other programs: Alerts and integrations → **Webhooks** → **+**. For each webhook choose the
-**Address** (receives a POST request, stored encrypted), an optional **Signing key**, the **Objects** (devices,
+**Address** (receives a POST request, stored encrypted), an optional **Signing key** (the key button generates a random one and shows it so you can copy it: put the
+same one in the receiving program), the **Objects** (devices,
 cables, IPs…) and the **Actions** (created, updated, deleted) to send; nothing chosen = all. If the program wants a key in a
 header (e.g. `Authorization: Bearer …` or `Basic …`, like the ServiceNow or Splunk APIs), add it under **Extra
 headers**: they are stored encrypted and, reopening the webhook, only the name shows (empty value = the saved one is
