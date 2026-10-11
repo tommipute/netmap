@@ -726,9 +726,15 @@ class Importer:
                 "status": DEVICE_STATUS.get(x["status"], "active"), "serial": x["serial"] or None, "asset_tag": tag,
                 "description": x["description"] or None, "custom_fields": x["cf"]}, rules.device_hook
 
+        # Un device con un altro nome ma con lo stesso IP di management di uno che c'è già (es. trovato dalla
+        # scansione con il nome SNMP) è lui: niente doppione con la porta mgmt senza IP
+        same_ip = self.same_management_ip(primaries, existing, device_name)
+
+        def key(x):
+            return same_ip.get(x["id"]) or (self.site_id(x["site"]), device_name(x).lower())
+
         before = set(existing.values())
-        self.sync("device", primaries, existing, lambda x: (self.site_id(x["site"]), device_name(x).lower()), make,
-                  name=device_name)
+        self.sync("device", primaries, existing, key, make, name=device_name)
         self.new_devices = set(existing.values()) - before
         for x in primaries:
             if self.ids["device"].get(x["id"]) in self.new_devices:
@@ -737,6 +743,39 @@ class Importer:
             found = self.ids["device"].get(primary_of.get(x["id"], x["id"]))
             if found is not None:
                 self.ids["device"][x["id"]] = found
+
+    def same_management_ip(self, devices: list[dict], existing: dict, device_name: Callable) -> dict:
+        """{id sorgente: chiave in existing} dei device riconosciuti dall'IP di management (con una nota nel log)."""
+        ips = {x["id"]: x for x in self.snap.ips}
+        owners = {(vrf, host): (id_, name) for vrf, host, id_, name in self.db.execute(
+            select(IPAddress.vrf_id, IPAddress.host, Device.id, Device.name)
+            .join(Interface, IPAddress.interface_id == Interface.id).join(Device, Interface.device_id == Device.id)
+            .where(IPAddress.is_primary))}
+        found, notes = {}, []
+        for x in devices:
+            try:
+                if (self.site_id(x["site"]), device_name(x).lower()) in existing:
+                    continue  # stesso nome: lo trova già sync
+            except Missing:
+                continue
+            for ref in (x["primary_ip4"], x["primary_ip6"]):
+                ip = ips.get(ref)
+                if not ip or (ip["vrf"] and ip["vrf"] not in self.ids["vrf"]):
+                    continue
+                try:
+                    host = str(ipaddress.ip_interface(normalize_ip_interface(ip["address"])).ip)
+                except ValueError:
+                    continue
+                owner = owners.get((self.ids["vrf"].get(ip["vrf"]) if ip["vrf"] else None, host))
+                if owner:
+                    found[x["id"]] = ("ip", owner[0])
+                    existing[("ip", owner[0])] = owner[0]
+                    notes.append(f"{device_name(x)} = {owner[1]} ({host})")
+                    break
+        if notes:
+            more = f" e altri {len(notes) - 20}" if len(notes) > 20 else ""
+            self.notes.append("Già in NetMap con un altro nome (stesso IP di management): " + ", ".join(notes[:20]) + more)
+        return found
 
     def stacks(self) -> None:
         for primary_id, group in self.stack_members.items():

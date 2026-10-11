@@ -45,6 +45,9 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ### Modifiche
 
+- Import da NetBox e dagli altri programmi: un device con un altro nome ma con lo stesso IP di management di uno che
+  c'è già in NetMap (es. trovato dalla scansione con il nome SNMP) è considerato lo stesso, invece di diventare un
+  doppione senza IP; il log elenca quelli riconosciuti così. Provato con uno Zabbix 7.0 vero.
 - Active Directory: la prova con un utente è in fondo alla pagina, chiusa ("Prova (facoltativa)"): serve solo se si
   conosce la password di un utente del dominio.
 - API degli import: `/api/imports` (prova, coda, stato) vale per tutte le sorgenti; `/api/netbox/*` resta. Nella

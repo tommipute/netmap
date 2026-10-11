@@ -1477,8 +1477,7 @@ const strings = {
   '{n} rispondono con un errore': '{n} answer with an error',
   '1 risponde solo al ping': '1 answers ping only',
   '{n} rispondono solo al ping': '{n} answer ping only',
-  '1 non risponde': '1 does not answer',
-  '{n} non rispondono': '{n} do not answer',
+  '1 non risponde': '1 not responding',
   'Mostra anche gli indirizzi che non rispondono': 'Also show the addresses that do not answer',
   '1 vicino': '1 neighbor',
   '{n} vicini': '{n} neighbors',
@@ -1563,6 +1562,8 @@ const patterns = [
     .replace(/(\d+) verso circuiti, prese elettriche o console/, '$1 to circuits, power outlets or consoles')
     .replace(/(\d+) con il percorso incompleto/, '$1 with an incomplete path')
     .replace(/(\d+) verso device di altre sedi/, '$1 to devices of other sites')}`],
+  [/^(\d\d:\d\d:\d\d )?Già in NetMap con un altro nome \(stesso IP di management\): (.+?)( e altri (\d+))?$/,
+    (m, time, list, rest, n) => `${time || ''}Already in NetMap under another name (same management IP): ${list}${n ? ` and ${n} more` : ''}`],
   [/^(\d\d:\d\d:\d\d )?Altri (\d+) problemi non elencati$/, '$1$2 more problems not listed'],
   [/^(\d\d:\d\d:\d\d )?Fine della simulazione \(niente è stato salvato\): (\d+) oggetti creati, (\d+) già presenti, (\d+) non importati$/, '$1End of the simulation (nothing was saved): $2 objects created, $3 already present, $4 not imported'],
   [/^(\d\d:\d\d:\d\d )?Fine: (\d+) oggetti creati, (\d+) già presenti, (\d+) non importati$/, '$1Done: $2 objects created, $3 already present, $4 not imported'],

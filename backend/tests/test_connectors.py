@@ -231,6 +231,25 @@ def test_zabbix_gruppo_scelto(session_factory, servers):
     assert db.scalar(select(Site.name)) == "Zabbix"  # senza sede predefinita: il nome della sorgente
 
 
+def test_stesso_ip_di_management(client, session_factory, servers):
+    """Un host con il nome diverso ma l'IP di management di un device già in NetMap (es. trovato dalla scansione)
+    è quel device: niente doppione."""
+    from tests.test_api import create
+    site = create(client, "/sites", {"name": "Scansione"})
+    scanned = create(client, "/devices", {"name": "sw-core-01", "site_id": site["id"]})
+    vlan = create(client, "/interfaces", {"device_id": scanned["id"], "name": "Vlan10", "type": "virtual"})
+    create(client, "/ip-addresses", {"address": "10.0.0.2/24", "interface_id": vlan["id"], "is_primary": True})
+
+    db = session_factory()
+    run = run_import(db, "zabbix", "https://zabbix.lan", {"token": "zabbix"}, "admin", default_site="Sede")
+    assert run.status == "done", run.log
+    assert "Già in NetMap con un altro nome (stesso IP di management): Switch core = sw-core-01 (10.0.0.2)" in run.log
+    assert set(devices(db)) == {"sw-core-01", "fw"}
+    assert run.counts["device"] == {"created": 1, "existing": 1, "failed": 0, "skipped": 0}
+    # Il device trovato resta com'era, con le sue porte
+    assert [i.name for i in db.scalars(select(Interface).where(Interface.device_id == scanned["id"]))] == ["Vlan10"]
+
+
 def test_librenms(session_factory, servers):
     source = connectors.build("librenms", "https://nms.lan/api/v0", {"token": "tok"}, None, True)
     probe = source.probe()

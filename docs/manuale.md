@@ -213,7 +213,9 @@ import restano in **Import precedenti**.
 
 - **Crea solo quello che manca**. Un oggetto che c'è già in NetMap (sede con lo stesso nome, device con lo stesso
   nome nella stessa sede, VLAN con lo stesso numero nella sede, IP con lo stesso indirizzo…) resta com'è, anche se
-  in NetBox è diverso. Puoi rilanciare l'import quando vuoi: non crea doppioni.
+  in NetBox è diverso. Puoi rilanciare l'import quando vuoi: non crea doppioni. Anche un device con un altro nome
+  ma con lo **stesso IP di management** di uno che c'è già (per esempio trovato dalla scansione con il nome SNMP)
+  è considerato lo stesso: il log dice quali ha riconosciuto così.
 - Le porte arrivano solo sui device creati dall'import; quelle di un device che c'era già restano come sono, e i
   cavi verso porte che in NetMap non ci sono vengono saltati.
 - Uno **stack** di NetBox (virtual chassis) diventa un device solo, con il nome dello stack e i suoi membri, come

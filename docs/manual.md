@@ -214,7 +214,9 @@ the page: the latest imports stay in **Previous imports**.
 
 - **It only creates what is missing**. An object already in NetMap (site with the same name, device with the same
   name on the same site, VLAN with the same number on the site, IP with the same address…) stays as it is, even if
-  it differs in NetBox. You can run the import again whenever you like: it does not create duplicates.
+  it differs in NetBox. You can run the import again whenever you like: it does not create duplicates. A device
+  with another name but the **same management IP** as one already there (for example found by the scan with its
+  SNMP name) also counts as the same: the log says which ones were recognised this way.
 - Ports are only added to devices created by the import; ports of a device that was already there stay as they are,
   and cables to ports that NetMap doesn't have are skipped.
 - A NetBox **stack** (virtual chassis) becomes a single device, with the stack's name and its members, as in the
