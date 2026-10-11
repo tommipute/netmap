@@ -203,7 +203,9 @@ cables and IP addresses.
    NetBox you create it from your profile, API Tokens). NetMap does not keep it: the worker deletes it when the
    import ends.
 2. **Test the connection**: NetMap shows the NetBox version, how many objects there are and the list of sites.
-3. Choose **All sites** or **Only the chosen sites**. Objects without a site (VRFs, global VLANs and subnets) always
+3. Choose **All sites** or **Only the chosen sites**: in that case type in the box to search for them and click
+   them in the menu (Enter takes the first one; **Add all N found** takes all the ones the search found); the
+   chosen ones become bubbles with a × to remove them. Objects without a site (VRFs, global VLANs and subnets) always
    come along; with chosen sites you get the IPs of their ports and the free ones inside their subnets.
 4. **Simulate the import**: it does all the work and rolls it back at the end, so you see how many objects would be
    created and what problems there are without changing anything. If the numbers look right, **Import**.
@@ -246,8 +248,9 @@ not have sites, racks and cables like NetBox: this is what comes from each one.
 | **GLPI** (9.5 or later, REST API enabled) | user token or user and password, plus the App-Token if the API client asks for it | sites (first level of the GLPI locations) | network devices with type → role, manufacturer, model, serial, inventory number (asset tag), nested locations, ports, IP addresses and links between ports as cables |
 | **Lansweeper** (cloud) | personal access token | Lansweeper sites (they become sites) | only network devices (switches, routers, firewalls, access points, printers, UPS, NAS…) with type → role, manufacturer, model, serial, location and IP; no computers or phones |
 
-- Devices without a site go into the **site for devices without a site** written on the page (empty = a site named
-  after the program, e.g. "Zabbix"): it is created if NetMap doesn't have it.
+- Devices without a site go into the **site for devices without a site**: pick one of NetMap's sites from the menu
+  or type a new name (**Create the site "…"**); below the box it says whether the site exists or will be created.
+  Empty = a site named after the program, e.g. "Zabbix".
 - The management IP goes on the port that has it; if the program does not say which port, on an "mgmt" port.
 - If a list cannot be read (for example the LLDP neighbours of an old LibreNMS version, or a missing permission) the
   import goes on without it and the log says so.

@@ -401,6 +401,14 @@ const strings = {
   // sfondo della mappa
   'Sfondo': 'Background',
   'Sfondo della mappa': 'Map background',
+  // Scelta dei gruppi da importare
+  'Aggiungi tutti i {n} trovati': 'Add all {n} found',
+  'Già scelti tutti.': 'All already chosen.',
+  'Togli tutti': 'Remove all',
+  'Crea la sede "{name}"': 'Create the site "{name}"',
+  'In NetMap non ci sono ancora sedi.': 'There are no sites in NetMap yet.',
+  'Sede già in NetMap: i device vanno lì.': 'Site already in NetMap: the devices go there.',
+  'La sede "{name}" non c\'è ancora: verrà creata.': 'The site "{name}" does not exist yet: it will be created.',
   // Endpoint in mappa
   'Gli apparati visti nelle tabelle MAC degli switch: PC, stampanti, telefoni…': 'Devices seen in the switch MAC tables: PCs, printers, phones…',
   'Gli apparati visti nelle tabelle MAC degli switch (i primi {n} su {total})': 'Devices seen in the switch MAC tables (the first {n} of {total})',
@@ -1458,7 +1466,6 @@ const strings = {
   'Spegnila solo se il server ha un certificato autofirmato: i dati passano comunque cifrati.': 'Turn it off only if the server has a self-signed certificate: data still travels encrypted.',
   'Connesso a {source} {version}: {counts}.': 'Connected to {source} {version}: {counts}.',
   'Sede per i device senza sede': 'Site for devices without a site',
-  'Se manca in NetMap viene creata. Vuoto = una sede con il nome del programma.': "Created in NetMap if missing. Empty = a site named after the program.",
   "I device che ci sono già in NetMap (stesso nome nella stessa sede) restano come sono, con le loro porte. L'IP di management va sulla porta che ce l'ha; se il programma non lo dice, su una porta \"mgmt\".": 'Devices already in NetMap (same name in the same site) stay as they are, with their ports. The management IP goes on the port that has it; if the program does not say, on an "mgmt" port.',
   'Nessun import da altri programmi finora.': 'No imports from other programs so far.',
   'Import da Zabbix': 'Zabbix import',

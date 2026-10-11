@@ -878,14 +878,12 @@ button.tile:hover { border-color: var(--accent); }
 .netbox-page .num { text-align: right; font-variant-numeric: tabular-nums; }
 .netbox-actions { margin-top: 16px; }
 .netbox-sites { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
-.netbox-sites__search { max-width: 320px; }
-.netbox-sites__list {
-  list-style: none; margin: 0; padding: 10px 14px; width: 100%; max-height: 320px; overflow: auto;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 18px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-}
-.netbox-sites__list .check { align-items: baseline; }
-.netbox-sites__list .check .muted { font-size: 12px; }
+.netbox-sites__chosen { max-height: 160px; overflow: auto; }
+.netbox-sites__combo { width: 100%; max-width: 420px; }
+.netbox-sites__item { display: flex; justify-content: space-between; gap: 12px; }
+.netbox-sites__item .muted { font-size: 12px; white-space: nowrap; }
+.combo__item--all { color: var(--accent); }
+.netbox-sites .hint .link-button { padding: 0; font-size: inherit; }
 .netbox-note { max-width: 760px; margin: 0 0 14px; }
 .netbox-default-site { margin-bottom: 14px; }
 .netbox-run .log { margin-bottom: 14px; }

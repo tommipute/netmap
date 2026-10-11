@@ -4,7 +4,7 @@ import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import DeviceImportDialog from '../components/DeviceImportDialog'
 import { Icon, IconButton } from '../components/Icon'
-import { invalidate, useApi } from '../hooks'
+import { invalidate, useApi, useOptions } from '../hooks'
 import { RUN_STATUS, formatDateTime, formatDuration } from '../options'
 import { t, tServer, tn } from '../i18n'
 
@@ -145,15 +145,29 @@ function TextField({ label, value, onChange, hint, placeholder, type = 'text', r
   )
 }
 
-/** Sedi o gruppi da importare: tutti, oppure quelli spuntati (con ricerca se sono tanti). */
+/**
+ * Sedi o gruppi da importare: tutti, oppure quelli scelti da un menu con ricerca (vanno bene anche centinaia di
+ * gruppi). Quelli scelti diventano bolle con la ×; "Aggiungi tutti" prende tutti quelli trovati dalla ricerca.
+ */
 function GroupPicker({ groups: sites, words, chosen, setChosen }) {
   const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
   const all = chosen === null
-  const shown = useMemo(() => {
+  const byId = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites])
+  const choices = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? sites.filter((s) => s.name.toLowerCase().includes(q)) : sites
-  }, [sites, query])
-  const toggle = (id) => setChosen((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+    return sites.filter((s) => !chosen?.includes(s.id) && (!q || s.name.toLowerCase().includes(q)))
+  }, [sites, query, chosen])
+
+  useEffect(() => {
+    const close = (e) => boxRef.current && !boxRef.current.contains(e.target) && setOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  const add = (ids) => setChosen((prev) => [...prev, ...ids])
+  const remove = (id) => setChosen((prev) => prev.filter((x) => x !== id))
 
   return (
     <div className="netbox-sites">
@@ -165,25 +179,138 @@ function GroupPicker({ groups: sites, words, chosen, setChosen }) {
       </div>
       {!all && (
         <>
-          {sites.length > 8 && (
-            <input className="input netbox-sites__search" type="search" value={query} placeholder={words.search}
-              aria-label={words.search} onChange={(e) => setQuery(e.target.value)} />
+          {chosen.length > 0 && (
+            <div className="chips netbox-sites__chosen">
+              {chosen.map((id) => (
+                <span key={id} className="chip chip--value">
+                  {byId.get(id)?.name ?? id}
+                  <button type="button" className="chip__remove" onClick={() => remove(id)} aria-label={t('Togli')}>×</button>
+                </span>
+              ))}
+            </div>
           )}
-          <ul className="netbox-sites__list">
-            {shown.map((s) => (
-              <li key={s.id}>
-                <label className="check">
-                  <input type="checkbox" checked={chosen.includes(s.id)} onChange={() => toggle(s.id)} />
-                  <span>{s.name}</span>
-                  <span className="muted">{tn(s.devices, '1 device', '{n} device')}</span>
-                </label>
-              </li>
-            ))}
-            {shown.length === 0 && <li className="muted">{words.none}</li>}
-          </ul>
-          <span className="hint">{tn(chosen.length, ...words.chosen)}</span>
+          <div className="combo netbox-sites__combo" ref={boxRef}>
+            <input className="input" type="search" role="combobox" aria-expanded={open} aria-label={words.search}
+              value={query} placeholder={words.search} onFocus={() => setOpen(true)}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setOpen(true)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setOpen(false)
+                if (e.key === 'Enter') {
+                  e.preventDefault() // Invio sceglie il primo trovato
+                  if (choices[0]) add([choices[0].id])
+                }
+              }} />
+            {open && (
+              <ul className="combo__list" role="listbox">
+                {query.trim() && choices.length > 1 && (
+                  <li>
+                    <button type="button" className="combo__item combo__item--all" onClick={() => add(choices.map((s) => s.id))}>
+                      {t('Aggiungi tutti i {n} trovati', { n: choices.length })}
+                    </button>
+                  </li>
+                )}
+                {choices.map((s) => (
+                  <li key={s.id}>
+                    <button type="button" role="option" aria-selected="false" className="combo__item netbox-sites__item"
+                      onClick={() => add([s.id])}>
+                      <span>{s.name}</span>
+                      <span className="muted">{tn(s.devices, '1 device', '{n} device')}</span>
+                    </button>
+                  </li>
+                ))}
+                {choices.length === 0 && (
+                  <li className="combo__more hint">{query.trim() ? words.none : t('Già scelti tutti.')}</li>
+                )}
+              </ul>
+            )}
+          </div>
+          <span className="hint">
+            {tn(chosen.length, ...words.chosen)}
+            {chosen.length > 0 && (
+              <>
+                {' · '}
+                {tn(chosen.reduce((sum, id) => sum + (byId.get(id)?.devices || 0), 0), '1 device', '{n} device')}
+                {' · '}
+                <button type="button" className="link-button" onClick={() => setChosen([])}>{t('Togli tutti')}</button>
+              </>
+            )}
+          </span>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Sede dei device che non ne hanno: una sede di NetMap scelta dal menu, oppure un nome nuovo ("Crea la sede …").
+ * All'import va il nome (il backend lo abbina senza badare a maiuscole e minuscole).
+ */
+function SiteCombo({ value, onChange, placeholder }) {
+  const id = useId()
+  const sites = useOptions('sites')
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+  const text = value.trim()
+  const exact = sites.find((s) => s.name.toLowerCase() === text.toLowerCase())
+  const shown = sites.filter((s) => !text || exact || s.name.toLowerCase().includes(text.toLowerCase()))
+  const target = text || placeholder
+  const existing = exact || sites.find((s) => s.name.toLowerCase() === target.toLowerCase())
+
+  useEffect(() => {
+    const close = (e) => boxRef.current && !boxRef.current.contains(e.target) && setOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  const pick = (name) => {
+    onChange(name)
+    setOpen(false)
+  }
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={id}>{t('Sede per i device senza sede')}</label>
+      <div className="combo" ref={boxRef}>
+        <input id={id} className="input" role="combobox" aria-expanded={open} value={value} autoComplete="off"
+          placeholder={placeholder} spellCheck={false} onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setOpen(true)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setOpen(false)
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              pick(exact ? exact.name : value) // Invio tiene quello scritto (con il nome della sede esistente)
+            }
+          }} />
+        {open && (
+          <ul className="combo__list" role="listbox">
+            {text && !exact && (
+              <li>
+                <button type="button" className="combo__item combo__item--all" onClick={() => pick(text)}>
+                  {t('Crea la sede "{name}"', { name: text })}
+                </button>
+              </li>
+            )}
+            {shown.map((s) => (
+              <li key={s.id}>
+                <button type="button" role="option" aria-selected={exact?.id === s.id} className="combo__item" onClick={() => pick(s.name)}>
+                  {s.name}
+                </button>
+              </li>
+            ))}
+            {!text && !sites.length && <li className="combo__more hint">{t('In NetMap non ci sono ancora sedi.')}</li>}
+          </ul>
+        )}
+      </div>
+      <span className="hint">
+        {existing
+          ? t('Sede già in NetMap: i device vanno lì.')
+          : t('La sede "{name}" non c\'è ancora: verrà creata.', { name: target })}
+      </span>
     </div>
   )
 }
@@ -472,8 +599,7 @@ export default function ImportPage() {
           <GroupPicker groups={probe.groups} words={source.groups} chosen={chosen} setChosen={setChosen} />
           {source.defaultSite && (
             <div className="form__grid netbox-default-site">
-              <TextField label={t('Sede per i device senza sede')} value={conn.default_site} onChange={(v) => setField('default_site', v)}
-                placeholder={source.label} hint={t('Se manca in NetMap viene creata. Vuoto = una sede con il nome del programma.')} />
+              <SiteCombo value={conn.default_site} onChange={(v) => setField('default_site', v)} placeholder={source.label} />
             </div>
           )}
           <p className="hint netbox-note">

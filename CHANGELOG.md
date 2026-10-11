@@ -6,6 +6,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Modifiche
+
+- Import: le sedi o i gruppi da importare si scelgono da un menu con ricerca (vanno bene anche centinaia di
+  gruppi): quelli scelti diventano bolle con la ×, "Aggiungi tutti i N trovati" prende tutti quelli della ricerca e
+  sotto c'è quanti device comprendono.
+- Import: la sede per i device senza sede si sceglie dal menu delle sedi di NetMap oppure se ne scrive una nuova
+  ("Crea la sede …"); sotto la casella c'è scritto se esiste già o verrà creata.
+
 ## [1.1.0] - 2026-10-11
 
 Funzioni nuove dopo la 1.0.0: import da altri programmi (Zabbix, LibreNMS, Observium, PRTG, GLPI, Lansweeper),

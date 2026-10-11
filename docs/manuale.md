@@ -202,7 +202,9 @@ e stack, cavi e indirizzi IP.
 1. Scrivi l'indirizzo di NetBox (quello che apri nel browser) e un **token API**: basta in sola lettura (in NetBox
    lo crei dal tuo profilo, Token API). NetMap non lo tiene: il worker lo cancella a fine import.
 2. **Prova la connessione**: NetMap mostra la versione di NetBox, quanti oggetti ci sono e l'elenco delle sedi.
-3. Scegli **Tutte le sedi** o **Solo le sedi scelte**. Gli oggetti che non hanno una sede (VRF, VLAN e subnet
+3. Scegli **Tutte le sedi** o **Solo le sedi scelte**: in questo caso scrivi nella casella per cercarle e cliccale
+   nel menu (Invio prende la prima; **Aggiungi tutti i N trovati** prende tutte quelle trovate dalla ricerca); quelle
+   scelte diventano bolle con la × per toglierle. Gli oggetti che non hanno una sede (VRF, VLAN e subnet
    globali) arrivano sempre; con le sedi scelte arrivano gli IP delle loro porte e quelli liberi dentro le loro subnet.
 4. **Simula l'import**: fa tutto il lavoro e alla fine torna indietro, così vedi quanti oggetti verrebbero creati e
    quali problemi ci sono senza cambiare niente. Se i numeri ti convincono, **Importa**.
@@ -245,8 +247,9 @@ Questi programmi non hanno sedi, rack e cavi come NetBox: ecco cosa arriva da og
 | **GLPI** (9.5 o successivo, API REST attiva) | token dell'utente oppure utente e password, più l'App-Token se il client API lo chiede | sedi (primo livello delle posizioni di GLPI) | apparati di rete con tipo → ruolo, produttore, modello, seriale, numero d'inventario (asset tag), posizioni ad albero, porte, indirizzi IP e collegamenti tra le porte come cavi |
 | **Lansweeper** (cloud) | token personale | siti di Lansweeper (diventano sedi) | solo gli apparati di rete (switch, router, firewall, access point, stampanti, UPS, NAS…) con tipo → ruolo, produttore, modello, seriale, posizione e IP; computer e telefoni no |
 
-- I device senza sede vanno nella **sede per i device senza sede** scritta nella pagina (vuota = una sede con il nome
-  del programma, es. "Zabbix"): se in NetMap non c'è viene creata.
+- I device senza sede vanno nella **sede per i device senza sede**: sceglila dal menu tra quelle di NetMap oppure
+  scrivi un nome nuovo (**Crea la sede "…"**); sotto la casella c'è scritto se la sede c'è già o verrà creata.
+  Vuota = una sede con il nome del programma, es. "Zabbix".
 - L'IP di management va sulla porta che ce l'ha; se il programma non dice su quale porta sta, su una porta "mgmt".
 - Se un elenco non si legge (per esempio i vicini LLDP di una versione vecchia di LibreNMS, o un permesso che
   manca) l'import va avanti senza e il log lo dice.
