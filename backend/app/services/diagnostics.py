@@ -24,7 +24,7 @@ from app.models import (
     DiscoveryRun, User,
 )
 from app.models.enums import ChangeStatus, DeviceStatus, RunStatus
-from app.services import directory, keys, updater
+from app.services import directory, install, keys, updater
 
 PACKAGES = ("fastapi", "uvicorn", "sqlalchemy", "alembic", "pydantic", "psycopg", "pysnmp", "ldap3", "cryptography", "paramiko", "smbprotocol")
 SECRET_SETTINGS = ("secrets_key", "auth_secret")
@@ -197,6 +197,7 @@ def summary(db: Session) -> dict:
     data: dict = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "version": version_info(),
+        "install": install.info(),
         "runtime": {"python": sys.version.split()[0], "platform": platform.platform(), "packages": _versions()},
         "settings": masked_settings(),
     }

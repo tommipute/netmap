@@ -83,7 +83,7 @@ def request(action: str, username: str | None, **extra) -> dict:
     return data
 
 
-def _minutes_since(value: str | None) -> float | None:
+def minutes_since(value: str | None) -> float | None:
     if not value:
         return None
     try:
@@ -97,9 +97,9 @@ def _minutes_since(value: str | None) -> float | None:
 
 def overview() -> dict:
     status = read_json("status.json")
-    silent = _minutes_since(status.get("last_run")) if status else None
+    silent = minutes_since(status.get("last_run")) if status else None
     busy = status.get("activity") not in (None, "idle") if status else False
-    busy_for = _minutes_since(status.get("activity_since")) if busy else None
+    busy_for = minutes_since(status.get("activity_since")) if busy else None
     if not mounted():
         script = "not_mounted"
     elif status is None:

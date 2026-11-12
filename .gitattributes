@@ -1,2 +1,4 @@
 # LF ovunque: su Windows un CRLF rompe gli script .sh nei container
 * text=auto eol=lf
+# Negli zip e tar.gz di GitHub qui finiscono commit e data (pagina Aggiornamenti: installazione da archivio)
+backend/app/archive.txt export-subst

@@ -6,6 +6,19 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- Aggiornamenti: NetMap riconosce come è installato (immagini pronte, codice con git o zip di GitHub; Docker su
+  Linux o Docker Desktop su Windows e Mac; con lo script di aggiornamento o senza) e lo mostra nella riga
+  **Installazione**. Senza lo script, al posto dei pulsanti c'è **Come aggiornare**: i comandi da copiare per
+  PowerShell o per il terminale (backup del database, versione nuova, riavvio), completati con le cartelle scritte
+  nella pagina. Le installazioni da zip mostrano anche il commit da cui vengono.
+
+### Modifiche
+
+- Backup: senza lo script di aggiornamento **Backup ora**, ripristino e impostazioni sono disattivati, con un avviso
+  che rimanda ai comandi della pagina Aggiornamenti (prima i pulsanti c'erano ma la richiesta restava in attesa).
+
 ## [1.2.1] - 2026-11-12
 
 Ritocco del menu. Nessun cambiamento incompatibile e nessuna migration.

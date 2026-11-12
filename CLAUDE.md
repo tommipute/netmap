@@ -82,6 +82,12 @@ il commit: l'updater aspetta il commit **nuovo** prima di dichiarare riuscito l'
 pubblico (piede della pagina: `components/VersionLabel.jsx`). I messaggi dello script sono frasi italiane che
 finiscono con un punto: il frontend le traduce frase per frase (`tMessage`), quindi nuovi messaggi = nuove voci
 in `en.js`. `version.env`, `updater-data/`, `backups/`, `updater/updater.conf`, `data/` non vanno in git.
+- **Tipo di installazione** (`services/install.py`, `install` in `GET /updates` e nel pacchetto diagnostico,
+  `components/ManualUpdate.jsx`): `kind` server se `status.json` ha `updater.mode` e lo script ha girato negli ultimi
+  7 giorni, altrimenti manual (con `stale_updater` se lo script c'era); `source` image (`/app/deploy`), archive
+  (`backend/app/archive.txt` con `export-subst` in `.gitattributes`: negli zip di GitHub commit e data, usati anche da
+  `version_info`) o git; `host` dal kernel (WSL2 = Docker Desktop Windows, linuxkit = Mac). Manual: la pagina
+  Aggiornamenti mostra solo i comandi da copiare, la pagina Backup disattiva i pulsanti dello script.
 - **Backup** (`pages/BackupPage.jsx`, `components/UpdaterBits.jsx` con `useUpdater()` condiviso con
   UpdatesPage): `run_backups` nello script fa il notturno (`backup_time`, se il server era spento parte dopo; la
   data si segna prima del tentativo, quindi un errore non si ripete ogni minuto) e quello chiesto con

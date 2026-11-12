@@ -468,6 +468,8 @@ export default function BackupPage() {
   const backup = status?.backup || {}
   const files = backup.files || []
   const last = backup.last
+  // Backup e ripristino li fa lo script: senza (installazione manuale) i pulsanti non servono
+  const scriptOk = data.mounted && data.install?.kind !== 'manual'
   const restore = backup.restore
   const activity = status?.activity
   const pending = data.request?.action
@@ -492,7 +494,7 @@ export default function BackupPage() {
           <button type="button" className="btn" disabled={progress !== null || !backups.data?.mounted} onClick={() => fileInput.current?.click()}>
             <Icon name="upload" /> {progress !== null ? t('Caricamento… {n}%', { n: progress }) : t('Carica un backup')}
           </button>
-          <button type="button" className="btn btn--primary" disabled={!data.mounted || waiting || Boolean(sending)} onClick={() => send('backup')}>
+          <button type="button" className="btn btn--primary" disabled={!scriptOk || waiting || Boolean(sending)} onClick={() => send('backup')}>
             {sending === 'backup' ? t('Invio…') : t('Backup ora')}
           </button>
         </div>
@@ -543,7 +545,7 @@ export default function BackupPage() {
 
       <section className="section">
         <header className="section__head"><h2>{t('Impostazioni')}</h2></header>
-        <BackupSettings settings={data.settings} disabled={!data.mounted} onSaved={reload} />
+        <BackupSettings settings={data.settings} disabled={!scriptOk} onSaved={reload} />
       </section>
 
       <section className="section">
@@ -585,7 +587,7 @@ export default function BackupPage() {
                       <a className="btn btn--icon btn--sm" href={`/api/backups/files/${encodeURIComponent(f.file)}`} download
                         title={t('Scarica')} aria-label={t('Scarica')}><Icon name="download" /></a>
                       <IconButton icon="refresh" label={t('Ripristina questo backup')} small danger
-                        disabled={!data.mounted || waiting || !backups.data?.mounted} onClick={() => setRestoring(f)} />
+                        disabled={!scriptOk || waiting || !backups.data?.mounted} onClick={() => setRestoring(f)} />
                     </td>
                   </tr>
                 ))}

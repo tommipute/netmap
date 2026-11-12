@@ -139,3 +139,46 @@ def test_pacchetto_diagnostico(client, updater_dir, monkeypatch):
     zf = zipfile.ZipFile(io.BytesIO(client.get("/api/diagnostics").content))
     assert set(zf.namelist()) == {"LEGGIMI.txt", "netmap.json", "api.log"}
     assert json.loads(zf.read("netmap.json"))["updater"]["script"] == "not_mounted"
+
+
+def test_tipo_di_installazione(client, updater_dir, tmp_path, monkeypatch):
+    from app.services import install
+
+    archive = tmp_path / "archive.txt"
+    archive.write_text("$Format:%H %cI$\n")  # clone git: il segnaposto resta com'è
+    monkeypatch.setattr(install, "ARCHIVE_FILE", archive)
+    monkeypatch.setattr(install, "DEPLOY_DIR", tmp_path / "manca")
+    monkeypatch.setattr(install.platform, "release", lambda: "5.15.167.4-microsoft-standard-WSL2")
+
+    # Script mai partito: installazione manuale da un clone, su Docker Desktop per Windows
+    data = client.get("/api/updates").json()["install"]
+    assert data == {"kind": "manual", "updater_mode": None, "stale_updater": False, "updater_last_run": None,
+                    "source": "git", "host": "windows", "archive": None}
+
+    # Lo script gira: server
+    now = datetime.now(timezone.utc)
+    status = {"last_run": now.isoformat(), "updater": {"mode": "docker", "app_dir": "/opt/netmap"}}
+    (updater_dir / "status.json").write_text(json.dumps(status))
+    monkeypatch.setattr(install.platform, "release", lambda: "6.12.48+deb13-amd64")
+    data = client.get("/api/updates").json()["install"]
+    assert data["kind"] == "server" and data["updater_mode"] == "docker" and data["host"] == "linux"
+
+    # Fermo da più di una settimana (cartella copiata da un server, prove vecchie): manuale con avviso
+    status["last_run"] = (now - timedelta(days=8)).isoformat()
+    (updater_dir / "status.json").write_text(json.dumps(status))
+    data = client.get("/api/updates").json()["install"]
+    assert data["kind"] == "manual" and data["stale_updater"] is True and data["updater_last_run"] == status["last_run"]
+
+    # Zip di GitHub: commit e data scritti nell'archivio, usati anche come versione
+    archive.write_text("0123456789abcdef0123456789abcdef01234567 2026-11-12T15:00:00+01:00\n")
+    monkeypatch.setattr(install.platform, "release", lambda: "6.10.14-linuxkit")
+    data = client.get("/api/updates").json()["install"]
+    assert data["source"] == "archive" and data["host"] == "mac"
+    assert data["archive"] == {"commit": "0123456789abcdef0123456789abcdef01234567", "date": "2026-11-12T15:00:00+01:00"}
+    version = client.get("/api/version").json()
+    assert version["short"] == "0123456" and version["date"] == "2026-11-12T15:00:00+01:00"
+
+    # Immagini pronte: /app/deploy c'è solo lì
+    (tmp_path / "deploy").mkdir()
+    monkeypatch.setattr(install, "DEPLOY_DIR", tmp_path / "deploy")
+    assert client.get("/api/updates").json()["install"]["source"] == "image"

@@ -15,7 +15,7 @@ from app.api.auth import require_admin
 from app.config import settings
 from app.database import get_db
 from app.models import User
-from app.services import diagnostics, updater
+from app.services import diagnostics, install, updater
 
 public = APIRouter(tags=["Sistema"])
 BRANCH = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._/-]{0,99}")
@@ -25,11 +25,15 @@ support = APIRouter(tags=["Aggiornamenti"], dependencies=[Depends(require_admin)
 
 
 def version_info() -> dict:
+    commit, date = settings.app_commit, settings.app_commit_date
+    if not commit:  # senza updater né immagini: se il codice viene da uno zip di GitHub, il commit è scritto lì
+        archive = install.archive_info() or {}
+        commit, date = archive.get("commit", ""), archive.get("date", "")
     return {
         "version": settings.app_version,
-        "commit": settings.app_commit,
-        "short": settings.app_commit[:7],
-        "date": settings.app_commit_date,
+        "commit": commit,
+        "short": commit[:7],
+        "date": date,
         "tag": settings.app_tag,
     }
 
@@ -100,7 +104,7 @@ def _require_folder() -> None:
 
 @admin.get("")
 def updates_overview():
-    return {**updater.overview(), "running": version_info()}
+    return {**updater.overview(), "running": version_info(), "install": install.info()}
 
 
 @admin.get("/log")

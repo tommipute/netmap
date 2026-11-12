@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import { Icon } from '../components/Icon'
+import ManualUpdate, { InstallLabel } from '../components/ManualUpdate'
 import Modal from '../components/Modal'
 import { BUSY, ScriptWarning, tMessage, useUpdater } from '../components/UpdaterBits'
 import { useApi } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
 import { t } from '../i18n'
+import { VERSION } from '../version'
 
 const INTERVALS = [
   { value: 15, label: t('Ogni 15 minuti') },
@@ -201,7 +203,7 @@ function History({ items }) {
  * Pacchetto diagnostico: lo zip lo prepara l'API; i log dei container (e lo stato dell'host) li deve raccogliere lo
  * script, perché dall'app Docker non si vede.
  */
-function Diagnostics({ status, disabled, sending, onCollect }) {
+function Diagnostics({ status, manual, disabled, sending, onCollect }) {
   const collected = status?.diagnostics
   return (
     <section className="section">
@@ -210,15 +212,17 @@ function Diagnostics({ status, disabled, sending, onCollect }) {
         {t('Un file zip da allegare a una segnalazione: versione, configurazione (senza password né chiavi), stato del database e log. I log possono contenere indirizzi IP e nomi della tua rete: dagli un\'occhiata prima di mandarlo.')}
       </p>
       <div className="update-actions">
-        <button type="button" className="btn" disabled={disabled} onClick={onCollect}>
-          {sending ? t('Invio…') : t('Raccogli i log dei container')}
-        </button>
+        {!manual && (
+          <button type="button" className="btn" disabled={disabled} onClick={onCollect}>
+            {sending ? t('Invio…') : t('Raccogli i log dei container')}
+          </button>
+        )}
         <a className="btn btn--primary" href="/api/diagnostics" download><Icon name="download" /> {t('Scarica il pacchetto diagnostico')}</a>
-        <span className="hint">
+        {!manual && <span className="hint">
           {collected?.at
             ? t('Log dei container raccolti il {when}: sono nel pacchetto.', { when: formatDateTime(collected.at) })
             : t("Senza raccoglierli il pacchetto ha solo i log dell'API e dello script.")}
-        </span>
+        </span>}
       </div>
     </section>
   )
@@ -246,7 +250,10 @@ export default function UpdatesPage() {
   if (error && !data) return <div className="page"><ErrorBox error={error} /></div>
   if (!data) return <Loading />
 
-  const usable = data.mounted
+  const install = data.install
+  // Senza lo script (PC con Docker Desktop, cartella copiata…): niente pulsanti né impostazioni, solo i comandi
+  const manual = install?.kind === 'manual'
+  const usable = data.mounted && !manual
   const available = status?.available
   const canUpdate = usable && !waiting && status?.update_available
   return (
@@ -255,10 +262,12 @@ export default function UpdatesPage() {
         <div>
           <h1>{t('Aggiornamenti')}</h1>
           <p className="page-intro">
-            {t("NetMap si aggiorna con uno script che gira sul server, fuori dall'app: qui vedi a che punto è, chiedi un controllo o un aggiornamento e scegli se farlo in automatico.")}
+            {manual
+              ? t('Che versione è installata, come è installato NetMap e i comandi per aggiornarlo.')
+              : t("NetMap si aggiorna con uno script che gira sul server, fuori dall'app: qui vedi a che punto è, chiedi un controllo o un aggiornamento e scegli se farlo in automatico.")}
           </p>
         </div>
-        <div className="page-head__actions">
+        {!manual && <div className="page-head__actions">
           <button type="button" className="btn" disabled={!usable || waiting || sending} onClick={() => send('check')}>
             {sending === 'check' ? t('Invio…') : t('Controlla ora')}
           </button>
@@ -266,11 +275,11 @@ export default function UpdatesPage() {
             title={status?.update_available ? '' : t('Nessun aggiornamento disponibile')}>
             {t('Aggiorna ora')}
           </button>
-        </div>
+        </div>}
       </header>
 
       {offline && <p className="notice">{t("NetMap non risponde: se è in corso un aggiornamento si sta riavviando, la pagina si aggiorna da sola.")}</p>}
-      <ScriptWarning data={data} />
+      {!manual && <ScriptWarning data={data} />}
       <ErrorBox error={actionError} />
       {status?.check_error && (
         <div className="notice notice--warn">
@@ -282,9 +291,19 @@ export default function UpdatesPage() {
       )}
 
       <section className="section">
-        <LiveState status={status} request={data.request} />
+        {!manual && <LiveState status={status} request={data.request} />}
         <dl className="facts update-facts">
-          <div><dt>{t('Versione installata')}</dt><dd><Version info={status?.installed || data.running} /></dd></div>
+          <div>
+            <dt>{t('Versione installata')}</dt>
+            <dd>
+              {/* Clone git senza updater: nessun commit noto, il numero è quello dell'ultima release nel codice */}
+              {manual && !data.running?.commit
+                ? <><strong>{VERSION}</strong> <span className="hint">{t('o una modifica successiva')}</span></>
+                : <Version info={(!manual && status?.installed) || data.running} />}
+            </dd>
+          </div>
+          <div><dt>{t('Installazione')}</dt><dd><InstallLabel install={install} /></dd></div>
+          {!manual && <>
           <div>
             <dt>{t('Versione disponibile')}</dt>
             <dd>
@@ -306,9 +325,13 @@ export default function UpdatesPage() {
               {status?.updater?.mode && <span className="hint"> · {t('modalità {mode}', { mode: status.updater.mode })}</span>}
             </dd>
           </div>
+          </>}
         </dl>
       </section>
 
+      {manual && <ManualUpdate install={install} />}
+
+      {!manual && <>
       <section className="section">
         <header className="section__head"><h2>{t('Impostazioni')}</h2></header>
         <SettingsForm settings={data.settings} mode={status?.updater?.mode} disabled={!usable} onSaved={reload} />
@@ -320,11 +343,12 @@ export default function UpdatesPage() {
         </header>
         <History items={status?.history} />
       </section>
+      </>}
 
-      <Diagnostics status={status} disabled={!usable || waiting || Boolean(sending)} sending={sending === 'diagnostics'}
+      <Diagnostics status={status} manual={manual} disabled={!usable || waiting || Boolean(sending)} sending={sending === 'diagnostics'}
         onCollect={() => send('diagnostics')} />
 
-      <section className="section">
+      {!manual && <section className="section">
         <header className="section__head">
           <h2>{t('Log')}</h2>
           <div className="page-head__actions">
@@ -339,7 +363,7 @@ export default function UpdatesPage() {
           )
         )}
         {!showLog && <p className="hint">{t("Il log dell'ultimo aggiornamento, più le righe dei controlli successivi.")}</p>}
-      </section>
+      </section>}
 
       {confirm && (
         <Modal title={t('Aggiornare NetMap adesso?')} onClose={() => setConfirm(false)}>

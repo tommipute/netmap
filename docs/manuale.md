@@ -562,6 +562,23 @@ la versione installata e quella disponibile, l'ultimo controllo e lo storico:
   GitHub, anche non provata: per un server di prova). Non si torna mai a una versione più vecchia.
 - **Log**: cosa ha fatto lo script nell'ultimo aggiornamento.
 
+La riga **Installazione** dice come è installato NetMap: con le immagini pronte, dal codice con git o da uno zip
+scaricato da GitHub; su Docker per Linux o su Docker Desktop per Windows o Mac; aggiornato dallo script o a mano.
+
+### Installazioni senza lo script (aggiornamento a mano)
+
+Se lo script non c'è, per esempio su un PC con Docker Desktop, la pagina non ha pulsanti né impostazioni ma la
+sezione **Come aggiornare**: scrivi la **Cartella di NetMap** (quella con `docker-compose.yml` e `.env`) e, se l'hai
+scaricato come zip, la **Cartella estratta dallo zip** della versione nuova; i comandi sotto si completano da soli
+(per PowerShell su Windows, per il terminale altrove) e **Copia i comandi** li mette negli appunti. Fanno un backup
+del database in `backups/manual-prima-aggiornamento.dump`, poi installano la versione nuova (`git pull`, la copia dei
+file dello zip senza toccare `.env` e dati, oppure `docker compose pull` con le immagini) e riavviano NetMap; le
+migration del database partono da sole. Le cartelle scritte restano salvate per il tuo utente.
+
+Anche **Backup ora** e il ripristino nella pagina Backup servono allo script: senza, il backup si fa con i comandi di
+questa sezione. Se lo script ha girato ma tace da più di una settimana (cartella copiata da un server, timer fermo),
+NetMap lo tratta come assente e lo segnala.
+
 ### Diagnostica
 
 Per segnalare un problema: **Raccogli i log dei container** (lo script li raccoglie entro un minuto), poi

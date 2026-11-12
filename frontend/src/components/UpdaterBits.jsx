@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useApi } from '../hooks'
 import { t, tServer } from '../i18n'
@@ -61,6 +62,15 @@ export function ScriptWarning({ data }) {
   const steps = (
     <p className="hint">{t('Sul server, nella cartella di NetMap: sudo updater/install.sh, poi docker compose up -d. Istruzioni complete nel README, sezione «Aggiornamenti automatici».')}</p>
   )
+  if (data.install?.kind === 'manual') {
+    return (
+      <div className="notice notice--warn">
+        <strong>{t('NetMap è installato senza lo script di aggiornamento.')}</strong>{' '}
+        {t('Backup, ripristino e aggiornamenti da qui non partono: li fai a mano, con i comandi della pagina')}{' '}
+        <Link to="/updates">{t('Aggiornamenti')}</Link>.
+      </div>
+    )
+  }
   if (data.script === 'not_mounted') {
     return (
       <div className="notice notice--warn">

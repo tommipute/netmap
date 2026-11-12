@@ -893,6 +893,9 @@ button.tile:hover { border-color: var(--accent); }
 .update-facts dd { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .update-version__meta { flex-basis: 100%; }
 .update-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.manual-update { display: flex; flex-direction: column; gap: 14px; }
+.manual-update .section__head, .manual-update p { margin: 0; }
+.manual-update .field__label { margin-bottom: 6px; }
 .update-history__backup { display: block; margin-top: 2px; }
 .update-log { max-height: 480px; }
 .backup-help { margin-top: 16px; }
