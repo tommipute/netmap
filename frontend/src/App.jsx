@@ -18,8 +18,9 @@ import BackupPage from './pages/BackupPage'
 import ApiTokensPage from './pages/ApiTokensPage'
 import DirectoryPage from './pages/DirectoryPage'
 import ImportPage from './pages/ImportPage'
+import DashboardPage from './pages/DashboardPage'
 import { getPref, PREFS } from './prefs'
-import { navGroupOf, navGroups, resources } from './resources'
+import { HOME, navGroupOf, navGroups, resources } from './resources'
 import { t } from './i18n'
 
 function NotFound() {
@@ -33,11 +34,12 @@ function NotFound() {
   )
 }
 
-/** Pagina iniziale scelta nelle preferenze, se l'utente la vede ancora nel menu; altrimenti le mappe */
+/** Pagina iniziale scelta nelle preferenze, se l'utente la vede ancora nel menu; altrimenti la panoramica */
 function StartPage() {
   const { isAdmin } = useAuth()
   const start = `/${getPref('start')}`
-  return <Navigate to={navGroupOf(navGroups(isAdmin), start) ? start : `/${PREFS.start.default}`} replace />
+  const visible = start === `/${HOME.to}` || navGroupOf(navGroups(isAdmin), start)
+  return <Navigate to={visible ? start : `/${PREFS.start.default}`} replace />
 }
 
 export default function App() {
@@ -56,6 +58,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<StartPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="maps/:id" element={<MapEditor />} />
         <Route path="devices/:id" element={<DevicePage />} />
         <Route path="prefixes/:id" element={<PrefixPage />} />

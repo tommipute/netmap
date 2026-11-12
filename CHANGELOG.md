@@ -16,6 +16,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Grafica rinnovata con gli stessi colori: icone nel menu per sezioni e pagine, schede e tabelle arrotondate con
   un'ombra leggera, ricerca in alto a pillola (**Ctrl K** o **/** per arrivarci), pulsante tondo per passare da
   tema chiaro a scuro (il tema nuovo si allarga a cerchio dal pulsante).
+- **Panoramica**, la nuova pagina iniziale: device, chi risponde e chi no, modifiche da approvare, stato live,
+  attività degli ultimi 14 giorni, device per ruolo e per sede, subnet più piene, porte ed endpoint, ultime
+  scansioni, mappe e (per gli amministratori) aggiornamenti e backup. Chi aveva scelto un'altra pagina iniziale la
+  ritrova; la Panoramica è la prima voce del menu e la prima scelta in Preferenze → Pagina iniziale.
+- I moduli per creare e modificare si aprono in un pannello sulla destra con i pulsanti sempre in vista; titoli
+  delle pagine con la loro icona, pulsante a pillola per tornare all'elenco, pagina di accesso rinnovata.
 - Animazioni brevi quando si aprono pagine, righe degli elenchi, finestre e menu; i numeri dello stato live in alto
   contano fino al valore. Preferenze → **Animazioni**: complete o ridotte (ridotte anche se lo chiede il sistema
   operativo).

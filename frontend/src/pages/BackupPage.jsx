@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import DeleteDialog from '../components/DeleteDialog'
-import { Icon, IconButton } from '../components/Icon'
+import { Icon, IconButton, PageIcon } from '../components/Icon'
 import Modal from '../components/Modal'
 import ResourceForm from '../components/ResourceForm'
 import { BUSY, ScriptWarning, tMessage, useUpdater } from '../components/UpdaterBits'
@@ -484,7 +484,7 @@ export default function BackupPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('Backup')}</h1>
+          <h1 className="page-title"><PageIcon name="database" />{t('Backup')}</h1>
           <p className="page-intro">
             {t("Copie del database fatte dallo script sul server: ogni notte, prima di ogni aggiornamento e quando lo chiedi tu. Contengono tutti i dati di NetMap, compresi utenti e profili SNMP.")}
           </p>

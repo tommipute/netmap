@@ -1,6 +1,6 @@
 import { useAuth } from '../auth'
 import { usePref } from '../prefs'
-import { navGroups, navItem } from '../resources'
+import { HOME, navGroups, navItem } from '../resources'
 import { useTheme } from '../theme'
 import { LANG, LANGUAGES, setLang, t, tc } from '../i18n'
 import Modal from './Modal'
@@ -132,6 +132,7 @@ export default function PrefsDialog({ onClose }) {
             )}
             <Row label={t('Pagina iniziale')} hint={t('La pagina che si apre entrando in NetMap o cliccando il logo.')}>
               <select className="input" value={start} onChange={(e) => setStart(e.target.value)} aria-label={t('Pagina iniziale')}>
+                <option value={HOME.to}>{HOME.title}</option>
                 {groups.map((group) => (
                   <optgroup key={group.title} label={group.title}>
                     {group.items.map(navItem).map((item) => <option key={item.to} value={item.to}>{item.title}</option>)}

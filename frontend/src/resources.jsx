@@ -988,6 +988,9 @@ export const NAV = [
   { title: t('Amministrazione'), icon: 'settings', admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]
 
+/** Panoramica: fuori dalle sezioni, prima voce del menu e pagina iniziale predefinita */
+export const HOME = { to: 'dashboard', title: t('Panoramica'), icon: 'dashboard' }
+
 /** Icona di ogni pagina del menu (components/Icon.jsx), per percorso */
 const NAV_ICONS = {
   maps: 'map', devices: 'server', where: 'locate', interfaces: 'ethernetPort', cables: 'cable',
@@ -999,6 +1002,9 @@ const NAV_ICONS = {
   'alert-channels': 'bell', webhooks: 'webhook', 'api-tokens': 'key',
   users: 'users', 'custom-fields': 'listPlus', directory: 'folderTree', import: 'upload', updates: 'refresh', backup: 'database',
 }
+
+/** Icona della voce di menu di una pagina (percorso senza "/") */
+export const navIcon = (path) => NAV_ICONS[path]
 
 /** Voce del menu normalizzata: { to, title, badge, icon } */
 export const navItem = (item) => {

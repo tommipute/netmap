@@ -8,7 +8,7 @@ import { customColumns, useCustomFields } from '../components/CustomFields'
 import DeleteDialog from '../components/DeleteDialog'
 import ProbeDialog from '../components/ProbeDialog'
 import DeviceImportDialog from '../components/DeviceImportDialog'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { RefSelect } from '../components/RefSelect'
 import ResourceForm from '../components/ResourceForm'
@@ -16,7 +16,7 @@ import { ColumnFilter, ColumnsMenu, filterParams, filterSpec, sortFieldOf, useTa
 import { invalidate, useApi, useDebounced } from '../hooks'
 import { labelOf } from '../options'
 import { usePref } from '../prefs'
-import { resources } from '../resources'
+import { navIcon, resources } from '../resources'
 import { t, tn } from '../i18n'
 
 
@@ -213,7 +213,7 @@ export default function ResourcePage({ resourceKey }) {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{config.title}</h1>
+          <h1 className="page-title"><PageIcon name={navIcon(config.path)} />{config.title}</h1>
           {config.intro && <p className="page-intro">{config.intro}</p>}
         </div>
         <div className="page-head__actions">

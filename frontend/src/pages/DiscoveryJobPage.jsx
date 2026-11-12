@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import ProbeDialog, { PROBE_MAX_HOSTS } from '../components/ProbeDialog'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
@@ -14,7 +14,7 @@ import { parseTarget } from '../targets'
 
 const RUN_TONE = { queued: 'muted', running: 'info', done: 'ok', failed: 'danger' }
 
-function RunStatus({ status }) {
+export function RunStatus({ status }) {
   const label = RUN_STATUS.find((o) => o.value === status)?.label ?? status
   return <span className={`badge badge--${RUN_TONE[status] || 'muted'}`}>{label}</span>
 }
@@ -81,6 +81,7 @@ export default function DiscoveryJobPage() {
         <div>
           <p className="crumbs"><Link to="/discovery-jobs">{t('Scansioni')}</Link></p>
           <h1 className="device-title">
+            <PageIcon name="radar" />
             {job.name}
             {!job.enabled && <span className="badge badge--muted">{t('Disattivata')}</span>}
           </h1>

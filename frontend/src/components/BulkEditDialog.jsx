@@ -75,7 +75,7 @@ export default function BulkEditDialog({ resourceKey, items, onClose, onDone }) 
   }
 
   return (
-    <Modal title={t('Modifica {n} elementi', { n: items.length })} onClose={onClose}>
+    <Modal title={t('Modifica {n} elementi', { n: items.length })} onClose={onClose} drawer>
       <form className="form" onSubmit={submit} noValidate>
         <p className="hint">{t("Spunta i campi da cambiare: il nuovo valore vale per tutti. Gli altri campi restano com'erano.")}</p>
         <div className="bulk-fields">

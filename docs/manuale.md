@@ -47,7 +47,7 @@ destra) → **Preferenze**:
   raggiunge con **Ctrl K** (⌘K sul Mac) o con **/**.
 - **Menu**: a lato (a sinistra) o in alto (su telefono sta sempre in alto). A lato, le sezioni si aprono **una alla
   volta** oppure sono **tutte aperte** come un elenco unico. **Pagina iniziale**: quella che si apre entrando in
-  NetMap o cliccando il logo (di solito le mappe).
+  NetMap o cliccando il logo (di solito la **Panoramica**).
 - **Elenchi e date**: righe per pagina (25, 50, 100 o 200); date complete o **"3 ore fa"** (per l'ultima settimana);
   ora a 24 o 12 ore.
 - **Mappa e stato live**: quali caselle della mappa (Posizioni, Endpoint, Sfondo) sono accese quando la apri, e se
@@ -62,6 +62,12 @@ errore successivo (fino a 15 minuti). È una protezione contro chi prova passwor
 
 ## 2. Come è fatta l'interfaccia
 
+- **Panoramica**, la prima voce del menu e la pagina iniziale: in un colpo d'occhio quanti device ci sono, quanti
+  rispondono e quanti no, le modifiche della scansione da approvare; poi lo stato live con l'elenco di chi non
+  risponde, le modifiche al giorno degli ultimi 14 giorni, i device per ruolo e per sede, le subnet più piene, i
+  numeri della rete (porte collegate, endpoint nuovi e spostati), le ultime scansioni, le mappe e, per gli
+  amministratori, aggiornamenti e backup. Ogni riquadro porta alla pagina con i dettagli; i dati si aggiornano da
+  soli ogni minuto.
 - **Menu**, diviso in sezioni: Rete, Luoghi, Indirizzamento, Catalogo, Scansione SNMP, Attività e (solo per gli
   amministratori) Avvisi e integrazioni, Amministrazione. Si vedono solo i nomi delle sezioni: cliccandone una si
   apre con le sue pagine. A lato si apre una sezione alla volta e quella della pagina in cui sei è già aperta; in
@@ -98,16 +104,17 @@ un'origine. Nella scheda del device la stessa icona è accanto alle porte che no
 
 ### Moduli
 
-Nei moduli i campi con l'asterisco sono obbligatori. I menu a tendina hanno in fondo la voce **"+ Nuovo …"**: crei
-al volo una sede, un rack, un modello o un ruolo che manca, senza perdere quello che stavi scrivendo.
-Quasi tutti gli oggetti (device, porte, cavi, sedi, posizioni, rack, modelli, subnet, IP, VLAN, VRF) hanno i
-**campi personalizzati**. L'amministratore li definisce in Amministrazione → Campi personalizzati: etichetta, nome
-(la chiave nei dati, che non si cambia), tipo (testo, testo lungo, numero, sì/no, data, scelta da un elenco, link),
-a quali oggetti si applicano, se sono obbligatori e in che ordine compaiono. Un campo definito compare nel modulo
-con il controllo adatto (menu, data, casella…), è una colonna degli elenchi con filtro e ordinamento, si trova con la
-ricerca ed esce nell'export dei device (colonna `cf_<nome>`). Sotto i campi definiti restano i campi liberi
-nome/valore (es. quelli arrivati da un import). Eliminare una definizione non cancella i valori: diventano campi
-liberi.
+I moduli per creare e modificare si aprono in un pannello sulla destra, con **Annulla** e **Crea** (o **Salva
+modifiche**) sempre in vista in fondo; l'elenco resta dietro. Nei moduli i campi con l'asterisco sono obbligatori. I
+menu a tendina hanno in fondo la voce **"+ Nuovo …"**: crei al volo una sede, un rack, un modello o un ruolo che
+manca, senza perdere quello che stavi scrivendo. Quasi tutti gli oggetti (device, porte, cavi, sedi, posizioni,
+rack, modelli, subnet, IP, VLAN, VRF) hanno i **campi personalizzati**. L'amministratore li definisce in
+Amministrazione → Campi personalizzati: etichetta, nome (la chiave nei dati, che non si cambia), tipo (testo, testo
+lungo, numero, sì/no, data, scelta da un elenco, link), a quali oggetti si applicano, se sono obbligatori e in che
+ordine compaiono. Un campo definito compare nel modulo con il controllo adatto (menu, data, casella…), è una colonna
+degli elenchi con filtro e ordinamento, si trova con la ricerca ed esce nell'export dei device (colonna
+`cf_<nome>`). Sotto i campi definiti restano i campi liberi nome/valore (es. quelli arrivati da un import).
+Eliminare una definizione non cancella i valori: diventano campi liberi.
 
 ### Stampa
 

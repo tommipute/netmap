@@ -49,7 +49,7 @@ On the sign-in page you pick the **language** (Italian or English). After signin
   the search at the top.
 - **Menu**: at the side (left) or at the top (on a phone it is always at the top). At the side, sections open **one
   at a time** or are **all open** as a single list. **Start page**: the page that opens when you enter NetMap or
-  click the logo (normally the maps).
+  click the logo (normally the **Overview**).
 - **Lists and dates**: rows per page (25, 50, 100 or 200); full dates or **"3 hours ago"** (for the last week);
   24-hour or 12-hour time.
 - **Map and live status**: which map boxes (Locations, Endpoints, Background) are on when you open it, and whether
@@ -64,6 +64,11 @@ further mistake (up to 15 minutes). It protects against password guessing: wait 
 
 ## 2. The interface
 
+- **Overview**, the first menu entry and the start page: at a glance how many devices there are, how many respond
+  and how many don't, the scan changes to approve; then the live status with the list of devices not responding,
+  the changes per day over the last 14 days, devices by role and by site, the fullest subnets, the network in
+  numbers (connected ports, new and moved endpoints), the latest scans, the maps and, for administrators, updates
+  and backups. Each box leads to the page with the details; the data refreshes on its own every minute.
 - **Menu**, in sections: Network, Places, Addressing, Catalog, SNMP scan, Activity and (administrators only) Alerts
   and integrations, Administration. Only the section names are shown: click one to open it with its pages. At the
   side one section is open at a time, and the one of the page you are on is already open; at the top (see
@@ -99,15 +104,16 @@ of one source. In the device page the same icon is next to the ports that were n
 
 ### Forms
 
-Fields with an asterisk are required. Drop-down menus end with **"+ New …"** (for example "+ New site…"): create a
-missing site, rack, model or role on the fly without losing what you were typing. Almost every object (devices, ports,
-cables, sites, locations, racks, models, subnets, IPs, VLANs, VRFs) has **custom fields**. The administrator defines
-them in Administration → Custom fields: label, name (the key in the data, which cannot be changed), type (text, long
-text, number, yes/no, date, choice from a list, link), which objects they apply to, whether they are required and in
-which order they appear. A defined field shows in the form with the right control (menu, date, checkbox…), is a list
-column with filter and sorting, is found by search and is exported with the devices (column `cf_<name>`). Below the
-defined fields there are still free name/value fields (e.g. those that came from an import). Deleting a definition
-does not delete the values: they become free fields.
+Create and edit forms open in a panel on the right, with **Cancel** and **Create** (or **Save changes**) always
+visible at the bottom; the list stays behind it. Fields with an asterisk are required. Drop-down menus end with **"+
+New …"** (for example "+ New site…"): create a missing site, rack, model or role on the fly without losing what you
+were typing. Almost every object (devices, ports, cables, sites, locations, racks, models, subnets, IPs, VLANs,
+VRFs) has **custom fields**. The administrator defines them in Administration → Custom fields: label, name (the key
+in the data, which cannot be changed), type (text, long text, number, yes/no, date, choice from a list, link), which
+objects they apply to, whether they are required and in which order they appear. A defined field shows in the form
+with the right control (menu, date, checkbox…), is a list column with filter and sorting, is found by search and is
+exported with the devices (column `cf_<name>`). Below the defined fields there are still free name/value fields
+(e.g. those that came from an import). Deleting a definition does not delete the values: they become free fields.
 
 ### Printing
 

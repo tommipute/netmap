@@ -2,6 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ErrorBox, Loading, Mono } from '../components/Bits'
 import { useApi } from '../hooks'
 import { t, tData } from '../i18n'
+import { PageIcon } from '../components/Icon'
 
 const GROUPS = [
   { type: 'device', title: t('Device') },
@@ -19,7 +20,7 @@ export default function SearchPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('Risultati per "{q}"', { q })}</h1>
+          <h1 className="page-title"><PageIcon name="search" />{t('Risultati per "{q}"', { q })}</h1>
           <p className="page-intro">{t('Cerca per nome o seriale del device, MAC address (anche aabb.ccdd.eeff) o indirizzo IP.')}</p>
         </div>
       </header>

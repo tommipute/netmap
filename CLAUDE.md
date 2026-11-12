@@ -700,6 +700,12 @@ Testi: italiano, sentence case, frasi semplici, pulsanti che dicono cosa fanno (
 `IconButton` / `IconLink` di `components/Icon.jsx` (SVG a mano, niente librerie); il testo va in `label`, che diventa
 tooltip e `aria-label`. Restano scritti solo i pulsanti dentro le finestre (Annulla, Crea, Salva modifiche, Accedi…).
 Icona nuova = un path in `PATHS`.
+**Panoramica** (`pages/DashboardPage.jsx` su `/dashboard`, `GET /api/dashboard` da `services/dashboard.py`, una
+sola richiesta con conteggi e poche righe, ricaricata ogni minuto): pagina iniziale predefinita (`HOME` in
+resources.jsx, voce `nav-home` sopra le sezioni del menu e prima scelta in Preferenze); la parte `system` (tipo di
+installazione, aggiornamenti, backup) solo per gli admin. Titoli delle pagine `h1.page-title` con `PageIcon`
+(icona della voce di menu, `navIcon(path)`), `.crumbs` = pillola per tornare all'elenco. `Modal` con `drawer` =
+pannello da destra con `.modal__footer` sempre in vista (ResourceForm, BulkEditDialog).
 
 ## Decisioni già prese con l'utente (non rimetterle in discussione senza chiedere)
 

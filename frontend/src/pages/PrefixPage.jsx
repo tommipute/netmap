@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Badge, ErrorBox, Loading, Mono } from '../components/Bits'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
@@ -51,6 +51,7 @@ export default function PrefixPage() {
         <div>
           <p className="crumbs"><Link to="/prefixes">{t('Subnet')}</Link></p>
           <h1 className="device-title">
+            <PageIcon name="network" />
             <span className="mono">{prefix.prefix}</span>
             <Badge value={prefix.status} options={IPAM_STATUS} />
           </h1>

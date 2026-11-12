@@ -5,7 +5,8 @@ import { t } from '../i18n'
 // Finestre aperte, l'ultima è in primo piano (es. "Nuovo rack" aperto dal menu del modulo del device)
 const open = []
 
-export default function Modal({ title, onClose, children, wide = false }) {
+/** Finestra centrata; con drawer è un pannello che scorre da destra, alto quanto lo schermo (moduli di modifica). */
+export default function Modal({ title, onClose, children, wide = false, drawer = false }) {
   const dialogRef = useRef(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -24,8 +25,8 @@ export default function Modal({ title, onClose, children, wide = false }) {
   }, [])
 
   return createPortal(
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={dialogRef} className={`modal${wide ? ' modal--wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+    <div className={`modal-backdrop${drawer ? ' modal-backdrop--drawer' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={dialogRef} className={`modal${wide ? ' modal--wide' : ''}${drawer ? ' modal--drawer' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="modal__header">
           <h2>{title}</h2>
           <button type="button" className="modal__close" onClick={onClose} aria-label={t('Chiudi')}>

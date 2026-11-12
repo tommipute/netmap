@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, Loading } from '../components/Bits'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import { RefSelect } from '../components/RefSelect'
 import { invalidate, useApi } from '../hooks'
 import { CHANGE_ACTIONS, CHANGE_STATUS, formatDateTime } from '../options'
@@ -123,7 +123,7 @@ export default function ChangesPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('Da approvare')}</h1>
+          <h1 className="page-title"><PageIcon name="inbox" />{t('Da approvare')}</h1>
           <p className="page-intro">
             {t('Quello che le scansioni SNMP hanno trovato di nuovo o di diverso. Niente cambia finché non lo approvi; una modifica rifiutata non viene riproposta finché i dati restano uguali.')}
           </p>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { ROLES, useAuth } from '../auth'
 import { ErrorBox, Loading } from '../components/Bits'
-import { Icon } from '../components/Icon'
+import { Icon, PageIcon } from '../components/Icon'
 import { useApi } from '../hooks'
 import { labelOf } from '../options'
 import { t, tServer, tn } from '../i18n'
@@ -190,7 +190,7 @@ export default function DirectoryPage() {
     <div className="page directory-page">
       <header className="page-head">
         <div>
-          <h1>{t('Active Directory')}</h1>
+          <h1 className="page-title"><PageIcon name="folderTree" />{t('Active Directory')}</h1>
           <p className="page-intro">
             {t('Accesso a NetMap con gli utenti di Windows del dominio: la password la controlla il domain controller e il ruolo viene dai gruppi, a ogni accesso. Gli utenti locali, come l\'amministratore creato all\'installazione, entrano sempre con la loro password, anche se il dominio non risponde.')}
           </p>

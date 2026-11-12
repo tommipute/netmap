@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { qs } from '../api'
 import { ErrorBox, Loading, Mono } from '../components/Bits'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import { useApi, useDebounced } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
 import { t } from '../i18n'
@@ -83,7 +83,7 @@ export default function EndpointsPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t("Dov'è collegato?")}</h1>
+          <h1 className="page-title"><PageIcon name="locate" />{t("Dov'è collegato?")}</h1>
           <p className="page-intro">
             {t('Cerca un PC, una stampante o un telefono per MAC address, IP o nome DNS: trovi lo switch e la porta a cui è attaccato. I dati arrivano dalle tabelle MAC e ARP lette dalle scansioni SNMP.')}
           </p>

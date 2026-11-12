@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
-import { Icon } from '../components/Icon'
+import { Icon, PageIcon } from '../components/Icon'
 import ManualUpdate, { InstallLabel } from '../components/ManualUpdate'
 import Modal from '../components/Modal'
 import { BUSY, ScriptWarning, tMessage, useUpdater } from '../components/UpdaterBits'
@@ -260,7 +260,7 @@ export default function UpdatesPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('Aggiornamenti')}</h1>
+          <h1 className="page-title"><PageIcon name="refresh" />{t('Aggiornamenti')}</h1>
           <p className="page-intro">
             {manual
               ? t('Che versione è installata, come è installato NetMap e i comandi per aggiornarlo.')

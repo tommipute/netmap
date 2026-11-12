@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { ROLES, useAuth } from '../auth'
 import { ErrorBox, Loading } from '../components/Bits'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import Modal from '../components/Modal'
 import { copyText } from '../components/SecretInput'
 import { useApi, useOptions } from '../hooks'
@@ -142,7 +142,7 @@ export default function ApiTokensPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{tc('elenco', 'Token API')}</h1>
+          <h1 className="page-title"><PageIcon name="key" />{tc('elenco', 'Token API')}</h1>
           <p className="page-intro">
             {t('Chiavi per gli script e gli altri programmi che leggono o modificano NetMap con le API (documentazione nel menu utente). Ogni token agisce come il suo utente e mai con più permessi; le modifiche fatte con un token compaiono nello storico con l\'origine "API". Cambiare la password dell\'utente o disattivarlo revoca i suoi token.')}
           </p>

@@ -6,6 +6,7 @@ import HistoryList, { SOURCES } from '../components/HistoryList'
 import { useApi } from '../hooks'
 import { formatDateTime, formatSince } from '../options'
 import { t } from '../i18n'
+import { PageIcon } from '../components/Icon'
 
 const PERIODS = [
   { hours: 24, label: t('Ultime 24 ore') },
@@ -111,7 +112,7 @@ export default function WhatsChangedPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('Cosa è cambiato')}</h1>
+          <h1 className="page-title"><PageIcon name="compare" />{t('Cosa è cambiato')}</h1>
           <p className="page-intro">
             {t('Il riassunto del periodo: modifiche alla documentazione, device che non rispondono, apparecchi nuovi o spostati visti dalla scansione.')}
           </p>

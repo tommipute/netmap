@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { qs } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import HistoryList, { OBJECT_TYPES, SOURCES } from '../components/HistoryList'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { useApi, useDebounced } from '../hooks'
 import { formatDateTime } from '../options'
@@ -41,7 +41,7 @@ export default function HistoryPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <h1>{t('Storico modifiche')}</h1>
+          <h1 className="page-title"><PageIcon name="history" />{t('Storico modifiche')}</h1>
           <p className="page-intro">
             {t("Chi ha cambiato cosa e quando: a mano, con la scansione SNMP o con l'import. Lo stato live e i dati che la scansione aggiorna da sola (ultima volta visto, porte su/giù) non compaiono.")}
           </p>

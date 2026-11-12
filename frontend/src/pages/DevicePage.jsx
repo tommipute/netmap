@@ -8,7 +8,7 @@ import CableDialog from '../components/CableDialog'
 import { CustomValue, useCustomFields } from '../components/CustomFields'
 import DeleteDialog from '../components/DeleteDialog'
 import HistoryList from '../components/HistoryList'
-import { IconButton, IconLink } from '../components/Icon'
+import { IconButton, IconLink, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import { invalidate, useApi } from '../hooks'
@@ -223,6 +223,7 @@ export default function DevicePage() {
             <Link to="/devices">{t('Device')}</Link>
           </p>
           <h1 className="device-title">
+            <PageIcon name="server" />
             {device.name}
             <Badge value={device.status} options={DEVICE_STATUS} />
           </h1>

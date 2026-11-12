@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import DeviceImportDialog from '../components/DeviceImportDialog'
-import { Icon, IconButton } from '../components/Icon'
+import { Icon, IconButton, PageIcon } from '../components/Icon'
 import { invalidate, useApi, useOptions } from '../hooks'
 import { RUN_STATUS, formatDateTime, formatDuration } from '../options'
 import { t, tServer, tn } from '../i18n'
@@ -520,7 +520,7 @@ export default function ImportPage() {
     <div className="page netbox-page">
       <header className="page-head">
         <div>
-          <h1>{t('Import')}</h1>
+          <h1 className="page-title"><PageIcon name="upload" />{t('Import')}</h1>
           <p className="page-intro">
             {t('Porta in NetMap i device (e quello che c\'è intorno) da un file o da un altro programma. Dagli altri programmi si crea solo quello che manca: gli oggetti che ci sono già in NetMap, con lo stesso nome, restano come sono. Prova prima con la simulazione.')}
           </p>

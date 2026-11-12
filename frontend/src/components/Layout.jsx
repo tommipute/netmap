@@ -5,7 +5,7 @@ import { usePendingCount, useStatusSummary, useVersion } from '../hooks'
 import { labelOf } from '../options'
 import { CountUp, revealFrom } from '../motion'
 import { usePref } from '../prefs'
-import { navGroupOf, navGroups, navItem } from '../resources'
+import { HOME, navGroupOf, navGroups, navItem } from '../resources'
 import PasswordDialog from './PasswordDialog'
 import PrefsDialog from './PrefsDialog'
 import { Icon } from './Icon'
@@ -183,6 +183,10 @@ function SideNav({ groups, badges }) {
     <aside className="sidebar">
       <Brand />
       <nav aria-label={t('Sezioni')}>
+        <NavLink to={`/${HOME.to}`} className="nav-link nav-home">
+          <Icon name={HOME.icon} />
+          <span className="nav-link__title">{HOME.title}</span>
+        </NavLink>
         {groups.map((group) => {
           const expanded = isOpen(group.title)
           return (
@@ -244,6 +248,10 @@ function TopNav({ groups, badges }) {
     <header className="topnav" ref={boxRef}>
       <Brand />
       <nav className="topnav__groups" aria-label={t('Sezioni')}>
+        <NavLink to={`/${HOME.to}`} className={({ isActive }) => `topnav__group${isActive ? ' topnav__group--current' : ''}`}>
+          <Icon name={HOME.icon} />
+          {HOME.title}
+        </NavLink>
         {groups.map((g) => (
           <button key={g.title} type="button" aria-expanded={open === g.title} aria-haspopup="true"
             className={`topnav__group${current === g.title ? ' topnav__group--current' : ''}`} onClick={(e) => toggle(e, g.title)}>

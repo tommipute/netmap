@@ -14,7 +14,7 @@ export const PREFS = {
   density: { key: 'netmap.density', default: 'normal', values: ['normal', 'compact'] },
   motion: { key: 'netmap.motion', default: 'full', values: ['full', 'reduced'] }, // motion.js
   pageSize: { key: 'netmap.pageSize', default: '50', values: ['25', '50', '100', '200'] },
-  start: { key: 'netmap.start', default: 'maps' }, // percorso senza "/" (deve esistere nel menu)
+  start: { key: 'netmap.start', default: 'dashboard' }, // percorso senza "/" (deve esistere nel menu)
   dates: { key: 'netmap.dates', default: 'full', values: ['full', 'relative'] },
   clock: { key: 'netmap.clock', default: '24', values: ['24', '12'] },
   refresh: { key: 'netmap.refresh', default: '30', values: ['15', '30', '60', '300', '0'] }, // secondi, 0 = mai

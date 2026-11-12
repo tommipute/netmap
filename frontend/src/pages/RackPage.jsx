@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, LiveStatus, Loading, PrintFooter } from '../components/Bits'
-import { IconButton } from '../components/Icon'
+import { IconButton, PageIcon } from '../components/Icon'
 import Modal from '../components/Modal'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
@@ -309,7 +309,7 @@ export default function RackPage() {
       <header className="page-head">
         <div>
           <p className="crumbs"><Link to="/racks">{t('Rack')}</Link></p>
-          <h1>{rack.name}</h1>
+          <h1 className="page-title"><PageIcon name="stack" />{rack.name}</h1>
           <p className="page-intro">
             <RefLabel resource="sites" id={rack.site_id} />
             {rack.location_id && <>, <RefLabel resource="locations" id={rack.location_id} /></>}

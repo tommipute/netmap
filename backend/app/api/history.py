@@ -6,9 +6,12 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.api.auth import current_user
 from app.database import get_db
-from app.models import AuditEntry
+from app.models import AuditEntry, User
+from app.models.enums import UserRole
 from app.schemas.common import Page
+from app.services.dashboard import dashboard
 from app.services.summary import whats_changed
 
 router = APIRouter(tags=["Storico"])
@@ -71,3 +74,8 @@ def whats_changed_view(
     elif since.tzinfo is None:
         since = since.astimezone()  # data senza fuso: ora locale del server
     return whats_changed(db, since)
+
+
+@router.get("/dashboard", tags=["Panoramica"], summary="Panoramica della pagina iniziale: numeri, stato live, subnet, scansioni, attività")
+def dashboard_view(db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    return dashboard(db, admin=user is None or user.role == UserRole.ADMIN.value)

@@ -234,7 +234,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
   }
 
   return (
-    <Modal title={isEdit ? config.editLabel : config.newLabel} onClose={onClose} wide={config.fields.length > 6}>
+    <Modal title={isEdit ? config.editLabel : config.newLabel} onClose={onClose} wide={config.fields.length > 6} drawer>
       <form className="form" onSubmit={submit} noValidate>
         <div className="form__grid">
           {config.fields.map((f) => {
