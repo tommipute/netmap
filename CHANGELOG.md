@@ -6,6 +6,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.2.1] - 2026-11-12
+
+Ritocco del menu. Nessun cambiamento incompatibile e nessuna migration.
+
 ### Modifiche
 
 - Menu: i nomi delle sezioni sono tutti nel colore d'accento (prima solo quello della sezione aperta cambiava colore,
