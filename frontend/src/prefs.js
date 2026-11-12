@@ -12,6 +12,7 @@ export const PREFS = {
   menu: { key: 'netmap.menu', default: 'side', values: ['side', 'top'] },
   menuSections: { key: 'netmap.menuSections', default: 'one', values: ['one', 'all'] },
   density: { key: 'netmap.density', default: 'normal', values: ['normal', 'compact'] },
+  motion: { key: 'netmap.motion', default: 'full', values: ['full', 'reduced'] }, // motion.js
   pageSize: { key: 'netmap.pageSize', default: '50', values: ['25', '50', '100', '200'] },
   start: { key: 'netmap.start', default: 'maps' }, // percorso senza "/" (deve esistere nel menu)
   dates: { key: 'netmap.dates', default: 'full', values: ['full', 'relative'] },
@@ -35,7 +36,7 @@ export function getPref(name) {
 export function setPref(name, value) {
   const pref = PREFS[name]
   store(pref.key, value === pref.default ? null : value)
-  if (name === 'density') applyDocument()
+  if (name === 'density' || name === 'motion') applyDocument()
   listeners.forEach((fn) => fn(name, value))
 }
 

@@ -46,7 +46,7 @@ function push() {
   }).catch(() => {})
 }
 
-/** Tema e densità sull'elemento <html> (anche index.html lo fa prima del primo disegno). */
+/** Tema, densità e animazioni sull'elemento <html> (anche index.html lo fa prima del primo disegno). */
 export function applyDocument() {
   const root = document.documentElement
   const theme = readLocal('netmap.theme')
@@ -54,6 +54,9 @@ export function applyDocument() {
   else delete root.dataset.theme
   if (readLocal('netmap.density') === 'compact') root.dataset.density = 'compact'
   else delete root.dataset.density
+  // Animazioni (motion.js): spente se scelto "Ridotte" o se il sistema operativo chiede meno movimento
+  const reduced = readLocal('netmap.motion') === 'reduced' || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  root.dataset.motion = reduced ? 'reduced' : 'full'
 }
 
 const langOf = (value) => (value === 'en' ? 'en' : 'it')

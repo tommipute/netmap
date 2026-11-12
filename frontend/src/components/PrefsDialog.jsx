@@ -14,6 +14,10 @@ const DENSITIES = [
   { value: 'normal', label: t('Normale') },
   { value: 'compact', label: t('Compatta') },
 ]
+const MOTIONS = [
+  { value: 'full', label: t('Complete') },
+  { value: 'reduced', label: t('Ridotte') },
+]
 const MENUS = [
   { value: 'side', label: t('A lato') },
   { value: 'top', label: t('In alto') },
@@ -83,6 +87,7 @@ export default function PrefsDialog({ onClose }) {
   const { enabled, isAdmin, user } = useAuth()
   const [theme, setTheme] = useTheme()
   const [density, setDensity] = usePref('density')
+  const [motion, setMotion] = usePref('motion')
   const [menu, setMenu] = usePref('menu')
   const [sections, setSections] = usePref('menuSections')
   const [pageSize, setPageSize] = usePref('pageSize')
@@ -104,6 +109,9 @@ export default function PrefsDialog({ onClose }) {
             </Row>
             <Row label={t('Densità')} hint={t('Compatta: righe e pulsanti più bassi, più dati sullo schermo.')}>
               <Segmented label={t('Densità')} options={DENSITIES} value={density} onChange={setDensity} />
+            </Row>
+            <Row label={t('Animazioni')} hint={t('Ridotte: niente movimenti quando si aprono pagine, menu e finestre. Sono ridotte anche se lo chiede il sistema operativo.')}>
+              <Segmented label={t('Animazioni')} options={MOTIONS} value={motion} onChange={setMotion} />
             </Row>
             <Row label={t('Lingua')} hint={t('Cambiando lingua la pagina si ricarica.')}>
               <Segmented label={t('Lingua')} options={LANGUAGES} value={LANG} onChange={setLang} />

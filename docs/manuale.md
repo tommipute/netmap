@@ -41,7 +41,10 @@ Nella pagina di accesso scegli la **lingua** (italiano o inglese). Dopo l'access
 destra) → **Preferenze**:
 
 - **Aspetto**: tema chiaro, scuro o automatico (segue il sistema operativo); densità normale o **compatta**
-  (righe e pulsanti più bassi, più dati sullo schermo); lingua italiano o inglese.
+  (righe e pulsanti più bassi, più dati sullo schermo); lingua italiano o inglese; **Animazioni** complete o
+  **ridotte** (niente movimenti all'apertura di pagine, menu e finestre; sono ridotte anche quando lo chiede il
+  sistema operativo). Il tema si cambia anche con il pulsante tondo accanto al menu utente, e la ricerca in alto si
+  raggiunge con **Ctrl K** (⌘K sul Mac) o con **/**.
 - **Menu**: a lato (a sinistra) o in alto (su telefono sta sempre in alto). A lato, le sezioni si aprono **una alla
   volta** oppure sono **tutte aperte** come un elenco unico. **Pagina iniziale**: quella che si apre entrando in
   NetMap o cliccando il logo (di solito le mappe).

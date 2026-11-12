@@ -974,21 +974,37 @@ resources.users = {
 
 /** Voci del menu: chiave di una risorsa oppure pagina speciale { to, title, badge }; admin: solo amministratori */
 export const NAV = [
-  { title: t('Rete'), items: ['maps', 'devices', { to: 'where', title: t("Dov'è collegato?") }, 'interfaces', 'cables'] },
-  { title: t('Luoghi'), items: ['sites', 'locations', 'racks'] },
-  { title: t('Indirizzamento'), items: ['prefixes', 'ip-addresses', 'vlans', 'vrfs'] },
-  { title: t('Catalogo'), items: ['device-roles', 'device-types', 'manufacturers'] },
+  { title: t('Rete'), icon: 'share', items: ['maps', 'devices', { to: 'where', title: t("Dov'è collegato?") }, 'interfaces', 'cables'] },
+  { title: t('Luoghi'), icon: 'mapPinned', items: ['sites', 'locations', 'racks'] },
+  { title: t('Indirizzamento'), icon: 'binary', items: ['prefixes', 'ip-addresses', 'vlans', 'vrfs'] },
+  { title: t('Catalogo'), icon: 'library', items: ['device-roles', 'device-types', 'manufacturers'] },
   {
     title: t('Scansione SNMP'),
+    icon: 'scanSearch',
     items: [{ to: 'discovery/changes', title: t('Da approvare'), badge: 'pending' }, 'discovery-jobs', 'snmp-profiles'],
   },
-  { title: t('Attività'), items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
-  { title: t('Avvisi e integrazioni'), admin: true, items: ['alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }] },
-  { title: t('Amministrazione'), admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Attività'), icon: 'activity', items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
+  { title: t('Avvisi e integrazioni'), icon: 'bellRing', admin: true, items: ['alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }] },
+  { title: t('Amministrazione'), icon: 'settings', admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]
 
-/** Voce del menu normalizzata: { to, title, badge } */
-export const navItem = (item) => (typeof item === 'string' ? { to: resources[item].path, title: resources[item].title } : item)
+/** Icona di ogni pagina del menu (components/Icon.jsx), per percorso */
+const NAV_ICONS = {
+  maps: 'map', devices: 'server', where: 'locate', interfaces: 'ethernetPort', cables: 'cable',
+  sites: 'building', locations: 'mapPin', racks: 'stack',
+  prefixes: 'network', 'ip-addresses': 'hash', vlans: 'layers', vrfs: 'route',
+  'device-roles': 'tag', 'device-types': 'box', manufacturers: 'factory',
+  'discovery/changes': 'inbox', 'discovery-jobs': 'radar', 'snmp-profiles': 'shieldCheck',
+  'whats-changed': 'compare', history: 'history',
+  'alert-channels': 'bell', webhooks: 'webhook', 'api-tokens': 'key',
+  users: 'users', 'custom-fields': 'listPlus', directory: 'folderTree', import: 'upload', updates: 'refresh', backup: 'database',
+}
+
+/** Voce del menu normalizzata: { to, title, badge, icon } */
+export const navItem = (item) => {
+  const entry = typeof item === 'string' ? { to: resources[item].path, title: resources[item].title } : item
+  return { ...entry, icon: NAV_ICONS[entry.to] }
+}
 
 /** Gruppi del menu che l'utente vede */
 export const navGroups = (isAdmin) => NAV.filter((group) => !group.admin || isAdmin)

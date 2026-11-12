@@ -14,12 +14,14 @@
     />
   </head>
   <body>
-    <!-- Tema scelto nel menu utente (theme.js): applicato subito, così la pagina non lampeggia col tema sbagliato -->
+    <!-- Tema, densità e animazioni scelti nelle Preferenze (theme.js, prefs.js): applicati subito, così la pagina non lampeggia col tema sbagliato -->
     <script>
       try {
         var t = localStorage.getItem('netmap.theme')
         if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t
         if (localStorage.getItem('netmap.density') === 'compact') document.documentElement.dataset.density = 'compact'
+        var calm = localStorage.getItem('netmap.motion') === 'reduced' || matchMedia('(prefers-reduced-motion: reduce)').matches
+        document.documentElement.dataset.motion = calm ? 'reduced' : 'full'
       } catch (e) {}
     </script>
     <div id="root"></div>

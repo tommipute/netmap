@@ -3,11 +3,13 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { ROLES, useAuth } from '../auth'
 import { usePendingCount, useStatusSummary, useVersion } from '../hooks'
 import { labelOf } from '../options'
+import { CountUp, revealFrom } from '../motion'
 import { usePref } from '../prefs'
 import { navGroupOf, navGroups, navItem } from '../resources'
 import PasswordDialog from './PasswordDialog'
 import PrefsDialog from './PrefsDialog'
 import { Icon } from './Icon'
+import { useTheme } from '../theme'
 import { LANG, t, tc } from '../i18n'
 import VersionLabel, { repoFileUrl } from './VersionLabel'
 
@@ -24,11 +26,11 @@ function StatusChip() {
   return (
     <span className="live-chip" aria-label={t('Stato live dei device con IP di management')}>
       <Link to="/devices?reachable=true" className="live-chip__item" title={t('{n} rispondono', { n: summary.up })}>
-        <span className="live-dot live-dot--up" />{summary.up}
+        <span className="live-dot live-dot--up" /><CountUp value={summary.up} />
       </Link>
       <Link to="/devices?reachable=false" className={`live-chip__item${summary.down ? ' live-chip__item--down' : ''}`}
         title={t('{n} non rispondono', { n: summary.down })}>
-        <span className="live-dot live-dot--down" />{summary.down}
+        <span className="live-dot live-dot--down" /><CountUp value={summary.down} />
       </Link>
     </span>
   )
@@ -132,11 +134,12 @@ const Badge = ({ count }) => count > 0 && (
   <span className="nav-badge" aria-label={t('{n} in attesa', { n: count })}>{count > 999 ? '999+' : count}</span>
 )
 
-/** Voci di un gruppo: link alle pagine, con il numero in attesa dove serve. */
+/** Voci di un gruppo: link alle pagine con la loro icona, e il numero in attesa dove serve. */
 function NavItems({ group, badges, onPick }) {
-  return group.items.map(navItem).map(({ to, title, badge }) => (
+  return group.items.map(navItem).map(({ to, title, badge, icon }) => (
     <NavLink key={to} to={`/${to}`} className="nav-link" onClick={onPick}>
-      {title}
+      {icon && <Icon name={icon} />}
+      <span className="nav-link__title">{title}</span>
       <Badge count={badge ? badges[badge] : 0} />
     </NavLink>
   ))
@@ -186,9 +189,10 @@ function SideNav({ groups, badges }) {
             <div key={group.title} className={`nav-group${expanded ? ' nav-group--open' : ''}`}>
               <button type="button" className="nav-group__title"
                 aria-expanded={expanded} onClick={() => toggle(group.title)}>
-                <span>{group.title}</span>
+                <Icon name={group.icon} />
+                <span className="nav-group__name">{group.title}</span>
                 {!expanded && <Badge count={groupCount(group, badges)} />}
-                <Icon name={expanded ? 'up' : 'down'} size={14} />
+                <span className="nav-group__chevron"><Icon name="down" size={14} /></span>
               </button>
               {expanded && <div className="nav-group__items"><NavItems group={group} badges={badges} /></div>}
             </div>
@@ -243,6 +247,7 @@ function TopNav({ groups, badges }) {
         {groups.map((g) => (
           <button key={g.title} type="button" aria-expanded={open === g.title} aria-haspopup="true"
             className={`topnav__group${current === g.title ? ' topnav__group--current' : ''}`} onClick={(e) => toggle(e, g.title)}>
+            <Icon name={g.icon} />
             {g.title}
             <Badge count={groupCount(g, badges)} />
             <Icon name="down" size={14} />
@@ -258,6 +263,38 @@ function TopNav({ groups, badges }) {
   )
 }
 
+/** Chiaro o scuro con un clic: il tema nuovo si allarga a cerchio dal pulsante (motion.js). */
+function ThemeButton() {
+  const [theme, setTheme] = useTheme()
+  const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const label = dark ? t('Passa al tema chiaro') : t('Passa al tema scuro')
+  const toggle = (e) => {
+    const box = e.currentTarget.getBoundingClientRect()
+    revealFrom(box.left + box.width / 2, box.top + box.height / 2, () => setTheme(dark ? 'light' : 'dark'))
+  }
+  return (
+    <button type="button" className="topbar__round" onClick={toggle} title={label} aria-label={label}>
+      <Icon name={dark ? 'sun' : 'moon'} size={18} />
+    </button>
+  )
+}
+
+/** Ctrl K (o Cmd K, oppure "/" fuori dai campi) porta nella ricerca in alto. */
+function useSearchShortcut(inputRef) {
+  useEffect(() => {
+    const onKey = (e) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable
+      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && !typing)) {
+        e.preventDefault()
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [inputRef])
+}
+
 export default function Layout() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
@@ -266,6 +303,9 @@ export default function Layout() {
   const [clock] = usePref('clock')
   const narrow = useNarrow()
   const [query, setQuery] = useState('')
+  const searchRef = useRef(null)
+  useSearchShortcut(searchRef)
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform)
   const badges = { pending: usePendingCount() }
   const groups = navGroups(isAdmin)
   const top = narrow || menu === 'top'
@@ -282,7 +322,9 @@ export default function Layout() {
       <div className="main">
         <header className="topbar">
           <form className="topbar__search" role="search" onSubmit={search}>
+            <Icon name="search" />
             <input
+              ref={searchRef}
               type="search"
               className="input"
               placeholder={t('Cerca device, IP o MAC address')}
@@ -290,9 +332,11 @@ export default function Layout() {
               onChange={(e) => setQuery(e.target.value)}
               aria-label={t('Cerca device, IP o MAC address')}
             />
+            <kbd className="topbar__kbd" aria-hidden="true">{mac ? '⌘K' : 'Ctrl K'}</kbd>
           </form>
           <StatusChip />
           <span className="topbar__spacer" />
+          <ThemeButton />
           <UserMenu />
         </header>
         {/* Cambiando il formato delle date la pagina si ridisegna */}

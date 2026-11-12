@@ -13,6 +13,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   **Installazione**. Senza lo script, al posto dei pulsanti c'è **Come aggiornare**: i comandi da copiare per
   PowerShell o per il terminale (backup del database, versione nuova, riavvio), completati con le cartelle scritte
   nella pagina. Le installazioni da zip mostrano anche il commit da cui vengono.
+- Grafica rinnovata con gli stessi colori: icone nel menu per sezioni e pagine, schede e tabelle arrotondate con
+  un'ombra leggera, ricerca in alto a pillola (**Ctrl K** o **/** per arrivarci), pulsante tondo per passare da
+  tema chiaro a scuro (il tema nuovo si allarga a cerchio dal pulsante).
+- Animazioni brevi quando si aprono pagine, righe degli elenchi, finestre e menu; i numeri dello stato live in alto
+  contano fino al valore. Preferenze → **Animazioni**: complete o ridotte (ridotte anche se lo chiede il sistema
+  operativo).
 
 ### Modifiche
 

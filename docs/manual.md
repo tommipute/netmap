@@ -43,7 +43,10 @@ On the sign-in page you pick the **language** (Italian or English). After signin
 **Preferences**:
 
 - **Appearance**: light, dark or automatic theme (follows the operating system); normal or **compact** density
-  (lower rows and buttons, more data on screen); Italian or English language.
+  (lower rows and buttons, more data on screen); Italian or English language; **Animations** full or **reduced**
+  (no movement when pages, menus and dialogs open; they are also reduced when the operating system asks for it).
+  The round button next to the user menu also switches the theme, and **Ctrl K** (⌘K on a Mac) or **/** jumps to
+  the search at the top.
 - **Menu**: at the side (left) or at the top (on a phone it is always at the top). At the side, sections open **one
   at a time** or are **all open** as a single list. **Start page**: the page that opens when you enter NetMap or
   click the logo (normally the maps).
