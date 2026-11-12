@@ -433,7 +433,8 @@ page and in maps. On the device page, **Check now** runs the check immediately.
 **Alerts** (Alerts and integrations → Alerts) sends a message when a device has not responded for a number of minutes and,
 if you want, when it responds again. Channels:
 
-- **Email**: SMTP server (STARTTLS 587, SSL 465 or no security on 25), user, password, sender, recipients;
+- **Email**: just the recipients; the mail server is the one in Administration → Email (see below), unless you
+  choose **Use another mail server, just for this channel**;
 - **Webhook**: Teams (with Workflows, "adaptive card" format), Slack, Mattermost, Google Chat (text format);
 - **Telegram**: bot token and chat.
 
@@ -464,6 +465,22 @@ updates or deletes something: the same rows as the history, as a readable messag
 together (an import, a bulk edit) arrive in one message with the first 25 lines and the count of the others. If
 the channel does not answer NetMap retries later without losing any; switched off and on again, it starts from
 the changes of that moment. To send changes to another program, as JSON, use **Webhooks** (section 20).
+
+### Mail server
+
+The server NetMap sends email with is set once, in **Administration → Email** (administrators only): SMTP server
+(for example `smtp.office365.com` or the internal relay), security (STARTTLS on 587, SSL on 465 or none on 25;
+empty port = the default one), sender, user and password (empty user = no authentication, for an internal relay).
+The password is encrypted in the database; left empty, the saved one stays. Below, **Send a test email** sends an
+email with the settings written on the page, even before saving them. The page shows how many email channels use
+the server and how many have their own.
+
+A channel that has to go through another server (another company, another sender) has the **Use another mail
+server, just for this channel** box, which shows the server fields inside the channel.
+
+When updating from 1.2, the first email channel's server becomes the shared one: channels with the same server and
+the same credentials use it on their own, the others keep theirs (box already ticked).
+
 ## 15. What changed and history
 
 - **What changed**: a summary of the period you choose (last 24 hours, 7 days or 30 days): changes by origin,

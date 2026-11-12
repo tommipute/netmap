@@ -8,20 +8,18 @@ Invio senza librerie esterne: smtplib per l'email, urllib per webhook e Telegram
 import json
 import logging
 import re
-import smtplib
-import ssl
 import urllib.error
 import urllib.request
 from collections.abc import Callable
 from datetime import datetime, timezone
-from email.message import EmailMessage
 
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core.secrets import SecretError, decrypt
 from app.models import AlertChannel, AlertState, Cable, Device, DeviceRole, Interface, Location, Site
 from app.models.enums import CableStatus
+from app.services import mail
 
 logger = logging.getLogger("netmap.alerts")
 TIMEOUT = 10
@@ -55,28 +53,17 @@ def _post_json(url: str, payload: dict) -> None:
 
 
 def _send_email(channel: AlertChannel, subject: str, text: str) -> None:
-    if not channel.email_to or not channel.smtp_host:
-        raise AlertError("Mancano i destinatari o il server SMTP")
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = channel.smtp_from or channel.smtp_user or "netmap@localhost"
-    message["To"] = ", ".join(channel.email_to)
-    message.set_content(text)
-    security = channel.smtp_security or "starttls"
-    port = channel.smtp_port or (465 if security == "ssl" else 587 if security == "starttls" else 25)
+    """Con il server di posta delle impostazioni, o con quello del canale (smtp_custom)."""
+    if channel.smtp_custom:
+        cfg = mail.SmtpConfig(channel.smtp_host, channel.smtp_port, channel.smtp_security, channel.smtp_user,
+                              channel.secret_enc, channel.smtp_from)
+    else:
+        db = object_session(channel)
+        cfg = mail.config_of(mail.settings_row(db)) if db is not None else mail.SmtpConfig(None)
     try:
-        if security == "ssl":
-            server = smtplib.SMTP_SSL(channel.smtp_host, port, timeout=TIMEOUT, context=ssl.create_default_context())
-        else:
-            server = smtplib.SMTP(channel.smtp_host, port, timeout=TIMEOUT)
-        with server:
-            if security == "starttls":
-                server.starttls(context=ssl.create_default_context())
-            if channel.smtp_user:
-                server.login(channel.smtp_user, _secret(channel))
-            server.send_message(message)
-    except (smtplib.SMTPException, OSError) as exc:
-        raise AlertError(f"Invio email non riuscito: {exc}") from exc
+        mail.send_mail(cfg, channel.email_to or [], subject, text)
+    except mail.MailError as exc:
+        raise AlertError(str(exc)) from exc
 
 
 def _send_webhook(channel: AlertChannel, subject: str, text: str) -> None:

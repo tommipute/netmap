@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (136 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (141 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -238,6 +238,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
 | `GET`/`PUT /api/directory` · `POST /api/directory/test` | Active Directory: impostazioni, prova con un utente (solo admin) |
+| `GET`/`PUT /api/mail-settings` · `POST /api/mail-settings/test` | server di posta degli avvisi email, email di prova (solo admin) |
 | `GET /api/diagnostics` | pacchetto diagnostico zip (solo admin) |
 | `GET`/`POST /api/api-tokens` · `DELETE /api/api-tokens/{id}` | token API: i propri (admin: tutti); mai con un token |
 | `POST /api/webhooks/{id}/test` | messaggio di prova di un webhook (CRUD `/webhooks` solo admin) |
@@ -463,7 +464,12 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 ## Avvisi (`services/alerts.py`, tabelle `alert_channels`, `alert_states`)
 
 - Canali email (smtplib), webhook (JSON `{"text"}` o scheda adattiva per i Workflows di Teams), Telegram; invio con
-  la libreria standard. Segreto unico cifrato `secret_enc` (password SMTP / URL webhook / token), input
+  la libreria standard. **Server di posta comune** (deciso con l'utente il 13/11/2026): tabella `mail_settings` (una
+  riga, `MailSettings`, password in `keys.ENCRYPTED`), `services/mail.py` (`SmtpConfig`, `send_mail`, `MailError`),
+  `api/mail.py` (`GET`/`PUT /api/mail-settings`, `POST /api/mail-settings/test` con le impostazioni non salvate,
+  solo admin), pagina `MailPage` su `/mail` (Amministrazione → Email). I canali email usano quello, salvo
+  `smtp_custom` (allora i loro campi `smtp_*`); `alert_channel_hook` rifiuta un canale senza destinatari o senza
+  server. La migration `47c3278b5068` ha reso comune il server del primo canale. Segreto unico cifrato `secret_enc` (password SMTP / URL webhook / token), input
   `smtp_password`/`webhook_url`/`telegram_token` gestiti da `alert_channel_hook`. Solo amministratori.
 - `process_alerts` gira nel monitor dopo ogni controllo: per canale, un messaggio con i device giù da almeno
   `delay_minutes` (una volta, stato in `alert_states`) e uno con quelli tornati. Invio fallito → `last_error`,

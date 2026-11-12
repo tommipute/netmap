@@ -25,9 +25,17 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Animazioni brevi quando si aprono pagine, righe degli elenchi, finestre e menu; i numeri dello stato live in alto
   contano fino al valore. Preferenze → **Animazioni**: complete o ridotte (ridotte anche se lo chiede il sistema
   operativo).
+- **Amministrazione → Email**: il server di posta si imposta una volta sola (server, sicurezza, porta, mittente,
+  utente e password cifrata) con **Invia email di prova**; i canali di avviso email hanno bisogno solo dei
+  destinatari. Un canale può usare un server suo con **Usa un altro server di posta, solo per questo canale**.
 
 ### Modifiche
 
+- Avvisi via email: aggiornando, il server SMTP del primo canale email diventa il server di posta comune; i canali
+  con lo stesso server e le stesse credenziali lo usano, gli altri tengono il loro.
+- Mappa: barra degli strumenti con interruttori e menu a pillola, icona accanto al titolo, legenda, suggerimento,
+  zoom e minimappa arrotondati (sul telefono la minimappa non c'è più e la ricerca prende tutta la riga). Vista del
+  rack con la cornice arrotondata e i device in rilievo.
 - Backup: senza lo script di aggiornamento **Backup ora**, ripristino e impostazioni sono disattivati, con un avviso
   che rimanda ai comandi della pagina Aggiornamenti (prima i pulsanti c'erano ma la richiesta restava in attesa).
 

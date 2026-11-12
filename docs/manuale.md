@@ -436,8 +436,8 @@ scheda e in mappa. Nella scheda, **Controlla ora** rifà il controllo subito.
 **Avvisi** (Avvisi e integrazioni → Avvisi) manda un messaggio quando un device non risponde da un certo numero di
 minuti, e (se vuoi) quando torna a rispondere. Canali:
 
-- **Email**: server SMTP (STARTTLS 587, SSL 465 o nessuna sicurezza sulla 25), utente, password, mittente,
-  destinatari;
+- **Email**: solo i destinatari; il server di posta è quello di Amministrazione → Email (vedi sotto), salvo
+  scegliere **Usa un altro server di posta, solo per questo canale**;
 - **Webhook**: Teams (con i Workflows, formato "scheda adattiva"), Slack, Mattermost, Google Chat (formato testo);
 - **Telegram**: token del bot e chat.
 
@@ -470,6 +470,21 @@ e le azioni (nessuna scelta = tutto). Le modifiche arrivano entro pochi secondi;
 una modifica in blocco) arrivano in un solo messaggio con le prime 25 righe e il numero delle altre. Se il canale
 non risponde si riprova più tardi senza perderne nessuna; spento e riacceso, riparte dalle modifiche di quel
 momento. Per mandare le modifiche a un altro programma, in JSON, ci sono i **Webhook** (sezione 20).
+
+### Server di posta
+
+Il server con cui NetMap manda le email si imposta una volta sola, in **Amministrazione → Email** (solo
+amministratori): server SMTP (per esempio `smtp.office365.com` o il relay interno), sicurezza (STARTTLS sulla
+587, SSL sulla 465 o nessuna sulla 25; porta vuota = quella predefinita), mittente, utente e password (utente
+vuoto = senza autenticazione, per un relay interno). La password è cifrata nel database; lasciata vuota resta
+quella salvata. Sotto, **Invia email di prova** manda un'email con le impostazioni scritte nella pagina, anche
+prima di salvarle. La pagina dice quanti canali email usano il server e quanti ne hanno uno loro.
+
+Un canale che deve passare da un altro server (un'altra azienda, un altro mittente) ha la casella **Usa un altro
+server di posta, solo per questo canale**, che mostra i campi del server dentro il canale.
+
+Aggiornando dalla 1.2 il server del primo canale email diventa quello comune: i canali con lo stesso server e le
+stesse credenziali lo usano da soli, gli altri restano con il loro (casella già accesa).
 
 ## 15. Cosa è cambiato e storico
 

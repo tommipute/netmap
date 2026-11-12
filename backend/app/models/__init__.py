@@ -4,7 +4,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import column_property
 from sqlalchemy.sql.expression import FunctionElement
 
-from app.models.alerts import AlertChannel, AlertState
+from app.models.alerts import AlertChannel, AlertState, MailSettings
 from app.models.audit import AuditEntry
 from app.models.auth import DirectorySettings, User
 from app.models.backups import BackupCopy, BackupTarget, BackupTask
@@ -92,6 +92,7 @@ __all__ = [
     "Interface",
     "IPAddress",
     "Location",
+    "MailSettings",
     "Manufacturer",
     "MapBackground",
     "MapCableRoute",

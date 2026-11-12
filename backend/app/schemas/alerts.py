@@ -36,6 +36,7 @@ class AlertChannelBase(InputSchema):
     delay_minutes: int = Field(5, ge=0, le=1440, description="Minuti di attesa prima di avvisare (un ping perso non conta)")
     notify_recovery: bool = Field(True, description="Avvisa anche quando il device torna a rispondere")
     email_to: list[str] = Field(default_factory=list, description="Destinatari (email)")
+    smtp_custom: bool = Field(False, description="Server SMTP del canale (smtp_*) invece di quello delle impostazioni")
     smtp_host: str | None = Field(None, max_length=255)
     smtp_port: int | None = Field(None, ge=1, le=65535)
     smtp_security: SmtpSecurity | None = SmtpSecurity.STARTTLS
@@ -75,6 +76,7 @@ class AlertChannelRead(ReadSchema):
     delay_minutes: int
     notify_recovery: bool
     email_to: list[str]
+    smtp_custom: bool = False
     smtp_host: str | None = None
     smtp_port: int | None = None
     smtp_security: str | None = None
@@ -103,3 +105,28 @@ class AlertPreviewRequest(InputSchema):
     language: Literal["it", "en"] = "it"
     templates: dict[TemplateKey, Template] = Field(default_factory=dict)
     ports: Ports = "none"
+
+
+class MailSettingsWrite(InputSchema):
+    host: str | None = Field(None, max_length=255)
+    port: int | None = Field(None, ge=1, le=65535)
+    security: SmtpSecurity = SmtpSecurity.STARTTLS
+    username: str | None = Field(None, max_length=255)
+    sender: str | None = Field(None, max_length=255)
+    password: str | None = Field(None, max_length=255, description="Assente o null = invariata, vuota = cancellata")
+
+
+class MailSettingsRead(ReadSchema):
+    host: str | None = None
+    port: int | None = None
+    security: str = "starttls"
+    username: str | None = None
+    sender: str | None = None
+    has_password: bool = False
+    channels: int = 0  # canali email che lo usano
+    custom_channels: int = 0  # canali email con un server loro
+
+
+class MailTest(InputSchema):
+    settings: MailSettingsWrite
+    to: str = Field(..., max_length=255)

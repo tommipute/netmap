@@ -15,6 +15,7 @@ from app.models import (
     VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, StackMember, User,
 )
 from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole, UserSource
+from app.services import mail
 
 
 def _fail(message: str) -> None:
@@ -280,8 +281,12 @@ def alert_channel_hook(db: Session, channel, data: dict[str, Any], is_create: bo
     except SecretError as exc:
         raise HTTPException(500, str(exc)) from exc
     if channel.type == "email":
-        if not channel.email_to or not channel.smtp_host:
-            _fail("Per l'email servono almeno un destinatario e il server SMTP")
+        if not channel.email_to:
+            _fail("Per l'email serve almeno un destinatario")
+        if channel.smtp_custom and not channel.smtp_host:
+            _fail("Indica il server SMTP del canale")
+        if not channel.smtp_custom and not mail.configured(db):
+            _fail("Imposta prima il server di posta in Amministrazione → Email, oppure scegli un server solo per questo canale")
         if any("@" not in address for address in channel.email_to):
             _fail("Un destinatario non sembra un indirizzo email")
     elif channel.type == "webhook":

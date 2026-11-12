@@ -19,7 +19,7 @@ import { useAuth } from '../auth'
 import { useTheme } from '../theme'
 import { Badge, LiveStatus } from '../components/Bits'
 import CableDialog from '../components/CableDialog'
-import { Icon, IconButton, IconLink } from '../components/Icon'
+import { Icon, IconButton, IconLink, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { invalidate } from '../hooks'
 import BackgroundNode from '../map/BackgroundNode'
@@ -1000,7 +1000,7 @@ function Editor() {
       <div className="map-toolbar">
         <div className="map-toolbar__title">
           <Link to="/maps" className="crumbs">{t('Mappe')}</Link>
-          <h1>{view.map.name}</h1>
+          <h1 className="page-title"><PageIcon name="map" />{view.map.name}</h1>
           <span className="muted">
             <RefLabel resource="sites" id={view.map.site_id} />
             {view.map.location_id && (
@@ -1034,12 +1034,12 @@ function Editor() {
               ))}
             </select>
           )}
-          <label className="check check--inline">
+          <label className="check check--inline map-toggle">
             <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
             {t('Nomi delle porte')}
           </label>
           {view.locations.length > 0 && (
-            <label className="check check--inline" title={t('Edifici, piani e stanze come riquadri colorati; "Disponi" raggruppa i device per posizione')}>
+            <label className="check check--inline map-toggle" title={t('Edifici, piani e stanze come riquadri colorati; "Disponi" raggruppa i device per posizione')}>
               <input type="checkbox" checked={showLocations} onChange={(e) => {
                   setShowLocations(e.target.checked)
                   remember('mapLocations', e.target.checked)
@@ -1048,7 +1048,7 @@ function Editor() {
             </label>
           )}
           {view.endpoints.length > 0 && (
-            <label className="check check--inline"
+            <label className="check check--inline map-toggle"
               title={view.endpoint_total > view.endpoints.length
                 ? t('Gli apparati visti nelle tabelle MAC degli switch (i primi {n} su {total})', { n: view.endpoints.length, total: view.endpoint_total })
                 : t('Gli apparati visti nelle tabelle MAC degli switch: PC, stampanti, telefoni…')}>
@@ -1061,7 +1061,7 @@ function Editor() {
             </label>
           )}
           {view.background && (
-            <label className="check check--inline" title={t("L'immagine sotto la mappa (planimetria, foto…)")}>
+            <label className="check check--inline map-toggle" title={t("L'immagine sotto la mappa (planimetria, foto…)")}>
               <input type="checkbox" checked={showBackground} onChange={(e) => {
                   setShowBackground(e.target.checked)
                   remember('mapBackground', e.target.checked)
@@ -1071,7 +1071,7 @@ function Editor() {
           )}
           <IconButton icon="refresh" label={reloading ? t('Aggiornamento…') : t('Aggiorna la mappa (device, cavi e stato)')} small
             onClick={reload} disabled={reloading} />
-          <select className="input input--sm" value="" onChange={(e) => exportAs(e.target.value)} aria-label={t('Esporta o stampa la mappa')}
+          <select className="input input--sm map-export" value="" onChange={(e) => exportAs(e.target.value)} aria-label={t('Esporta o stampa la mappa')}
             disabled={view.nodes.length === 0}>
             <option value="">{t('Esporta…')}</option>
             <option value="png">{t('Immagine PNG')}</option>

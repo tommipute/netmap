@@ -18,8 +18,9 @@ class AlertChannel(TimestampMixin, Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     delay_minutes: Mapped[int] = mapped_column(Integer, default=5, server_default="5")  # niente avviso per un ping perso
     notify_recovery: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
-    # Email
+    # Email: di solito il server di posta delle impostazioni (MailSettings); smtp_custom = un server suo (campi smtp_*)
     email_to: Mapped[list] = mapped_column(JSONType, default=list)
+    smtp_custom: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     smtp_host: Mapped[str | None] = mapped_column(String(255))
     smtp_port: Mapped[int | None] = mapped_column(Integer)
     smtp_security: Mapped[str | None] = mapped_column(String(10))  # starttls / ssl / none
@@ -59,6 +60,24 @@ class AlertChannel(TimestampMixin, Base):
     @property
     def has_secret(self) -> bool:
         return bool(self.secret_enc)
+
+
+class MailSettings(TimestampMixin, Base):
+    """Server di posta usato dai canali email (una riga sola, Amministrazione → Email)."""
+
+    __tablename__ = "mail_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    host: Mapped[str | None] = mapped_column(String(255))
+    port: Mapped[int | None] = mapped_column(Integer)  # vuota = 587 / 465 / 25 secondo la sicurezza
+    security: Mapped[str] = mapped_column(String(10), default="starttls", server_default="starttls")
+    username: Mapped[str | None] = mapped_column(String(255))
+    password_enc: Mapped[str | None] = mapped_column(Text)
+    sender: Mapped[str | None] = mapped_column(String(255))
+
+    @property
+    def has_password(self) -> bool:
+        return bool(self.password_enc)
 
 
 class AlertState(Base):

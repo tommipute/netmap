@@ -798,6 +798,13 @@ resources.webhooks = {
   ],
 }
 
+export const SMTP_SECURITY = [
+  { value: 'starttls', label: t('STARTTLS (587)') },
+  { value: 'ssl', label: t('SSL/TLS (465)') },
+  { value: 'none', label: t('Nessuna (25)') },
+]
+const ownSmtp = (v) => v.type === 'email' && v.smtp_custom
+
 resources['alert-channels'] = {
   path: 'alert-channels',
   title: t('Avvisi'),
@@ -879,18 +886,22 @@ resources['alert-channels'] = {
     { name: 'telegram_chat_id', label: t('Chat'), showIf: isType('telegram'), placeholder: '-1001234567890', help: t('Id del gruppo o della chat.') },
     // Email
     { name: 'email_to', label: t('Destinatari'), type: 'tags', validate: emailError, showIf: isType('email'), placeholder: t('it@azienda.it'), help: t('Invio, virgola o spazio dopo ogni indirizzo.') },
-    { name: 'smtp_host', label: t('Server SMTP'), showIf: isType('email'), placeholder: t('smtp.azienda.it') },
-    { name: 'smtp_port', label: t('Porta'), type: 'number', showIf: isType('email'), placeholder: '587' },
     {
-      name: 'smtp_security', label: t('Sicurezza'), type: 'select', showIf: isType('email'), default: 'starttls',
-      options: [{ value: 'starttls', label: t('STARTTLS (587)') }, { value: 'ssl', label: t('SSL/TLS (465)') }, { value: 'none', label: t('Nessuna (25)') }],
+      name: 'smtp_custom', label: t('Usa un altro server di posta, solo per questo canale'), type: 'bool', default: false, showIf: isType('email'),
+      help: <>{t('Spento, il canale manda con il server impostato in')} <Link to="/mail">{t('Amministrazione → Email')}</Link>.</>,
     },
-    { name: 'smtp_user', label: t('Utente SMTP'), showIf: isType('email') },
+    { name: 'smtp_host', label: t('Server SMTP'), showIf: ownSmtp, placeholder: t('smtp.azienda.it') },
+    { name: 'smtp_port', label: t('Porta'), type: 'number', showIf: ownSmtp, placeholder: '587' },
     {
-      name: 'smtp_password', label: t('Password SMTP'), type: 'secret', showIf: isType('email'),
+      name: 'smtp_security', label: t('Sicurezza'), type: 'select', showIf: ownSmtp, default: 'starttls',
+      options: SMTP_SECURITY,
+    },
+    { name: 'smtp_user', label: t('Utente SMTP'), showIf: ownSmtp },
+    {
+      name: 'smtp_password', label: t('Password SMTP'), type: 'secret', showIf: ownSmtp,
       savedHint: (item) => (item?.has_secret ? t('Salvata: lascia vuoto per non cambiarla') : undefined),
     },
-    { name: 'smtp_from', label: t('Mittente'), showIf: isType('email'), placeholder: t('netmap@azienda.it') },
+    { name: 'smtp_from', label: t('Mittente'), showIf: ownSmtp, placeholder: t('netmap@azienda.it') },
     description,
   ],
 }
@@ -985,7 +996,7 @@ export const NAV = [
   },
   { title: t('Attività'), icon: 'activity', items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
   { title: t('Avvisi e integrazioni'), icon: 'bellRing', admin: true, items: ['alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }] },
-  { title: t('Amministrazione'), icon: 'settings', admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Amministrazione'), icon: 'settings', admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'mail', title: t('Email') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]
 
 /** Panoramica: fuori dalle sezioni, prima voce del menu e pagina iniziale predefinita */
@@ -1000,7 +1011,7 @@ const NAV_ICONS = {
   'discovery/changes': 'inbox', 'discovery-jobs': 'radar', 'snmp-profiles': 'shieldCheck',
   'whats-changed': 'compare', history: 'history',
   'alert-channels': 'bell', webhooks: 'webhook', 'api-tokens': 'key',
-  users: 'users', 'custom-fields': 'listPlus', directory: 'folderTree', import: 'upload', updates: 'refresh', backup: 'database',
+  users: 'users', 'custom-fields': 'listPlus', directory: 'folderTree', mail: 'mail', import: 'upload', updates: 'refresh', backup: 'database',
 }
 
 /** Icona della voce di menu di una pagina (percorso senza "/") */

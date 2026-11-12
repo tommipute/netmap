@@ -17,6 +17,7 @@ import UpdatesPage from './pages/UpdatesPage'
 import BackupPage from './pages/BackupPage'
 import ApiTokensPage from './pages/ApiTokensPage'
 import DirectoryPage from './pages/DirectoryPage'
+import MailPage from './pages/MailPage'
 import ImportPage from './pages/ImportPage'
 import DashboardPage from './pages/DashboardPage'
 import { getPref, PREFS } from './prefs'
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="backup" element={<BackupPage />} />
         <Route path="api-tokens" element={<ApiTokensPage />} />
         <Route path="directory" element={<DirectoryPage />} />
+        <Route path="mail" element={<MailPage />} />
         <Route path="import" element={<ImportPage />} />
         <Route path="import-netbox" element={<Navigate to="/import?source=netbox" replace />} />
         {Object.entries(resources).map(([key, config]) => (

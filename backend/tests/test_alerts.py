@@ -64,7 +64,7 @@ def test_canali_segreti_e_prova(client, monkeypatch):
     res = client.post("/api/alert-channels", json={"name": "W", "type": "webhook", "webhook_url": "ftp://x"})
     assert res.status_code == 422
     res = client.post("/api/alert-channels", json={"name": "Mail", "type": "email", "email_to": ["it@esempio.test"]})
-    assert res.status_code == 422 and "server SMTP" in res.json()["detail"]
+    assert res.status_code == 422 and "server di posta" in res.json()["detail"]
     channel = create(client, "/alert-channels", {"name": "Teams", "type": "webhook", "webhook_url": "https://esempio.test/segreto"})
     assert channel["has_secret"] is True and "segreto" not in str(channel)
 

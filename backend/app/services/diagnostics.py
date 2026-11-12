@@ -21,7 +21,7 @@ from app.config import settings
 from app.core import logbuffer
 from app.models import (
     AlertChannel, BackupCopy, BackupTarget, BackupTask, Base, Device, DirectorySettings, DiscoveryChange, DiscoveryJob,
-    DiscoveryRun, User,
+    DiscoveryRun, MailSettings, User,
 )
 from app.models.enums import ChangeStatus, DeviceStatus, RunStatus
 from app.services import directory, install, keys, updater
@@ -131,9 +131,19 @@ def _directory(db: Session) -> dict:
 def _alerts(db: Session) -> list:
     return [
         {"type": c.type, "enabled": c.enabled, "language": c.language, "delay_minutes": c.delay_minutes,
-         "has_secret": c.has_secret, "last_sent_at": _iso(c.last_sent_at), "last_error": c.last_error}
+         "smtp_custom": c.smtp_custom, "has_secret": c.has_secret, "last_sent_at": _iso(c.last_sent_at),
+         "last_error": c.last_error}
         for c in db.scalars(select(AlertChannel).order_by(AlertChannel.id))
     ]
+
+
+def _mail(db: Session) -> dict:
+    """Server di posta: solo se c'è e come si collega, senza nomi né indirizzi."""
+    cfg = db.scalars(select(MailSettings).order_by(MailSettings.id)).first()
+    if cfg is None or not cfg.host:
+        return {"configured": False}
+    return {"configured": True, "security": cfg.security, "port": cfg.port, "login": bool(cfg.username),
+            "has_password": cfg.has_password, "sender": bool(cfg.sender)}
 
 
 def _backups(db: Session) -> dict:
@@ -185,6 +195,7 @@ SECTIONS = {
     "auth": _users,
     "directory": _directory,
     "alerts": _alerts,
+    "mail": _mail,
     "backups": _backups,
     "monitor": _devices,
     "discovery": _discovery,

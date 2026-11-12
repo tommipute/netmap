@@ -11,12 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.secrets import SecretError, decrypt, encrypt, master_key
-from app.models import AlertChannel, BackupTarget, ImportRun, SnmpProfile, Webhook
+from app.models import AlertChannel, BackupTarget, ImportRun, MailSettings, SnmpProfile, Webhook
 
 # Tutte le colonne cifrate con la chiave dei segreti
 ENCRYPTED: dict[type, tuple[str, ...]] = {
     SnmpProfile: ("community_enc", "auth_key_enc", "priv_key_enc"),
     AlertChannel: ("secret_enc",),
+    MailSettings: ("password_enc",),
     BackupTarget: ("secret_enc", "private_key_enc"),
     ImportRun: ("token_enc",),
     Webhook: ("url_enc", "secret_enc", "headers_enc"),

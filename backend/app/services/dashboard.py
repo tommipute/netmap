@@ -99,12 +99,16 @@ def _activity(db: Session) -> list[dict]:
     """Modifiche per giorno (ora del server, TZ del container) negli ultimi ACTIVITY_DAYS giorni."""
     today = datetime.now().astimezone().date()
     first = today - timedelta(days=ACTIVITY_DAYS - 1)
-    day = func.date(AuditEntry.at)
-    if db.get_bind().dialect.name == "postgresql" and os.environ.get("TZ"):
-        day = func.date(func.timezone(os.environ["TZ"], AuditEntry.at))
     since = datetime.combine(first, datetime.min.time()).astimezone()
-    rows = db.execute(select(day, func.count()).where(AuditEntry.at >= since).group_by(day)).all()
-    counts = {_day(r[0]): r[1] for r in rows}
+    if db.get_bind().dialect.name == "postgresql":
+        day = func.date(func.timezone(os.environ["TZ"], AuditEntry.at)) if os.environ.get("TZ") else func.date(AuditEntry.at)
+        rows = db.execute(select(day, func.count()).where(AuditEntry.at >= since).group_by(day)).all()
+        counts = {_day(r[0]): r[1] for r in rows}
+    else:  # SQLite (test): niente fusi orari nel database, i giorni si contano qui
+        counts: dict[str, int] = {}
+        for at in db.scalars(select(AuditEntry.at).where(AuditEntry.at >= since)):
+            key = (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).astimezone().date().isoformat()
+            counts[key] = counts.get(key, 0) + 1
     days = [(first + timedelta(days=i)).isoformat() for i in range(ACTIVITY_DAYS)]
     return [{"day": d, "count": counts.get(d, 0)} for d in days]
 
