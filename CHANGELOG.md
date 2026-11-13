@@ -18,6 +18,13 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   viene il modello, gli adattamenti alle stranezze dello switch, le righe scartate e le tabelle che non si leggono.
   Serve a capire da soli perché manca qualcosa. Lo stesso resoconto c'è nella **Prova indirizzi**.
 
+- **Regole SNMP** (Amministrazione → Regole SNMP, solo amministratori): correzioni alla lettura di un tipo di
+  apparato senza aspettare una versione nuova. Una regola vale per un inizio del sysObjectID e/o una descrizione
+  SNMP e può impostare modello (da un OID o dalla descrizione), numero di serie (da un OID), nome delle porte
+  (ifDescr o ifAlias), porte da ignorare (per nome o ifType, mai quella con l'IP), produttore e tipo di apparato.
+  **Prova su un apparato** mostra prima e dopo su un indirizzo senza salvare; le regole si esportano e si
+  importano in JSON; la scheda "Cosa ho letto via SNMP" dice quali regole sono servite.
+
 ### Modifiche
 
 - Pagina di accesso: la lingua si cambia con un selettore **IT / EN** ben visibile accanto al logo (prima erano due

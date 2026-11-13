@@ -1120,6 +1120,18 @@ details.directory-test:not([open]) > summary, details.disclosure:not([open]) > s
 .probe .snmp-report__facts { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 12px 14px; }
 .probe details[open] > summary { margin-bottom: 8px; }
 
+/* Regole SNMP: prova di una regola nel modulo, prima e dopo */
+.rule-test { display: grid; gap: 8px; }
+.rule-test__inputs { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(140px, 1fr) auto; gap: 8px; }
+.rule-test__result { display: grid; gap: 10px; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+.rule-test__result .facts { grid-template-columns: 1fr; margin: 0; }
+.rule-test__result p { margin: 0; }
+.rule-test__descr { font-size: 12px; overflow-wrap: anywhere; }
+.rule-test__changed td { background: var(--accent-soft); }
+.rule-test__changed td:first-child { font-weight: 500; }
+.rule-test__ports { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; }
+@media (max-width: 560px) { .rule-test__inputs { grid-template-columns: 1fr; } }
+
 /* Modelli dei messaggi di avviso, con anteprima */
 .alert-templates { display: grid; gap: 10px; }
 .alert-templates__row { display: grid; gap: 4px; }

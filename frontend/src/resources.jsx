@@ -7,6 +7,7 @@ import { ROLES, USER_SOURCES } from './auth'
 import { AlertTemplates, DeviceMulti, PortPicker } from './components/AlertFields'
 import AlertTestButton from './components/AlertTestButton'
 import HeadersField from './components/HeadersField'
+import SnmpRuleTest from './components/SnmpRuleTest'
 import { OBJECT_TYPES as HISTORY_TYPES } from './components/HistoryList'
 import { CUSTOM_FIELD_TYPES, CustomFieldsEditor, ObjectTypesPicker } from './components/CustomFields'
 import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
@@ -943,6 +944,85 @@ resources['custom-fields'] = {
   ],
 }
 
+// Regole SNMP: cosa cambia una regola, in breve (colonna dell'elenco)
+const RULE_CHANGES = [
+  [(o) => o.model_oid || o.model_regex, () => t('modello')],
+  [(o) => o.serial_oid, () => t('numero di serie')],
+  [(o) => o.port_name, () => t('nomi delle porte')],
+  [(o) => o.ignore_ports || o.ignore_if_types?.length, () => t('porte ignorate')],
+  [(o) => o.manufacturer, () => t('produttore')],
+  [(o) => o.kind, () => t('tipo di apparato')],
+]
+const ifTypeError = (text) => (/^\d+$/.test(text) && Number(text) >= 1 ? null : t('Scrivi il numero dell\'ifType, es. 24'))
+
+resources['snmp-rules'] = {
+  path: 'snmp-rules',
+  title: t('Regole SNMP'),
+  newLabel: t('Nuova regola SNMP'),
+  editLabel: t('Modifica regola SNMP'),
+  intro: t('Correzioni alla lettura di un tipo di apparato che la scansione non legge bene: modello, numero di serie, nomi delle porte, porte da ignorare, produttore e tipo. Valgono dalla scansione successiva; con "Prova" vedi l\'effetto prima di salvare.'),
+  label: (o) => o.name,
+  filters: [{ name: 'enabled', label: t('Stato'), options: [{ value: 'true', label: t('Attive') }, { value: 'false', label: t('Spente') }] }],
+  columns: [
+    { name: 'name', label: t('Nome'), render: (o) => <strong>{o.name}</strong> },
+    { name: 'enabled', label: tc('regola', 'Attiva'), type: 'bool' },
+    {
+      name: 'match_object_id', label: t('Vale per'), filter: { kind: 'text' },
+      render: (o) => (
+        <>
+          {o.match_object_id && <Mono>{o.match_object_id}</Mono>}
+          {o.match_object_id && o.match_descr && ' · '}
+          {o.match_descr && <Mono>/{o.match_descr}/</Mono>}
+        </>
+      ),
+    },
+    {
+      name: 'changes', label: t('Cambia'), filter: false, sortField: null,
+      render: (o) => RULE_CHANGES.filter(([has]) => has(o)).map(([, label]) => label()).join(', ') || <span className="muted">{t('niente')}</span>,
+    },
+    { name: 'description', label: t('Note'), hidden: true },
+  ],
+  fields: [
+    { name: 'name', label: t('Nome'), required: true, placeholder: t('TP-Link JetStream') },
+    { name: 'enabled', label: tc('regola', 'Attiva'), type: 'bool', default: true },
+    {
+      name: 'match_object_id', label: t('Inizio del sysObjectID'), placeholder: '1.3.6.1.4.1.11863',
+      help: t('Lo trovi nella scheda "Cosa ho letto via SNMP" del device, accanto al produttore. Vale anche per gli OID che continuano dopo.'),
+    },
+    {
+      name: 'match_descr', label: t('Descrizione SNMP (espressione regolare)'), placeholder: 'JetStream|T2600G',
+      help: t('Maiuscole e minuscole sono uguali. Se scrivi anche il sysObjectID devono valere tutti e due.'),
+    },
+    {
+      name: 'model_oid', label: t('OID del modello'), placeholder: '1.3.6.1.4.1.11863.6.1.1.7.0',
+      help: t('OID del produttore che contiene il modello: un valore singolo o una colonna (vale la prima riga).'),
+    },
+    {
+      name: 'model_regex', label: t('Modello dalla descrizione (espressione regolare)'), placeholder: '(T\\d{4}G-\\w+)',
+      help: t('Vale il primo gruppo tra parentesi, oppure tutto il testo trovato. Se c\'è anche l\'OID, vale prima l\'OID.'),
+    },
+    { name: 'serial_oid', label: t('OID del numero di serie'), placeholder: '1.3.6.1.4.1.11863.6.1.1.8.0' },
+    {
+      name: 'port_name', label: t('Nome delle porte'), type: 'select', options: O.PORT_NAME_SOURCES, emptyLabel: t('ifName (come senza regola)'),
+      help: t('Cambiarlo su apparati già documentati fa proporre le porte con i nomi nuovi.'),
+    },
+    {
+      name: 'ignore_ports', label: t('Porte da ignorare (espressione regolare sul nome)'), placeholder: '^(InLoopBack|NULL|Vlanif)',
+    },
+    {
+      name: 'ignore_if_types', label: t('Porte da ignorare (ifType)'), type: 'tags', validate: ifTypeError, placeholder: '24, 53',
+      help: t('Numeri dell\'ifType: 24 loopback, 53 virtuale, 131 tunnel. Una porta con un indirizzo IP non viene mai ignorata.'),
+    },
+    { name: 'manufacturer', label: t('Produttore'), placeholder: t('Al posto di quello del sysObjectID') },
+    {
+      name: 'kind', label: t('Tipo di apparato'), type: 'select', options: O.DEVICE_KINDS, emptyLabel: t('Riconosciuto dalla scansione'),
+      help: t('Decide il ruolo dei modelli nuovi.'),
+    },
+    description,
+    { name: 'rule_test', label: t('Prova su un apparato'), type: 'custom', Component: SnmpRuleTest, noSubmit: true },
+  ],
+}
+
 const fromDirectory = (item) => item?.source === 'ad' && t('Viene da Active Directory a ogni accesso.')
 
 resources.users = {
@@ -996,7 +1076,7 @@ export const NAV = [
   },
   { title: t('Attività'), icon: 'activity', items: [{ to: 'whats-changed', title: t('Cosa è cambiato') }, { to: 'history', title: t('Storico modifiche') }] },
   { title: t('Avvisi e integrazioni'), icon: 'bellRing', admin: true, items: ['alert-channels', 'webhooks', { to: 'api-tokens', title: tc('elenco', 'Token API') }] },
-  { title: t('Amministrazione'), icon: 'settings', admin: true, items: ['users', 'custom-fields', { to: 'directory', title: t('Active Directory') }, { to: 'mail', title: t('Email') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
+  { title: t('Amministrazione'), icon: 'settings', admin: true, items: ['users', 'custom-fields', 'snmp-rules', { to: 'directory', title: t('Active Directory') }, { to: 'mail', title: t('Email') }, { to: 'import', title: t('Import') }, { to: 'updates', title: t('Aggiornamenti') }, { to: 'backup', title: t('Backup') }] },
 ]
 
 /** Panoramica: fuori dalle sezioni, prima voce del menu e pagina iniziale predefinita */
@@ -1011,7 +1091,7 @@ const NAV_ICONS = {
   'discovery/changes': 'inbox', 'discovery-jobs': 'radar', 'snmp-profiles': 'shieldCheck',
   'whats-changed': 'compare', history: 'history',
   'alert-channels': 'bell', webhooks: 'webhook', 'api-tokens': 'key',
-  users: 'users', 'custom-fields': 'listPlus', directory: 'folderTree', mail: 'mail', import: 'upload', updates: 'refresh', backup: 'database',
+  users: 'users', 'custom-fields': 'listPlus', 'snmp-rules': 'sliders', directory: 'folderTree', mail: 'mail', import: 'upload', updates: 'refresh', backup: 'database',
 }
 
 /** Icona della voce di menu di una pagina (percorso senza "/") */

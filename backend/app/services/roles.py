@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.discovery.vendors import enterprise_number
+from app.discovery.vendors import enterprise_number, manufacturer_of
 from app.models import DeviceRole
 
 
@@ -72,6 +72,14 @@ BY_KEY = {k.key: k for k in KINDS}
 class Detected:
     kind: Kind
     reason: str  # da dove si è capito (si vede nella proposta)
+
+
+def detect_for(hd, model: str | None = None) -> Detected | None:
+    """Tipo di un apparato letto dalla scansione (snmp.HostData): quello di una regola SNMP, altrimenti dai segnali."""
+    if hd.kind in BY_KEY:
+        return Detected(BY_KEY[hd.kind], "regola SNMP")
+    return detect_kind(sys_descr=hd.sys_descr, model=model or hd.model, sys_object_id=hd.sys_object_id, mibs=hd.mibs,
+                       caps=hd.lldp_caps, sys_services=hd.sys_services, extra=manufacturer_of(hd))
 
 
 def detect_kind(*, sys_descr: str | None = None, model: str | None = None, sys_object_id: str | None = None,

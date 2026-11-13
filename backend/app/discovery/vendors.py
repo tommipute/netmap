@@ -54,6 +54,11 @@ def vendor_name(sys_object_id: str | None) -> str:
     return ENTERPRISES.get(number, f"Enterprise {number}")
 
 
+def manufacturer_of(hd) -> str | None:
+    """Produttore di un apparato letto (snmp.HostData): quello di una regola SNMP, altrimenti dal sysObjectID."""
+    return hd.manufacturer or (vendor_name(hd.sys_object_id) if hd.sys_object_id else None)
+
+
 # HP / HPE / Aruba: codice prodotto (J9728A, JL254A, R8N88A) o, senza codice, il nome dopo la marca ("HP 1810-24")
 _HP_DESCR = re.compile(r"\b(?:HPE?|Hewlett[- ]Packard|ProCurve|Aruba)\b", re.IGNORECASE)
 _HP_PRODUCT = re.compile(r"\b((?:J[A-Z]?\d{3,4}|R\d[A-Z]\d{2})[A-Z])\b")

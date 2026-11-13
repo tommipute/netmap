@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
-from app.api import alerts, auth, backups, directory, discovery, extra, history, integrations, mail, netbox, system
+from app.api import (
+    alerts, auth, backups, directory, discovery, extra, history, integrations, mail, netbox, snmp_rules, system,
+)
 from app.api.auth import require_admin, require_admin_to_write, require_user
 from app.api.crud import build_crud_router
 from app.models import (
@@ -24,6 +26,7 @@ from app.models import (
     Rack,
     Site,
     SnmpProfile,
+    SnmpRule,
     StackMember,
     User,
     Webhook,
@@ -103,6 +106,10 @@ _routers = [
     dict(model=DiscoveryJob, create_schema=sd.DiscoveryJobCreate, update_schema=sd.DiscoveryJobUpdate,
          read_schema=sd.DiscoveryJobRead, path="/discovery-jobs", tag="Scansione", filters=("site_id", "enabled"),
          search=("name", "description"), order_by=(DiscoveryJob.name,), hook=rules.discovery_job_hook),
+    dict(model=SnmpRule, create_schema=sd.SnmpRuleCreate, update_schema=sd.SnmpRuleUpdate,
+         read_schema=sd.SnmpRuleRead, path="/snmp-rules", tag="Scansione", filters=("enabled",),
+         search=("name", "description", "match_object_id", "match_descr"), order_by=(SnmpRule.name,),
+         hook=rules.snmp_rule_hook, dependencies=[Depends(require_admin_to_write)]),
     # ---------- Campi personalizzati (li leggono tutti, li cambia l'amministratore) ----------
     dict(model=CustomFieldDefinition, create_schema=cfs.CustomFieldCreate, update_schema=cfs.CustomFieldUpdate,
          read_schema=cfs.CustomFieldRead, path="/custom-fields", tag="Campi personalizzati", filters=("type",),
@@ -131,6 +138,7 @@ _routers = [
 
 protected.include_router(extra.router)
 protected.include_router(discovery.router)
+protected.include_router(snmp_rules.router)
 protected.include_router(history.router)
 protected.include_router(alerts.router)
 protected.include_router(integrations.router)

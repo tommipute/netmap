@@ -126,7 +126,7 @@ export function FieldControl({ field, value, values, fields, onChange, disabled,
     case 'kv':
       return <KeyValueEditor value={value} onChange={onChange} />
     case 'custom':
-      return <field.Component id={id} field={field} value={value} values={values} onChange={onChange} disabled={disabled} resourceKey={resourceKey} />
+      return <field.Component id={id} field={field} value={value} values={values} onChange={onChange} disabled={disabled} resourceKey={resourceKey} item={item} />
     case 'color':
       return (
         <div className="color-field">
@@ -208,7 +208,7 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
     e.stopPropagation() // un modulo aperto da un menu di un altro modulo: l'invio non deve arrivare a quello
     const payload = {}
     for (const f of config.fields) {
-      if (isEdit && (f.createOnly || f.lockedFor?.(item))) continue
+      if (f.noSubmit || (isEdit && (f.createOnly || f.lockedFor?.(item)))) continue // noSubmit: solo nel modulo (es. una prova)
       const visible = !f.showIf || f.showIf(values, item)
       const missing = Array.isArray(values[f.name]) ? !values[f.name].length : isEmpty(values[f.name])
       if (visible && (f.required || (f.requiredOnCreate && !isEdit)) && missing) {

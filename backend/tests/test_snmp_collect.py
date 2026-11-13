@@ -155,3 +155,33 @@ def test_cisco_senza_community_per_vlan(agents, monkeypatch):
     assert len(probe.data.problems) == 1
     assert probe.data.problems[0].startswith("tabella MAC della VLAN 30: nessuna risposta")
     assert "segreta" not in probe.data.problems[0]
+
+
+def test_regole_snmp_nella_lettura(agents):
+    """Le regole che valgono per l'apparato si applicano alla fine della lettura, con gli OID letti apposta."""
+    from types import SimpleNamespace
+
+    from app.discovery import snmp, snmp_rules
+
+    def rule(id, **fields):
+        base = dict(name=f"r{id}", match_object_id=None, match_descr=None, model_oid=None, model_regex=None,
+                    serial_oid=None, port_name=None, ignore_ports=None, ignore_if_types=[], manufacturer=None, kind=None)
+        return snmp_rules.compile_rule(SimpleNamespace(**{**base, **fields}, id=id))
+
+    rules = [
+        rule(1, name="HP", match_object_id="1.3.6.1.4.1.11", model_oid=snmp.SYS_NAME,  # un OID scalare
+             serial_oid=snmp.ENT_PHYSICAL_SERIAL,  # una colonna: vale il primo valore
+             port_name="alias", ignore_ports="^1$", ignore_if_types=[53]),  # VLAN99 ha l'IP: resta
+        rule(2, name="Cisco", match_object_id="1.3.6.1.4.1.9", manufacturer="Altro"),
+    ]
+    creds = Credentials(profile_id=2, name="giusto", community="public", port=PORT, timeout=1, retries=1)
+    [probe] = probe_all(["127.0.0.2"], [creds], rules=rules, ping=False)
+    hd = probe.data
+    assert hd.rules == ["HP"] and hd.manufacturer is None
+    assert (hd.model, hd.model_source, hd.serial) == ("sw-sim-02", "rule", "SGSIM0002")
+    assert [i.name for i in hd.interfaces] == ["2", "uplink core", "VLAN99"]
+    assert all(e.if_index != 1 for e in hd.fdb) and hd.notes["ports_ignored"] == 1
+
+    [raw] = probe_all(["127.0.0.2"], [creds], rules=rules, ping=False, apply_rules=False)
+    assert raw.data == host_data(SW2, "127.0.0.2", 2, "giusto")  # letto e basta
+    assert raw.data.rule_values == {snmp.SYS_NAME: b"sw-sim-02", snmp.ENT_PHYSICAL_SERIAL: b"SGSIM0002"}

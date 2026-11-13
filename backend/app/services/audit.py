@@ -39,6 +39,7 @@ from app.models import (
     SnmpProfile,
     StackMember,
     User,
+    SnmpRule,
     Webhook,
 )
 
@@ -47,7 +48,7 @@ TRACKED: dict[type, str] = {
     DeviceRole: "device_role", Device: "device", Interface: "interface", Cable: "cable", VLAN: "vlan", VRF: "vrf",
     Prefix: "prefix", IPAddress: "ip", NetworkMap: "map", SnmpProfile: "snmp_profile", DiscoveryJob: "discovery_job",
     User: "user", AlertChannel: "alert_channel", StackMember: "stack_member", BackupTarget: "backup_target",
-    DirectorySettings: "directory", ApiToken: "api_token", Webhook: "webhook",
+    DirectorySettings: "directory", ApiToken: "api_token", Webhook: "webhook", SnmpRule: "snmp_rule",
 }
 
 # Campi che cambiano da soli o derivati: non sono modifiche di qualcuno
@@ -87,6 +88,10 @@ LABELS = {
     "url_enc": "Indirizzo", "object_types": "Tipi di oggetto", "actions": "Azioni", "verify_tls": "Verifica del certificato",
     "headers_enc": "Intestazioni", "changes_enabled": "Modifiche ai dati", "change_object_types": "Tipi di oggetto delle modifiche",
     "change_actions": "Azioni delle modifiche",
+    "match_object_id": "Inizio del sysObjectID", "match_descr": "Descrizione SNMP", "model_oid": "OID del modello",
+    "model_regex": "Modello dalla descrizione", "serial_oid": "OID del numero di serie", "port_name": "Nome delle porte",
+    "ignore_ports": "Porte da ignorare (nome)", "ignore_if_types": "Porte da ignorare (ifType)", "manufacturer": "Produttore",
+    "kind": "Tipo di apparato",
 }
 
 # Colonne che puntano ad altri oggetti: nello storico il nome, non l'id

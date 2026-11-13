@@ -519,3 +519,10 @@ def custom_field_hook(db: Session, definition, data: dict[str, Any], is_create: 
     definition.choices = choices if definition.type == "select" else []
     if definition.type == "select" and not choices:
         _fail("Un campo a scelta ha bisogno dei valori ammessi")
+
+
+def snmp_rule_hook(db: Session, rule, data: dict[str, Any], is_create: bool) -> None:
+    """Regola SNMP: deve dire a quali apparati vale (anche dalla prova e dall'import, con gli stessi campi)."""
+    if not rule.match_object_id and not rule.match_descr:
+        _fail("Scrivi a quali apparati vale la regola: l'inizio del sysObjectID, un'espressione sulla descrizione "
+              "SNMP o tutti e due")

@@ -34,6 +34,7 @@ from pysnmp.hlapi.v3arch.asyncio import (
 )
 
 from app.core.net import normalize_mac
+from app.discovery import snmp_rules
 from app.discovery.vendors import model_from_descr, model_from_text
 
 logger = logging.getLogger(__name__)
@@ -244,6 +245,12 @@ class HostData:
     model_source: str | None = field(default=None, compare=False)  # entity, sysdescr, chassis
     fdb_source: str | None = field(default=None, compare=False)    # qbridge, bridge
     notes: dict[str, int] = field(default_factory=dict, compare=False)
+    # Regole SNMP (discovery/snmp_rules.py): produttore e tipo imposti da una regola, nomi delle regole che valgono,
+    # OID letti per le regole (servono alla prova di una regola, che applica due volte sugli stessi dati)
+    manufacturer: str | None = None
+    kind: str | None = None
+    rules: list[str] = field(default_factory=list, compare=False)
+    rule_values: dict[str, Any] = field(default_factory=dict, compare=False)
 
 
 @dataclass
@@ -868,7 +875,20 @@ async def _kind_signals(s: _Session) -> tuple[int | None, list[str], list[str]]:
             lldp_caps(caps) if isinstance(caps, bytes) else [], mibs)
 
 
-async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
+async def _rule_values(s: _Session, oids: list[str]) -> dict[str, Any]:
+    """OID chiesti dalle regole: un get e, se lì non c'è niente (OID di una colonna), il primo valore della colonna."""
+    values: dict[str, Any] = {}
+    for oid in oids:
+        value = (await s.get(oid) or {}).get(oid)
+        if value is None or value == b"":
+            value = next((v for v in (await s.walk(oid)).values() if v not in (None, b"")), None)
+        values[oid] = value
+    return values
+
+
+async def _read_host(s: _Session, system: dict[str, Any], rules: list[snmp_rules.Rule] = (),
+                     apply_rules: bool = True) -> HostData:
+    """`rules`: regole SNMP da provare; con `apply_rules` False si leggono i loro OID senza applicarle (prova)."""
     data = HostData(
         host=s.host,
         profile_id=s.creds.profile_id,
@@ -912,13 +932,20 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data.vlans = {**cisco_names, **await _vlan_names(s)}
     s.section = "tabella ARP"
     data.arp = await _arp(s)
+    matched = snmp_rules.matching(list(rules), data.sys_object_id, data.sys_descr)
+    if matched:
+        s.section = "regole SNMP"
+        data.rule_values = await _rule_values(s, snmp_rules.oids(matched))
     data.problems = s.problems
     data.notes = dict(s.notes)
+    if matched and apply_rules:
+        snmp_rules.apply(data, matched, data.rule_values)
     return data
 
 
 async def collect_host(engine: SnmpEngine, host: str, credentials: list[Credentials],
-                       attempts: list[Attempt] | None = None) -> HostData | None:
+                       attempts: list[Attempt] | None = None, rules: list[snmp_rules.Rule] = (),
+                       apply_rules: bool = True) -> HostData | None:
     """Prova i profili in ordine; None se nessuno risponde. In `attempts` l'esito di ogni profilo provato."""
     for creds in credentials:
         transport = await UdpTransportTarget.create((host, creds.port), timeout=creds.timeout, retries=creds.retries)
@@ -934,11 +961,12 @@ async def collect_host(engine: SnmpEngine, host: str, credentials: list[Credenti
             continue
         if attempts is not None:
             attempts.append(Attempt(creds.name, None, answered=True))
-        return await _read_host(session, system)
+        return await _read_host(session, system, rules, apply_rules)
     return None
 
 
-async def probe_host(engine: SnmpEngine, host: str, credentials: list[Credentials], ping: bool = True) -> HostProbe:
+async def probe_host(engine: SnmpEngine, host: str, credentials: list[Credentials], ping: bool = True,
+                     rules: list[snmp_rules.Rule] = (), apply_rules: bool = True) -> HostProbe:
     """SNMP e ping insieme: il ping dice se all'indirizzo c'è qualcosa quando SNMP non risponde."""
     from app.services.monitor import ping as ping_host  # monitor importa questo modulo
 
@@ -946,7 +974,7 @@ async def probe_host(engine: SnmpEngine, host: str, credentials: list[Credential
 
     async def read() -> None:
         try:
-            probe.data = await collect_host(engine, host, credentials, probe.attempts)
+            probe.data = await collect_host(engine, host, credentials, probe.attempts, rules, apply_rules)
         except Exception as exc:  # un host problematico non deve fermare gli altri
             logger.warning("%s: lettura SNMP fallita: %s", host, exc)
             probe.error = str(exc) or type(exc).__name__
@@ -962,13 +990,14 @@ async def probe_host(engine: SnmpEngine, host: str, credentials: list[Credential
 
 
 async def probe_all_async(hosts: list[str], credentials: list[Credentials], concurrency: int,
-                          ping: bool = True) -> list[HostProbe]:
+                          ping: bool = True, rules: list[snmp_rules.Rule] = (),
+                          apply_rules: bool = True) -> list[HostProbe]:
     engine = SnmpEngine()
     semaphore = asyncio.Semaphore(concurrency)
 
     async def one(host: str) -> HostProbe:
         async with semaphore:
-            return await probe_host(engine, host, credentials, ping)
+            return await probe_host(engine, host, credentials, ping, rules, apply_rules)
 
     try:
         return list(await asyncio.gather(*(one(h) for h in hosts)))
@@ -977,9 +1006,9 @@ async def probe_all_async(hosts: list[str], credentials: list[Credentials], conc
 
 
 def probe_all(hosts: list[str], credentials: list[Credentials], concurrency: int = 50,
-              ping: bool = True) -> list[HostProbe]:
-    """Esito di ogni indirizzo: ping, profili provati, dati letti."""
-    return asyncio.run(probe_all_async(hosts, credentials, concurrency, ping))
+              ping: bool = True, rules: list[snmp_rules.Rule] = (), apply_rules: bool = True) -> list[HostProbe]:
+    """Esito di ogni indirizzo: ping, profili provati, dati letti (con le regole SNMP che valgono)."""
+    return asyncio.run(probe_all_async(hosts, credentials, concurrency, ping, rules, apply_rules))
 
 
 def collect_all(hosts: list[str], credentials: list[Credentials], concurrency: int = 50) -> list[HostData]:

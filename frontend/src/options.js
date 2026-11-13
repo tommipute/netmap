@@ -91,6 +91,28 @@ export const SNMP_VERSIONS = [
   { value: 'v3', label: t('SNMPv3 (utente e chiavi)') },
 ]
 
+// Tipi di apparato riconosciuti dalla scansione (backend/app/services/roles.py, KINDS)
+export const DEVICE_KINDS = [
+  { value: 'switch', label: t('Switch') },
+  { value: 'router', label: t('Router') },
+  { value: 'firewall', label: t('Firewall') },
+  { value: 'ap', label: t('Access point') },
+  { value: 'wlc', label: t('Controller wireless') },
+  { value: 'server', label: t('Server') },
+  { value: 'nas', label: t('NAS') },
+  { value: 'ups', label: t('UPS') },
+  { value: 'pdu', label: t('PDU') },
+  { value: 'printer', label: t('Stampante') },
+  { value: 'phone', label: t('Telefono') },
+  { value: 'camera', label: t('Telecamera') },
+]
+
+// Regole SNMP: da dove prendere il nome delle porte (vuoto = ifName, come senza regola)
+export const PORT_NAME_SOURCES = [
+  { value: 'descr', label: t('ifDescr (descrizione)') },
+  { value: 'alias', label: t('ifAlias (etichetta scritta sullo switch)') },
+]
+
 export const SNMP_AUTH = [
   { value: 'sha', label: t('SHA') },
   { value: 'sha256', label: t('SHA-256') },

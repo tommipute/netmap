@@ -126,3 +126,27 @@ class SnmpReport(Base):
     run_id: Mapped[int | None] = mapped_column(ForeignKey("discovery_runs.id", ondelete="SET NULL"))
     read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     data: Mapped[dict] = mapped_column(JSONType, default=dict)  # discovery/report.py
+
+
+class SnmpRule(TimestampMixin, Base):
+    """Regola SNMP: correzioni alla lettura di un tipo di apparato (discovery/snmp_rules.py), scritte
+    dall'amministratore. Vale per gli apparati con quell'inizio del sysObjectID e/o quella descrizione."""
+
+    __tablename__ = "snmp_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    description: Mapped[str | None] = mapped_column(Text)
+    # A quali apparati (almeno uno dei due): inizio del sysObjectID, espressione regolare sulla descrizione SNMP
+    match_object_id: Mapped[str | None] = mapped_column(String(200))
+    match_descr: Mapped[str | None] = mapped_column(String(500))
+    # Cosa cambia (vuoto = come senza regola)
+    model_oid: Mapped[str | None] = mapped_column(String(200))
+    model_regex: Mapped[str | None] = mapped_column(String(500))
+    serial_oid: Mapped[str | None] = mapped_column(String(200))
+    port_name: Mapped[str | None] = mapped_column(String(10))  # name / descr / alias
+    ignore_ports: Mapped[str | None] = mapped_column(String(500))  # espressione regolare sul nome
+    ignore_if_types: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
+    manufacturer: Mapped[str | None] = mapped_column(String(100))
+    kind: Mapped[str | None] = mapped_column(String(20))  # services/roles.py KINDS

@@ -1,9 +1,10 @@
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from app.config import settings
+from app.discovery.snmp_rules import check_oid, check_regex, clean_oid
 from app.discovery.targets import validate_targets
 from app.models.enums import SnmpAuthProtocol, SnmpPrivProtocol, SnmpVersion
 from app.schemas.common import InputSchema, Name, ReadSchema, make_partial
@@ -55,6 +56,79 @@ class SnmpProfileRead(ReadSchema):
     has_community: bool
     has_auth_key: bool
     has_priv_key: bool
+
+
+# ---------- Regole SNMP ----------
+def _oid(value: str | None) -> str | None:
+    value = clean_oid(value)
+    return check_oid(value) if value else None
+
+
+def _regex(value: str | None) -> str | None:
+    value = (value or "").strip()
+    return check_regex(value) if value else None
+
+
+def _kind(value: str | None) -> str | None:
+    from app.services.roles import BY_KEY
+
+    if value and value not in BY_KEY:
+        raise ValueError(f"Tipo di apparato sconosciuto: {value}")
+    return value or None
+
+
+Oid = Annotated[str | None, Field(max_length=200), AfterValidator(_oid)]
+Regex = Annotated[str | None, Field(max_length=500), AfterValidator(_regex)]
+IfType = Annotated[int, Field(ge=1, le=65535)]
+
+
+class SnmpRuleBase(InputSchema):
+    name: Name
+    enabled: bool = True
+    description: str | None = None
+    match_object_id: Oid = Field(None, description="Inizio del sysObjectID degli apparati (es. 1.3.6.1.4.1.11863)")
+    match_descr: Regex = Field(None, description="Espressione regolare sulla descrizione SNMP (sysDescr)")
+    model_oid: Oid = Field(None, description="OID del produttore con il modello")
+    model_regex: Regex = Field(None, description="Modello dalla descrizione SNMP: il primo gruppo tra parentesi, o tutto")
+    serial_oid: Oid = Field(None, description="OID del produttore con il numero di serie")
+    port_name: Literal["name", "descr", "alias"] | None = Field(None, description="Nome delle porte: ifName, ifDescr o ifAlias")
+    ignore_ports: Regex = Field(None, description="Porte da ignorare: espressione regolare sul nome")
+    ignore_if_types: list[IfType] = Field(default_factory=list, description="Porte da ignorare: ifType (24 loopback, 53 virtuale…)")
+    manufacturer: str | None = Field(None, max_length=100)
+    kind: Annotated[str | None, AfterValidator(_kind)] = Field(None, description="Tipo di apparato (switch, router, ap…)")
+
+
+class SnmpRuleCreate(SnmpRuleBase):
+    pass
+
+
+SnmpRuleUpdate = make_partial(SnmpRuleBase, "SnmpRuleUpdate")
+
+
+class SnmpRuleRead(SnmpRuleCreate, ReadSchema):
+    pass
+
+
+class SnmpRuleFile(BaseModel):
+    """File delle regole (export / import): stessi campi dell'API, senza id né date."""
+    model_config = ConfigDict(extra="forbid")
+    netmap: Literal["snmp-rules"] = "snmp-rules"
+    version: Literal[1] = 1
+    rules: list[SnmpRuleCreate]
+
+
+class SnmpRuleImportResult(BaseModel):
+    created: int
+    updated: int
+
+
+class SnmpRuleTest(BaseModel):
+    """Prova di una regola com'è nel modulo, anche non salvata, su un indirizzo."""
+    model_config = ConfigDict(extra="forbid")
+    host: str = Field(..., max_length=100)
+    profile_ids: list[int] = Field(..., min_length=1)
+    rule_id: int | None = Field(None, description="Regola in modifica: la sua versione salvata non conta nella prova")
+    rule: SnmpRuleCreate = Field(..., description="Campi della regola come in creazione")
 
 
 # ---------- Job di scansione ----------
@@ -164,15 +238,34 @@ class SnmpReportData(BaseModel):
     manufacturer: str | None = None
     sys_descr: str | None = None
     model: str | None = None
-    model_source: str | None = Field(None, description="entity, sysdescr, chassis")
+    model_source: str | None = Field(None, description="entity, sysdescr, chassis, rule")
     serial: str | None = None
+    kind: str | None = Field(None, description="Tipo di apparato riconosciuto (services/roles.py)")
+    kind_reason: str | None = None
+    rules: list[str] = Field(default_factory=list, description="Regole SNMP che valgono per l'apparato")
     counts: dict[str, int] = Field(description="Righe lette: interfaces, ips, members, lldp, cdp, vlans, port_vlans, fdb, arp")
     fdb_source: str | None = Field(None, description="qbridge, bridge")
     notes: dict[str, int] = Field(
         default_factory=dict,
         description="Adattamenti e righe scartate: bridge_port_ifindex, mac_length_prefix, fdb_on_lag, fdb_unmapped, "
-                    "fdb_bad_index, cisco_vlan_fdb, neighbor_no_local_port, renamed_ports")
+                    "fdb_bad_index, cisco_vlan_fdb, neighbor_no_local_port, renamed_ports, ports_ignored")
     problems: list[str] = Field(default_factory=list, description="Tabelle che non si sono lette, con il motivo")
+
+
+class SnmpRulePortChange(BaseModel):
+    if_index: int
+    before: str
+    after: str | None = None
+
+
+class SnmpRuleTestResult(BaseModel):
+    host: str
+    error: str | None = None  # lettura fallita
+    attempts: list[ProbeAttempt] = Field(default_factory=list, description="Se nessun profilo ha risposto: perché")
+    matches: bool = False  # la regola vale per questo apparato
+    before: SnmpReportData | None = None  # con le regole salvate attive
+    after: SnmpReportData | None = None   # con questa regola al posto della sua versione salvata
+    ports: list[SnmpRulePortChange] = Field(default_factory=list, description="Porte rinominate o ignorate (after null)")
 
 
 class SnmpReportRead(BaseModel):

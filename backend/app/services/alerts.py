@@ -123,7 +123,8 @@ TEXTS = {
                   "map": "la mappa", "snmp_profile": "il profilo SNMP", "discovery_job": "la scansione",
                   "user": "l'utente", "alert_channel": "il canale di avviso", "stack_member": "il membro dello stack",
                   "backup_target": "la destinazione dei backup", "directory": "Active Directory",
-                  "api_token": "il token API", "webhook": "il webhook"},
+                  "api_token": "il token API", "webhook": "il webhook",
+                  "snmp_rule": "la regola SNMP"},
         "templates": {
             "down": "🔴 {device} ({ip}) non risponde da {durata} · {sede} › {posizione}",
             "up": "🟢 {device} ({ip}) risponde di nuovo (giù per {durata}) · {sede} › {posizione}",
@@ -160,7 +161,8 @@ TEXTS = {
                   "cable": "cable", "vlan": "VLAN", "vrf": "VRF", "prefix": "subnet", "ip": "IP", "map": "map",
                   "snmp_profile": "SNMP profile", "discovery_job": "scan", "user": "user",
                   "alert_channel": "alert channel", "stack_member": "stack member", "backup_target": "backup destination",
-                  "directory": "Active Directory", "api_token": "API token", "webhook": "webhook"},
+                  "directory": "Active Directory", "api_token": "API token", "webhook": "webhook",
+                  "snmp_rule": "SNMP rule"},
         "templates": {
             "down": "🔴 {device} ({ip}) not responding for {time} · {site} › {location}",
             "up": "🟢 {device} ({ip}) responding again (down for {time}) · {site} › {location}",

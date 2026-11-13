@@ -1,4 +1,4 @@
-import { formatDateTime } from '../options'
+import { DEVICE_KINDS, formatDateTime } from '../options'
 import { t, tn, tServer } from '../i18n'
 import { Mono } from './Bits'
 
@@ -15,12 +15,15 @@ const ROWS = [
   ['arp', () => t('Tabella ARP'), 'IP-MIB'],
 ]
 
+const kindLabel = (key) => DEVICE_KINDS.find((k) => k.value === key)?.label || key
+
 const FDB_SOURCES = { qbridge: 'Q-BRIDGE-MIB', bridge: 'BRIDGE-MIB' }
 
 const MODEL_SOURCES = {
   entity: () => t('dalla ENTITY-MIB'),
   sysdescr: () => t('dalla descrizione SNMP'),
   chassis: () => t('dalla descrizione dello chassis'),
+  rule: () => t('da una regola SNMP'),
 }
 
 // Adattamenti alle stranezze dello switch (info) e righe scartate (warn); n = righe interessate
@@ -32,6 +35,7 @@ const NOTES = {
   renamed_ports: ['info', (n) => tn(n, '1 porta ha lo stesso nome di un\'altra: ha preso la sua descrizione SNMP o il nome con il numero.', '{n} porte hanno lo stesso nome di un\'altra: hanno preso la loro descrizione SNMP o il nome con il numero.')],
   fdb_unmapped: ['warn', (n) => tn(n, '1 riga della tabella MAC indica una porta che lo switch non elenca: scartata.', '{n} righe della tabella MAC indicano una porta che lo switch non elenca: scartate.')],
   fdb_bad_index: ['warn', (n) => tn(n, '1 riga della tabella MAC non ha un MAC valido: scartata.', '{n} righe della tabella MAC non hanno un MAC valido: scartate.')],
+  ports_ignored: ['info', (n) => tn(n, '1 porta ignorata da una regola SNMP.', '{n} porte ignorate da una regola SNMP.')],
   neighbor_no_local_port: ['warn', (n) => tn(n, '1 vicino LLDP/CDP è su una porta che NetMap non riconosce: non diventa un cavo.', '{n} vicini LLDP/CDP sono su una porta che NetMap non riconosce: non diventano cavi.')],
 }
 
@@ -56,6 +60,15 @@ export function SnmpReportBody({ data, compact = false }) {
           <dt>{t('Produttore (sysObjectID)')}</dt>
           <dd>{data.manufacturer || <span className="muted">—</span>} {data.sys_object_id && <Mono>{data.sys_object_id}</Mono>}</dd>
         </div>
+        {data.kind && (
+          <div>
+            <dt>{t('Tipo di apparato')}</dt>
+            <dd>{kindLabel(data.kind)} {data.kind_reason && <span className="muted">({tServer(data.kind_reason)})</span>}</dd>
+          </div>
+        )}
+        {data.rules?.length > 0 && (
+          <div><dt>{t('Regole SNMP')}</dt><dd>{data.rules.join(', ')}</dd></div>
+        )}
       </dl>
       <table className="table table--dense snmp-report__table">
         <thead>

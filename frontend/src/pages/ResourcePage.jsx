@@ -8,6 +8,7 @@ import { customColumns, useCustomFields } from '../components/CustomFields'
 import DeleteDialog from '../components/DeleteDialog'
 import ProbeDialog from '../components/ProbeDialog'
 import DeviceImportDialog from '../components/DeviceImportDialog'
+import SnmpRuleFile from '../components/SnmpRuleFile'
 import { IconButton, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import { RefSelect } from '../components/RefSelect'
@@ -228,6 +229,7 @@ export default function ResourcePage({ resourceKey }) {
               {canEdit && <IconButton icon="upload" label={t('Importa device da un file CSV')} onClick={() => setImporting(true)} />}
             </>
           )}
+          {resourceKey === 'snmp-rules' && <SnmpRuleFile onImported={reload} />}
           {resourceKey === 'discovery-jobs' && canEdit && (
             <IconButton icon="search" label={t('Prova indirizzi: cosa succede su ognuno, senza salvare niente')} onClick={() => setProbing(true)} />
           )}

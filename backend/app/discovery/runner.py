@@ -13,7 +13,8 @@ from app.discovery.apply import APPLY_ORDER, ApplyError, apply_change
 from app.discovery.planner import Planner, Proposal
 from app.discovery.report import build_report
 from app.discovery.targets import TargetError, expand_targets
-from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile, SnmpReport
+from app.discovery import snmp_rules
+from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile, SnmpReport, SnmpRule
 from app.models.enums import ChangeStatus, RunStatus
 from app.services.endpoints import update_endpoints
 
@@ -105,6 +106,11 @@ def load_credentials(db: Session, profile_ids: list[int]) -> list[snmp.Credentia
         except SecretError as exc:
             raise RunError(f"Profilo {profile.name}: {exc}") from exc
     return result
+
+
+def load_rules(db: Session) -> list[SnmpRule]:
+    """Regole SNMP attive (discovery/snmp_rules.py)."""
+    return list(db.scalars(select(SnmpRule).where(SnmpRule.enabled.is_(True)).order_by(SnmpRule.id)))
 
 
 # ---------------------------------------------------------------- applicazione e registrazione
@@ -230,7 +236,8 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
         _log(run, f"Scansione di {len(hosts)} indirizzi con i profili: {', '.join(c.name for c in credentials)}")
         db.commit()
 
-        collect = collector or (lambda h, c: snmp.probe_all(h, c, settings.discovery_concurrency))
+        rules = [snmp_rules.compile_rule(r) for r in load_rules(db)]
+        collect = collector or (lambda h, c: snmp.probe_all(h, c, settings.discovery_concurrency, rules=rules))
         probes = _as_probes(collect(hosts, credentials))
         results = [p.data for p in probes if p.data]
         run.hosts_responded = len(results)

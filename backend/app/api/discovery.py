@@ -43,7 +43,7 @@ def probe(payload: ProbeRequest, db: Session = Depends(get_db)):
     if not credentials:
         raise HTTPException(422, "Scegli almeno un profilo SNMP valido")
     from app.discovery.probe import MAX_HOSTS
-    return run_probe(db, expand_targets(payload.targets, MAX_HOSTS), credentials)
+    return run_probe(db, expand_targets(payload.targets, MAX_HOSTS), credentials, runner.load_rules(db))
 
 
 @router.get("/discovery-runs", response_model=Page[DiscoveryRunRead], summary="Storico delle scansioni")

@@ -27,6 +27,7 @@ export const OBJECT_TYPES = [
   { value: 'directory', label: t('Active Directory') },
   { value: 'api_token', label: t('Token API') },
   { value: 'webhook', label: t('Webhook') },
+  { value: 'snmp_rule', label: t('Regola SNMP') },
 ]
 // Import da altri programmi: stesse etichette dell'origine dei dati (options.js)
 const IMPORT_SOURCES = DATA_SOURCES.filter((o) => !['manual', 'snmp'].includes(o.value)).map(({ value, label }) => ({ value, label }))

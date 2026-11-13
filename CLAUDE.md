@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (141 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (162 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -307,6 +307,22 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   vuoto finché il device nuovo non è approvato (`apply._create_device` lo passa al device). API
   `GET /devices/{id}/snmp-report` (null se mai letto); anche `ProbeFound.report`. Frontend `components/SnmpReport.jsx`
   (testi delle note lì; un codice nuovo va aggiunto in `NOTES` e in en.js).
+- **Regole SNMP** (deciso con l'utente il 13/11/2026: correzioni fatte dall'amministratore, senza codice; tabella
+  `snmp_rules`, CRUD `/snmp-rules` con `require_admin_to_write` e `snmp_rule_hook`, `api/snmp_rules.py` solo admin:
+  `GET /export`, `POST /import` (stesso nome senza maiuscole = aggiornata, una regola sbagliata = niente
+  importato), `POST /test`). Una regola vale per inizio del sysObjectID e/o regex sulla descrizione e cambia solo
+  un elenco fisso: modello (OID o regex), seriale (OID), nome delle porte (descr/alias), porte da ignorare (regex
+  sul nome, ifType; mai una porta con un IP), produttore, tipo. `discovery/snmp_rules.py`: `compile_rule`,
+  `matching` (dalla più precisa: sysObjectID più lungo, poi con descrizione, poi id più basso; ogni cosa dalla
+  prima regola che la imposta), `apply`. Il collector le riceve compilate (`rules=` in `probe_all`/`collect_host`,
+  caricate da `runner.load_rules`), legge gli OID in più (get, se vuoto il primo valore di un walk:
+  `HostData.rule_values`) e le applica alla fine di `_read_host`; con `apply_rules=False` la prova legge una volta
+  e applica le due varianti (senza e con la bozza). `HostData.manufacturer`/`kind` vincono su sysObjectID e
+  `detect_kind`: usare sempre `vendors.manufacturer_of(hd)` e `roles.detect_for(hd)`. Nel resoconto `rules`,
+  `kind`, `kind_reason`, nota `ports_ignored`. Frontend: risorsa `snmp-rules`, `components/SnmpRuleTest.jsx`
+  (campo `custom` con `noSubmit`), `components/SnmpRuleFile.jsx`. Un campo nuovo della regola = colonna,
+  `FIELDS` in `api/snmp_rules.py`, `Rule`/`apply`, modulo, manuali (il formato del file è `version: 1`: i campi
+  sconosciuti si rifiutano).
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

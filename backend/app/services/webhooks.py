@@ -40,7 +40,7 @@ API_PATHS = {
     "cable": "cables", "vlan": "vlans", "vrf": "vrfs", "prefix": "prefixes", "ip": "ip-addresses", "map": "maps",
     "snmp_profile": "snmp-profiles", "discovery_job": "discovery-jobs", "user": "users",
     "alert_channel": "alert-channels", "stack_member": "stack-members", "backup_target": "backup-targets",
-    "webhook": "webhooks",
+    "webhook": "webhooks", "snmp_rule": "snmp-rules",
 }
 
 

@@ -429,9 +429,45 @@ capisce:
 - in giallo le righe che NetMap ha dovuto scartare: per esempio righe della tabella MAC su porte che lo switch non
   elenca, o vicini LLDP su porte che non riconosce. Se ce ne sono molte, lo switch fa qualcosa che NetMap non
   conosce ancora;
-- le tabelle che non si sono lette, con il motivo.
+- le tabelle che non si sono lette, con il motivo;
+- il tipo di apparato riconosciuto e le **regole SNMP** che sono servite per quel device (vedi sotto).
 
 La sezione compare dalla prima scansione che legge il device; per un device nuovo, dopo averlo approvato.
+
+### Regole SNMP
+
+Se uno switch si legge male (modello sbagliato o mancante, niente numero di serie, porte con nomi poco utili, porte
+finte come `NULL0` o `InLoopBack0`), non serve aspettare una versione nuova di NetMap: in **Amministrazione → Regole
+SNMP** (solo amministratori) scrivi una regola che corregge la lettura di quel tipo di apparato.
+
+Una regola vale per gli apparati con un certo **inizio del sysObjectID** (`1.3.6.1.4.1.11863` vale per tutti i
+TP-Link), con una **descrizione SNMP** che corrisponde a un'espressione regolare (`JetStream|T2600G`), o con tutti e
+due. Il sysObjectID e la descrizione li trovi in **Cosa ho letto via SNMP**. Può cambiare solo queste cose:
+
+- **OID del modello**: un OID del produttore che contiene il modello (un valore singolo o una colonna: vale la prima
+  riga); oppure **Modello dalla descrizione**, un'espressione regolare sulla descrizione SNMP (vale il primo gruppo
+  tra parentesi). Se ci sono tutti e due vale prima l'OID;
+- **OID del numero di serie**;
+- **Nome delle porte**: ifDescr o ifAlias al posto di ifName. Attenzione: sugli apparati già documentati le porte
+  con il nome nuovo vengono proposte come porte nuove;
+- **Porte da ignorare**, per nome (espressione regolare) o per ifType (24 loopback, 53 virtuale, 131 tunnel). Una
+  porta con un indirizzo IP non viene mai ignorata, perché spesso è quella di management;
+- **Produttore** e **Tipo di apparato** (il tipo decide il ruolo dei modelli nuovi, come in "Tipo riconosciuto").
+
+Le espressioni regolari non distinguono maiuscole e minuscole. Le regole valgono dalla scansione successiva, anche
+per la **Prova indirizzi**. Se più regole valgono per lo stesso apparato, per ogni cosa vince la più precisa: prima
+quella con il sysObjectID più lungo, poi quella che guarda anche la descrizione, poi la più vecchia. Una regola che
+imposta solo il seriale non toglie il modello impostato da un'altra. Con **Attiva** spento la regola resta salvata
+ma non vale.
+
+In fondo al modulo, **Prova su un apparato** legge un indirizzo con il profilo SNMP scelto e mostra cosa cambia con
+la regola com'è in quel momento nel modulo, **senza salvare niente**: modello, numero di serie, produttore, tipo,
+numero di porte e di MAC prima e dopo, e l'elenco delle porte rinominate o ignorate. "Prima" conta le altre regole
+attive. Se la regola non vale per quell'apparato, la prova lo dice.
+
+Con i pulsanti in alto nell'elenco puoi **esportare** tutte le regole in un file JSON e **importarle** in un'altra
+installazione: le regole con lo stesso nome (maiuscole e minuscole non contano) si aggiornano, le altre si
+aggiungono. Se una regola del file non è valida non si importa niente e il messaggio dice quale.
 
 ### Da approvare
 

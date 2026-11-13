@@ -296,7 +296,7 @@ def test_prova_di_pochi_indirizzi(client, session_factory, setup, monkeypatch):
     """La prova dice per ogni indirizzo cosa succede, senza salvare niente; nel log della scansione il riassunto."""
     from app.discovery import snmp
 
-    def fake_probe(hosts, creds, concurrency=50, ping=True):
+    def fake_probe(hosts, creds, concurrency=50, ping=True, **_rules):
         probes = []
         for host in hosts:
             probe = snmp.HostProbe(host)

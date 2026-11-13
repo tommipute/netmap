@@ -426,9 +426,44 @@ understand it:
   ports with the same name;
 - in yellow, the rows NetMap had to discard: for example MAC table rows on ports the switch does not list, or LLDP
   neighbours on ports it does not recognise. If there are many, the switch does something NetMap doesn't know yet;
-- the tables that could not be read, with the reason.
+- the tables that could not be read, with the reason;
+- the recognised device type and the **SNMP rules** used for that device (see below).
 
 The section appears from the first scan that reads the device; for a new device, after you approve it.
+
+### SNMP rules
+
+If a switch is read badly (wrong or missing model, no serial number, ports with unhelpful names, fake ports such as
+`NULL0` or `InLoopBack0`), you don't need to wait for a new NetMap version: in **Administration → SNMP rules**
+(administrators only) write a rule that corrects how that kind of device is read.
+
+A rule applies to devices with a given **Start of the sysObjectID** (`1.3.6.1.4.1.11863` matches every TP-Link), with
+an **SNMP description** matching a regular expression (`JetStream|T2600G`), or both. You find the sysObjectID and
+the description in **What I read over SNMP**. It can change only these things:
+
+- **Model OID**: a manufacturer OID that holds the model (a single value or a column: the first row counts); or
+  **Model from the description**, a regular expression on the SNMP description (the first group in brackets
+  counts). If both are set, the OID comes first;
+- **Serial number OID**;
+- **Port names**: ifDescr or ifAlias instead of ifName. Beware: on devices already documented the ports with the new
+  name are proposed as new ports;
+- **Ports to ignore**, by name (regular expression) or by ifType (24 loopback, 53 virtual, 131 tunnel). A port with
+  an IP address is never ignored, because it is often the management one;
+- **Manufacturer** and **Device type** (the type decides the role of new models, as in "Recognised type").
+
+Regular expressions ignore upper and lower case. Rules apply from the next scan, and also to **Test addresses**. If
+more rules match the same device, for each thing the most precise wins: first the one with the longest sysObjectID,
+then the one that also checks the description, then the oldest. A rule that only sets the serial number does not
+remove the model set by another one. With **Enabled** off the rule stays saved but does not apply.
+
+At the bottom of the form, **Test on a device** reads an address with the chosen SNMP profile and shows what changes
+with the rule as it is in the form at that moment, **without saving anything**: model, serial number,
+manufacturer, type, number of ports and MACs before and after, and the list of renamed or ignored ports. "Before"
+includes the other enabled rules. If the rule does not apply to that device, the test says so.
+
+With the buttons at the top of the list you can **export** all rules to a JSON file and **import** them into another
+installation: rules with the same name (upper and lower case don't matter) are updated, the others are added. If a
+rule in the file is not valid nothing is imported and the message says which one.
 
 ### To approve
 

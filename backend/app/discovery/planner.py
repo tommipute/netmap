@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session
 
 from app.discovery.matching import find_device, find_port, interface_type, norm_ifname, short_name
 from app.discovery.snmp import HostData, IfData
-from app.discovery.vendors import vendor_name
-from app.services.roles import detect_kind, role_for
+from app.discovery.vendors import manufacturer_of
+from app.services.roles import detect_for, role_for
 from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, StackMember
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
@@ -129,11 +129,10 @@ class Planner:
             role = self.db.get(DeviceRole, known.default_role_id) if known.default_role_id else None
             return {"id": known.id, "label": known.model, "role": role.name if role else None}
         model = (hd.model or hd.sys_object_id)[:100]
-        manufacturer = vendor_name(hd.sys_object_id)
+        manufacturer = manufacturer_of(hd)
         # Modello nuovo: ruolo dal tipo di apparato riconosciuto (diventa il suo ruolo predefinito); se non c'è
         # un ruolo adatto se ne propone uno nuovo, che si crea approvando
-        detected = detect_kind(sys_descr=hd.sys_descr, model=model, sys_object_id=hd.sys_object_id, mibs=hd.mibs,
-                               caps=hd.lldp_caps, sys_services=hd.sys_services, extra=manufacturer)
+        detected = detect_for(hd, model)
         role = role_for(self.db, detected.kind) if detected else None
         return {
             # Nei dati solo il tipo (il ruolo si sceglie approvando): così un ruolo creato nel frattempo non fa

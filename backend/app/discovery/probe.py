@@ -7,12 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.discovery import snmp
+from app.discovery import snmp, snmp_rules
 from app.discovery.matching import find_device
 from app.discovery.report import build_report
-from app.discovery.vendors import vendor_name
+from app.discovery.vendors import manufacturer_of
 from app.models import DeviceType
-from app.services.roles import detect_kind
+from app.services.roles import detect_for
 
 MAX_HOSTS = 256
 
@@ -30,9 +30,8 @@ def describe(db: Session, probe: snmp.HostProbe) -> dict:
         return result
     known = db.scalars(select(DeviceType).where(DeviceType.sys_object_id == hd.sys_object_id)).first() \
         if hd.sys_object_id else None
-    manufacturer = vendor_name(hd.sys_object_id) if hd.sys_object_id else None
-    detected = detect_kind(sys_descr=hd.sys_descr, model=hd.model, sys_object_id=hd.sys_object_id, mibs=hd.mibs,
-                           caps=hd.lldp_caps, sys_services=hd.sys_services, extra=manufacturer)
+    manufacturer = manufacturer_of(hd)
+    detected = detect_for(hd)
     device = find_device(db, serial=hd.serial, sys_name=hd.sys_name, ips=[hd.host, *(ip.address for ip in hd.ips)])
     result["found"] = {
         "profile": hd.profile_name,
@@ -60,7 +59,10 @@ def describe(db: Session, probe: snmp.HostProbe) -> dict:
     return result
 
 
-def run_probe(db: Session, hosts: list[str], credentials: list[snmp.Credentials], prober=None) -> list[dict]:
-    probes = (prober or (lambda h, c: snmp.probe_all(h, c, settings.discovery_concurrency)))(hosts, credentials)
+def run_probe(db: Session, hosts: list[str], credentials: list[snmp.Credentials], rules: list = (),
+              prober=None) -> list[dict]:
+    """`rules`: regole SNMP attive (righe del database), come nella scansione vera."""
+    compiled = [snmp_rules.compile_rule(r) for r in rules]
+    probes = (prober or (lambda h, c: snmp.probe_all(h, c, settings.discovery_concurrency, rules=compiled)))(hosts, credentials)
     order = {host: i for i, host in enumerate(hosts)}
     return [describe(db, p) for p in sorted(probes, key=lambda p: order.get(p.host, len(order)))]
