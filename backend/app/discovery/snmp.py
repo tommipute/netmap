@@ -33,7 +33,7 @@ from pysnmp.hlapi.v3arch.asyncio import (
 )
 
 from app.core.net import normalize_mac
-from app.discovery.vendors import model_from_descr
+from app.discovery.vendors import model_from_descr, model_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +59,15 @@ IF_OPER_STATUS = "1.3.6.1.2.1.2.2.1.8"
 IF_NAME = "1.3.6.1.2.1.31.1.1.1.1"
 IF_HIGH_SPEED = "1.3.6.1.2.1.31.1.1.1.15"
 IF_ALIAS = "1.3.6.1.2.1.31.1.1.1.18"
+IF_TYPE_LAG = 161  # ieee8023adLag: port-channel, trunk, MLT
 
 IP_AD_IF_INDEX = "1.3.6.1.2.1.4.20.1.2"      # ipAddrTable (IPv4), indice = indirizzo
 IP_AD_NET_MASK = "1.3.6.1.2.1.4.20.1.3"
 IP_ADDRESS_IF_INDEX = "1.3.6.1.2.1.4.34.1.3"  # ipAddressTable (IPv4 e IPv6), indice = tipo.lunghezza.indirizzo
 IP_ADDRESS_PREFIX = "1.3.6.1.2.1.4.34.1.5"    # puntatore al prefisso: l'ultimo numero è la lunghezza
 
+ENT_PHYSICAL_DESCR = "1.3.6.1.2.1.47.1.1.1.1.2"
+ENT_PHYSICAL_NAME = "1.3.6.1.2.1.47.1.1.1.1.7"
 ENT_PHYSICAL_PARENT_REL_POS = "1.3.6.1.2.1.47.1.1.1.1.6"  # per gli chassis di uno stack: numero del membro
 ENT_PHYSICAL_CLASS = "1.3.6.1.2.1.47.1.1.1.1.5"
 ENT_PHYSICAL_SERIAL = "1.3.6.1.2.1.47.1.1.1.1.11"
@@ -499,22 +502,31 @@ async def _ips(s: _Session) -> list[IpData]:
     return [ip for ip in result.values() if _useful_ip(ip.address)]
 
 
-async def _chassis(s: _Session) -> tuple[str | None, str | None, list[MemberData]]:
+async def _chassis(s: _Session) -> tuple[str | None, str | None, list[MemberData], str | None]:
     """Seriale e modello del device (primo chassis) e, se gli chassis sono più di uno, i membri dello stack.
 
     Il numero del membro è entPhysicalParentRelPos (negli stack Cisco lo chassis sta nel contenitore dello stack
     alla posizione del membro); se manca, l'ordine degli chassis.
+    L'ultimo valore è il modello ricavato da descrizione o nome dello chassis quando entPhysicalModelName è vuoto
+    (Huawei, Extreme, Siemens, MikroTik): vale meno del sysDescr, quindi lo sceglie chi chiama.
     """
     classes = await s.walk(ENT_PHYSICAL_CLASS)
     chassis = sorted(index for index, value in classes.items() if value == ENT_CLASS_CHASSIS)
     if not chassis:
-        return None, None, []
+        return None, None, [], None
     serials = await s.walk(ENT_PHYSICAL_SERIAL)
     models = await s.walk(ENT_PHYSICAL_MODEL)
-    found = [(index, _text(serials.get(index)), _text(models.get(index))) for index in chassis]
+    hints: dict[tuple[int, ...], str | None] = {}
+    if any(not _text(models.get(index)) for index in chassis):
+        descrs = await s.walk(ENT_PHYSICAL_DESCR)
+        names = await s.walk(ENT_PHYSICAL_NAME)
+        hints = {index: model_from_text(_text(descrs.get(index))) or model_from_text(_text(names.get(index)))
+                 for index in chassis}
+    found = [(index, _text(serials.get(index)), _text(models.get(index)) or hints.get(index)) for index in chassis]
     found = [c for c in found if c[1] or c[2]]
     if not found:
-        return None, None, []
+        return None, None, [], None
+    first = found[0][0]
     members: list[MemberData] = []
     if len(found) > 1:
         positions = await s.walk(ENT_PHYSICAL_PARENT_REL_POS)
@@ -523,7 +535,7 @@ async def _chassis(s: _Session) -> tuple[str | None, str | None, list[MemberData
             numbers = list(range(1, len(found) + 1))
         members = sorted((MemberData(number=n, serial=serial, model=model)
                           for n, (_i, serial, model) in zip(numbers, found)), key=lambda m: m.number)
-    return found[0][1], found[0][2], members
+    return found[0][1], _text(models.get(first)), members, hints.get(first)
 
 
 def _name_key(name: str) -> str:
@@ -637,6 +649,8 @@ async def _cdp(s: _Session) -> list[NeighborData]:
 
 
 def _mac_from_index(index: tuple[int, ...]) -> str | None:
+    if len(index) == 7 and index[0] == 6:  # lunghezza davanti al MAC (AOS-CX, Zyxel GS1900, EdgeSwitch, CBS220)
+        index = index[1:]
     if len(index) != 6 or any(not 0 <= b <= 255 for b in index):
         return None
     return ":".join(f"{b:02X}" for b in index)
@@ -649,27 +663,42 @@ def bitmap_positions(raw: Any) -> list[int]:
     return [i * 8 + bit + 1 for i, byte in enumerate(raw) for bit in range(8) if byte & (0x80 >> bit)]
 
 
-async def _base_ports(s: _Session) -> dict[int, int]:
-    """Porta bridge -> ifIndex"""
-    return {index[0]: value for index, value in (await s.walk(DOT1D_BASE_PORT_IF_INDEX)).items()
-            if len(index) == 1 and isinstance(value, int)}
+async def _base_ports(s: _Session, if_indexes: list[int] | None = None) -> dict[int, int]:
+    """Porta bridge -> ifIndex. Alcuni switch (Huawei, Dell N, SNR, Supermicro) non hanno dot1dBasePortIfIndex ma sì
+    le tabelle del bridge: lì la porta bridge è l'ifIndex, come presume anche LibreNMS."""
+    ports = {index[0]: value for index, value in (await s.walk(DOT1D_BASE_PORT_IF_INDEX)).items()
+             if len(index) == 1 and isinstance(value, int)}
+    if ports or not if_indexes:
+        return ports
+    for table in (DOT1Q_PVID, DOT1Q_TP_FDB_PORT, DOT1D_TP_FDB_PORT):
+        if await s.walk(table):
+            return {i: i for i in if_indexes}
+    return {}
 
 
-async def _dot1d_fdb(s: _Session, base_ports: dict[int, int]) -> list[tuple[str, int]]:
+def _fdb_if_index(base_ports: dict[int, int], lags: set[int], port: Any) -> int | None:
+    """ifIndex di una riga della tabella MAC. Alcuni switch (Avaya/Extreme) per i MAC imparati su un aggregato danno
+    l'ifIndex del LAG invece di una porta bridge."""
+    if not isinstance(port, int):
+        return None
+    return base_ports.get(port, port if port in lags else None)
+
+
+async def _dot1d_fdb(s: _Session, base_ports: dict[int, int], lags: set[int] = frozenset()) -> list[tuple[str, int]]:
     """Righe imparate della BRIDGE-MIB (senza VLAN): (MAC, ifIndex)."""
     ports = await s.walk(DOT1D_TP_FDB_PORT)
     status = await s.walk(DOT1D_TP_FDB_STATUS) if ports else {}
     rows = []
     for index, port in ports.items():
         mac = _mac_from_index(index)
-        if_index = base_ports.get(port) if isinstance(port, int) else None
+        if_index = _fdb_if_index(base_ports, lags, port)
         if mac is not None and if_index is not None and status.get(index, FDB_LEARNED) == FDB_LEARNED:
             rows.append((mac, if_index))
     return rows
 
 
-async def _bridge(s: _Session, base_ports: dict[int, int],
-                  port_vlans: dict[int, int]) -> tuple[list[FdbEntry], dict[int, int], bool]:
+async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int, int],
+                  lags: set[int] = frozenset()) -> tuple[list[FdbEntry], dict[int, int], bool]:
     """Tabella MAC: prima Q-BRIDGE (con la VLAN), altrimenti BRIDGE-MIB (VLAN presa da port_vlans, es. Cisco).
     Ritorna anche il PVID delle porte e se la tabella veniva da Q-BRIDGE."""
     if not base_ports:
@@ -680,7 +709,7 @@ async def _bridge(s: _Session, base_ports: dict[int, int],
     entries: dict[tuple[str, int, int | None], FdbEntry] = {}
 
     def add(mac: str | None, base_port: Any, status: Any, vlan: int | None) -> None:
-        if_index = base_ports.get(base_port) if isinstance(base_port, int) else None
+        if_index = _fdb_if_index(base_ports, lags, base_port)
         if mac is None or if_index is None or (status is not None and status != FDB_LEARNED):
             return
         entries.setdefault((mac, if_index, vlan), FdbEntry(mac=mac, if_index=if_index, vlan=vlan))
@@ -689,10 +718,12 @@ async def _bridge(s: _Session, base_ports: dict[int, int],
     if q_ports:
         q_status = await s.walk(DOT1Q_TP_FDB_STATUS)
         for index, port in q_ports.items():
+            if len(index) == 8 and index[1] == 6:  # lunghezza davanti al MAC, dopo la VLAN
+                index = index[:1] + index[2:]
             if len(index) == 7:
                 add(_mac_from_index(index[1:]), port, q_status.get(index), index[0])
     else:
-        for mac, if_index in await _dot1d_fdb(s, base_ports):
+        for mac, if_index in await _dot1d_fdb(s, base_ports, lags):
             entries.setdefault((mac, if_index, None), FdbEntry(mac=mac, if_index=if_index,
                                                                vlan=pvids.get(if_index, port_vlans.get(if_index))))
     return sorted(entries.values(), key=lambda e: (e.mac, e.if_index, e.vlan or 0)), pvids, bool(q_ports)
@@ -829,8 +860,8 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     s.section = "indirizzi IP"
     data.ips = await _ips(s)
     s.section = "seriale e stack"
-    data.serial, data.model, data.members = await _chassis(s)
-    data.model = data.model or model_from_descr(data.sys_descr)
+    data.serial, data.model, data.members, chassis_hint = await _chassis(s)
+    data.model = data.model or model_from_descr(data.sys_descr) or chassis_hint
     s.section = "vicini LLDP"
     lldp = await _lldp(s, data.interfaces)
     s.section = "vicini CDP"
@@ -838,8 +869,9 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     s.section = "VLAN"
     cisco_names, cisco_untagged, cisco_tagged = await _cisco_vlans(s)
     s.section = "tabella MAC"
-    base_ports = await _base_ports(s)
-    data.fdb, pvids, qbridge = await _bridge(s, base_ports, cisco_untagged)
+    base_ports = await _base_ports(s, [i.if_index for i in data.interfaces])
+    lags = {i.if_index for i in data.interfaces if i.if_type == IF_TYPE_LAG}
+    data.fdb, pvids, qbridge = await _bridge(s, base_ports, cisco_untagged, lags)
     if cisco_names and base_ports and not qbridge:
         seen = {(e.mac, e.if_index, e.vlan) for e in data.fdb}
         more = [e for e in await _cisco_vlan_fdb(s, cisco_fdb_vlans(cisco_names, cisco_untagged, cisco_tagged))

@@ -356,6 +356,11 @@ The scan reads devices over SNMP (v1, v2c or v3): name, model, serial number, po
 LLDP/CDP neighbours (that is, the cables between devices). **It never changes data entered by hand on its own**:
 it proposes changes that you approve.
 
+It works with switches of any brand that answer the standard MIBs. If a device doesn't give its model in the
+dedicated field, NetMap takes it from the SNMP description (`GS1900-48`, `S5720-56C-PWR-EI-AC`). If two ports share
+the same name (some Huawei and Dell switches do this), the second one gets its description or the name followed by
+the port's SNMP number, for example `mgmt (61)`.
+
 ### Preparation
 
 1. **SNMP profiles**: the credentials. For v1 and v2c the community, for v3 user, authentication protocol and

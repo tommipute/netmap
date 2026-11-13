@@ -10,7 +10,7 @@ Regole (docs/roadmap.md):
 - VLAN: quelle lette dallo switch diventano VLAN della sede (automatiche se il job aggiunge da solo le porte
   nuove); VLAN untagged, modo access/trunk e VLAN tagged delle porte seguono la regola dei campi delle porte
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 import ipaddress
 
@@ -52,12 +52,32 @@ def _port_label(device: Device, iface: Interface) -> str:
     return f"{device.name} {iface.name}"
 
 
+def _unique_names(interfaces: list[IfData]) -> dict[int, str]:
+    """Nomi nuovi per le porte con un nome già usato da un'altra (Huawei, Dell, SLX, ProCurve "lo0"): nel database il
+    nome è unico per device. Il nome resta alla porta con l'ifIndex più basso; le altre prendono l'ifDescr se è
+    diverso e libero, altrimenti il nome con l'ifIndex. Ritorna {ifIndex: nome nuovo}."""
+    taken = {norm_ifname(d.name) for d in interfaces}
+    seen: set[str] = set()
+    renamed: dict[int, str] = {}
+    for d in sorted(interfaces, key=lambda i: i.if_index):
+        key = norm_ifname(d.name)
+        if key not in seen:
+            seen.add(key)
+            continue
+        name = d.descr if d.descr and norm_ifname(d.descr) not in taken else f"{d.name} ({d.if_index})"
+        renamed[d.if_index] = name[:100]
+        taken.add(norm_ifname(name))
+    return renamed
+
+
 class Planner:
     def __init__(self, db: Session, job: DiscoveryJob, now: datetime):
         self.db, self.job, self.now = db, job, now
 
     # ------------------------------------------------------------ ingresso
     def plan(self, hd: HostData) -> list[Proposal]:
+        if renamed := _unique_names(hd.interfaces):
+            hd = replace(hd, interfaces=[replace(i, name=renamed.get(i.if_index, i.name)) for i in hd.interfaces])
         device = find_device(
             self.db,
             serial=hd.serial,
@@ -258,9 +278,12 @@ class Planner:
         matched: dict[int, Interface] = {}  # ifIndex letto -> porta nel database
         used: set[int] = set()
 
+        owner = {norm_ifname(d.name): d.if_index for d in hd.interfaces}  # nomi già unici (vedi plan)
         for d in hd.interfaces:
-            by_name = find_port(existing, names=[d.name, d.descr])
             by_idx = by_index.get(d.if_index)
+            # La descrizione aiuta a riconoscere la porta, ma non se è il nome di un'altra (porte rinominate)
+            names = [d.name] + ([d.descr] if d.descr and owner.get(norm_ifname(d.descr), d.if_index) == d.if_index else [])
+            by_name = find_port(existing, names=names)
             # ifIndex prima del nome, a meno che il nome indichi chiaramente un'altra porta
             iface = by_idx if by_idx and (by_name is None or by_name is by_idx) else (by_name or by_idx)
             if iface is not None and iface.id in used:

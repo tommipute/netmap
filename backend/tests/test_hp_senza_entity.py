@@ -27,7 +27,7 @@ def test_modello_dal_sysdescr():
     assert model_from_descr("HPE OfficeConnect Switch 1820 24G J9980A, PT.02.12") == "J9980A"
     assert model_from_descr("HP 1910-24G Switch Software Version 5.20") == "1910-24G"
     assert model_from_descr("Aruba Instant On 1930 24G 4SFP/SFP+ Switch JL682A, InstantOn_1930_2.4") == "JL682A"
-    assert model_from_descr("Cisco IOS Software, C2960 Software") is None
+    assert model_from_descr("Cisco IOS Software, C2960 Software") == "C2960"  # regola generica
     assert model_from_descr("Linux hp-server 5.10") is None
     assert model_from_descr(None) is None
 

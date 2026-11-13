@@ -283,10 +283,22 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   e `role_for` cerca un ruolo esistente per parole; se non c'è la proposta porta solo `create.kind` e `apply.py` crea
   il ruolo (nome, livello, colore del `Kind`) all'approvazione. "role"/"kind" in `data.device_type` sono solo da
   mostrare: tolti dai dati confrontati con le modifiche rifiutate.
-- Modello senza ENTITY-MIB: `vendors.model_from_descr` (per ora solo HP/HPE/Aruba: codice prodotto o nome dopo la
-  marca); un `DeviceType` con `model == sys_object_id` (nome provvisorio) si rinomina in silenzio quando la scansione
-  ha il nome vero. Nomi porta: spazi ripetuti ridotti a uno in lettura (HP 1810 "Port  1"), il planner aggiorna in
-  silenzio i nomi vecchi che differiscono solo negli spazi; `natural_key` li ignora.
+- Modello senza ENTITY-MIB: `vendors.model_from_descr` (HP/HPE/Aruba: codice prodotto o nome dopo la marca; per
+  gli altri `model_from_text`, regola generica: primo codice con lettere e cifre, scartando versioni, porte, CPU,
+  date, licenze Cisco; prima dopo "on", poi nelle prime 12 parole, poi tra parentesi). Se entPhysicalModelName è
+  vuoto, ultima scelta `model_from_text` su descrizione o nome dello chassis (`_chassis` restituisce il suggerimento
+  a parte, vale meno del sysDescr). Un `DeviceType` con `model == sys_object_id` (nome provvisorio) si rinomina in
+  silenzio quando la scansione ha il nome vero. Nomi porta: spazi ripetuti ridotti a uno in lettura (HP 1810
+  "Port  1"), il planner aggiorna in silenzio i nomi vecchi che differiscono solo negli spazi; `natural_key` li ignora.
+- Stranezze di altre marche (provate sulle registrazioni snmprec di LibreNMS, solo in locale: GPLv3, mai nel repo),
+  coperte da `tests/test_collector_marche.py`: indice MAC con la lunghezza davanti (`6.m1..m6`, anche dopo il fdbId in
+  Q-BRIDGE: AOS-CX, Zyxel, EdgeSwitch); senza dot1dBasePortIfIndex ma con tabelle del bridge la porta bridge è
+  l'ifIndex (Huawei, Dell N, SNR); MAC imparati su un aggregato con l'ifIndex del LAG (ifType 161) al posto della
+  porta bridge (Avaya/Extreme). Porte con lo stesso nome (Huawei, Dell, SLX, ProCurve "lo0"): il nome è unico per
+  device nel database, quindi `planner._unique_names` lo lascia alla porta con l'ifIndex più basso e alle altre dà
+  l'ifDescr (se diverso e libero) o "nome (ifIndex)"; in `_interfaces` l'ifDescr non serve ad abbinare se è il nome
+  di un'altra porta. Non corretti (troppo su misura): TP-Link JetStream (porta FDB 1..N contro porte bridge
+  49153+), LLDP di RouterOS 6 con l'indice di un solo numero.
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

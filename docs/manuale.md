@@ -357,6 +357,11 @@ La scansione legge gli apparati con SNMP (v1, v2c o v3): nome, modello, numero d
 stack e vicini LLDP/CDP (cioè i cavi tra gli apparati). **Non cambia niente da sola** sui dati inseriti a mano:
 propone modifiche che approvi tu.
 
+Funziona con gli switch di tutte le marche che rispondono alle MIB standard. Se l'apparato non dice il modello nel
+campo apposito, NetMap lo prende dalla descrizione SNMP (`GS1900-48`, `S5720-56C-PWR-EI-AC`). Se due porte hanno lo
+stesso nome (succede su alcuni Huawei e Dell), la seconda prende la sua descrizione o il nome seguito dal numero
+SNMP della porta, per esempio `mgmt (61)`.
+
 ### Preparazione
 
 1. **Profili SNMP**: le credenziali. Per v1 e v2c la community, per v3 utente, protocollo e chiave di

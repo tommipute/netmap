@@ -31,6 +31,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Gli apparati senza ENTITY-MIB (gli stessi HP) avevano come modello il sysObjectID (`1.3.6.1.4.1.11.2.3.7.11.149`):
   ora il modello si legge dalla descrizione SNMP (`1810-24`, o il codice prodotto come `J9980A` se c'è), anche per
   i modelli già creati così, che si rinominano alla scansione successiva.
+- Scansione di switch di altre marche (provata su registrazioni SNMP di oltre 70 famiglie di apparati):
+  - il modello si legge anche dalla descrizione SNMP degli apparati senza ENTITY-MIB (`GS1900-48`, `S5720-56C-PWR-EI-AC`,
+    `X480-24x`, `RB760iGS`…) e dalla descrizione dello chassis quando il campo del modello è vuoto;
+  - tabella MAC vuota su AOS-CX, Zyxel GS1900 ed EdgeSwitch (MAC scritto con la lunghezza davanti), su
+    Huawei, Dell N e SNR (manca la tabella porta bridge → porta: ora vale l'ifIndex, come per LibreNMS);
+  - i MAC imparati su un aggregato (Avaya/Extreme danno il numero del LAG) si scartavano: ora finiscono sul LAG;
+  - due porte con lo stesso nome (Huawei, Dell, Extreme SLX, ProCurve "lo0") facevano fallire l'approvazione del
+    device nuovo: ora la seconda prende la sua descrizione SNMP o il nome con il numero (`mgmt (61)`).
 - La lingua scelta nella pagina di accesso restava solo fino all'accesso: poi tornava quella salvata per l'utente.
   Ora vale e diventa la lingua dell'utente.
 
