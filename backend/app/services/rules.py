@@ -12,7 +12,8 @@ from app.core.auth import hash_password
 from app.core.net import normalize_ip_interface
 from app.core.secrets import SecretError, encrypt
 from app.models import (
-    VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, StackMember, User,
+    VLAN, Cable, Device, DeviceType, Interface, IPAddress, Location, Prefix, Rack, SnmpProfile, SnmpRule, StackMember,
+    User,
 )
 from app.models.enums import NON_CABLEABLE_TYPES, InterfaceMode, InterfaceType, SnmpVersion, UserRole, UserSource
 from app.services import mail
@@ -485,6 +486,11 @@ def user_hook(db: Session, user: User, data: dict[str, Any], is_create: bool) ->
             user.token_version = (user.token_version or 0) + 1
 
 
+def snmp_rule_delete_hook(db: Session, rule: SnmpRule, params: dict) -> None:
+    if rule.builtin:
+        raise HTTPException(409, "Le regole incluse in NetMap non si eliminano: puoi spegnerle")
+
+
 def user_delete_hook(db: Session, user: User, params: dict) -> None:
     if user.role == UserRole.ADMIN.value and user.active and _other_active_admins(db, user) == 0:
         raise HTTPException(409, "Non puoi eliminare l'ultimo amministratore attivo")
@@ -522,7 +528,13 @@ def custom_field_hook(db: Session, definition, data: dict[str, Any], is_create: 
 
 
 def snmp_rule_hook(db: Session, rule, data: dict[str, Any], is_create: bool) -> None:
-    """Regola SNMP: deve dire a quali apparati vale (anche dalla prova e dall'import, con gli stessi campi)."""
+    """Regola SNMP: deve dire a quali apparati vale (anche dalla prova e dall'import, con gli stessi campi).
+    Quelle incluse in NetMap si possono solo accendere e spegnere: le riscrive l'aggiornamento."""
+    if getattr(rule, "builtin", False) and isinstance(rule, SnmpRule):
+        state = inspect(rule)
+        if any(state.attrs[key].history.has_changes() for key in data if key != "enabled" and key in state.attrs):
+            _fail("Le regole incluse in NetMap si possono solo spegnere. Per cambiarne una, creane una tua per gli "
+                  "stessi apparati: vale prima di quella inclusa")
     if not rule.match_object_id and not rule.match_descr:
         _fail("Scrivi a quali apparati vale la regola: l'inizio del sysObjectID, un'espressione sulla descrizione "
               "SNMP o tutti e due")

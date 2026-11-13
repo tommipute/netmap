@@ -18,14 +18,13 @@ from app.services.rules import snmp_rule_hook
 
 router = APIRouter(tags=["Scansione"], dependencies=[Depends(require_admin)])
 
-FIELDS = ("name", "enabled", "description", "match_object_id", "match_descr", "model_oid", "model_regex", "serial_oid",
-          "port_name", "ignore_ports", "ignore_if_types", "manufacturer", "kind")
+FIELDS = snmp_rules.FIELDS
 
 
 @router.get("/snmp-rules/export", response_model=SnmpRuleFile,
-            summary="Tutte le regole SNMP in un file JSON, da importare in un'altra installazione")
+            summary="Le regole SNMP scritte qui (non quelle incluse in NetMap) in un file JSON, da importare altrove")
 def export_rules(db: Session = Depends(get_db)):
-    rows = db.scalars(select(SnmpRule).order_by(SnmpRule.name)).all()
+    rows = db.scalars(select(SnmpRule).where(SnmpRule.builtin.is_(False)).order_by(SnmpRule.name)).all()
     return {"rules": [{key: getattr(row, key) for key in FIELDS} for row in rows]}
 
 
@@ -41,6 +40,9 @@ def import_rules(payload: SnmpRuleFile, db: Session = Depends(get_db)):
             raise HTTPException(422, f"Il file contiene due regole «{rule.name}»")
         seen.add(key)
         row = existing.get(key)
+        if row is not None and row.builtin:
+            db.rollback()
+            raise HTTPException(422, f"«{rule.name}» è il nome di una regola inclusa in NetMap: cambia il nome nel file")
         if row is None:
             row = SnmpRule()
             db.add(row)

@@ -443,27 +443,39 @@ the description in **What I read over SNMP**. It can change only these things:
 
 - **Model OID**: a manufacturer OID that holds the model (a single value or a column: the first row counts); or
   **Model from the description**, a regular expression on the SNMP description (the first group in brackets
-  counts). If both are set, the OID comes first;
+  counts). If both are set, the expression applies to the OID value: it strips what is extra, such as the hardware
+  version in `T1600G-28TS 3.0`;
 - **Serial number OID**;
 - **Port names**: ifDescr or ifAlias instead of ifName. Beware: on devices already documented the ports with the new
   name are proposed as new ports;
 - **Ports to ignore**, by name (regular expression) or by ifType (24 loopback, 53 virtual, 131 tunnel). A port with
   an IP address is never ignored, because it is often the management one;
-- **Manufacturer** and **Device type** (the type decides the role of new models, as in "Recognised type").
+- **Manufacturer** and **Device type** (the type decides the role of new models, as in "Recognised type");
+- **MAC table ports**, for switches that do not write the standard bridge port number in the MAC table: "n-th
+  bridge port" (TP-Link JetStream switches write 1, 2, 3… for the first, second, third port) or "Port ifIndex".
+  Use it when **What I read** says that some MAC table rows point to a port the switch does not list: try both
+  choices with **Test** and keep the one that raises the MAC count;
+- **LLDP local port OID**, for devices that do not say on which port they see their LLDP neighbors (MikroTik
+  RouterOS 6): a manufacturer column, indexed like the neighbors, holding the port's ifIndex.
 
 Regular expressions ignore upper and lower case. Rules apply from the next scan, and also to **Test addresses**. If
 more rules match the same device, for each thing the most precise wins: first the one with the longest sysObjectID,
-then the one that also checks the description, then the oldest. A rule that only sets the serial number does not
+then the one that also checks the description, then the oldest; the rules included in NetMap (below) always come
+after yours. A rule that only sets the serial number does not
 remove the model set by another one. With **Enabled** off the rule stays saved but does not apply.
 
 At the bottom of the form, **Test on a device** reads an address with the chosen SNMP profile and shows what changes
 with the rule as it is in the form at that moment, **without saving anything**: model, serial number,
-manufacturer, type, number of ports and MACs before and after, and the list of renamed or ignored ports. "Before"
+manufacturer, type, number of ports, MACs and LLDP neighbors before and after, and the list of renamed or ignored ports. "Before"
 includes the other enabled rules. If the rule does not apply to that device, the test says so.
 
 With the buttons at the top of the list you can **export** all rules to a JSON file and **import** them into another
 installation: rules with the same name (upper and lower case don't matter) are updated, the others are added. If a
 rule in the file is not valid nothing is imported and the message says which one.
+
+Some rules are **included in NetMap** (marked "included" in the list) for devices we already know, such as TP-Link
+JetStream and MikroTik RouterOS: they update themselves with NetMap. You can only disable them; to change one, write
+your own for the same devices, which comes first. They are not exported, and a file to import cannot use their name.
 
 ### To approve
 

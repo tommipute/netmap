@@ -108,6 +108,11 @@ export const DEVICE_KINDS = [
 ]
 
 // Regole SNMP: da dove prendere il nome delle porte (vuoto = ifName, come senza regola)
+export const FDB_PORT_MODES = [
+  { value: 'position', label: t('n-esima porta bridge (TP-Link JetStream)') },
+  { value: 'ifindex', label: t('ifIndex della porta') },
+]
+
 export const PORT_NAME_SOURCES = [
   { value: 'descr', label: t('ifDescr (descrizione)') },
   { value: 'alias', label: t('ifAlias (etichetta scritta sullo switch)') },

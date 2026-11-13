@@ -137,3 +137,87 @@ def test_scansione_con_produttore_e_tipo_della_regola(client, setup, session_fac
         report = db.query(SnmpReport).one().data
     assert report["rules"] == ["Mio HP"] and report["kind"] == "ap" and report["kind_reason"] == "regola SNMP"
     assert report["manufacturer"] == "Acme"
+
+
+def test_le_regole_incluse_valgono_dopo():
+    mine = rule(1, match_descr="2920")
+    builtin = rule(2, match_object_id="1.3.6.1.4.1.11.2.3.7.11.181", kind="ap", builtin=True)
+    sys_object_id, sys_descr = SW2["system"]["object_id"], SW2["system"]["descr"]
+    assert [r.name for r in snmp_rules.matching([builtin, mine], sys_object_id, sys_descr)] == ["r1", "r2"]
+
+
+def test_modello_dall_oid_con_l_espressione():
+    """Con l'OID del modello l'espressione si applica al suo valore (TP-Link: "T1600G-28TS 3.0" -> "T1600G-28TS")."""
+    hd = host_data(SW2, "10.99.0.2")
+    oid = "1.3.6.1.4.1.11863.6.1.1.5.0"
+    snmp_rules.apply(hd, [rule(model_oid=oid, model_regex=r"^([A-Z]+[0-9][A-Z0-9-]*)")], {oid: b"T1600G-28TS 3.0"})
+    assert hd.model == "T1600G-28TS"
+
+
+def test_porte_della_tabella_mac_dalla_regola():
+    """TP-Link JetStream: nella tabella MAC la porta è la posizione (1, 2, 3…), non la porta bridge."""
+    def scanned():
+        hd = host_data(SW2, "10.99.0.2")
+        hd.bridge_ports = {49153: 1, 49154: 2, 49201: 49}
+        hd.fdb_table, hd.fdb, hd.notes["fdb_unmapped"] = "qbridge", [], 3
+        hd.fdb_unmapped = [("00:50:56:00:00:10", 3, 99), ("00:50:56:00:00:20", 1, None), ("00:50:56:00:00:30", 1099, 7)]
+        return hd
+
+    hd = scanned()
+    snmp_rules.apply(hd, [rule(fdb_port="position")], {})
+    assert [(e.mac, e.if_index, e.vlan) for e in hd.fdb] == [
+        ("00:50:56:00:00:10", 49, 99), ("00:50:56:00:00:20", 1, 99)]  # senza VLAN: quella della porta
+    assert hd.fdb_source == "qbridge" and hd.notes["fdb_port_rule"] == 2 and hd.notes["fdb_unmapped"] == 1
+
+    hd = scanned()
+    snmp_rules.apply(hd, [rule(fdb_port="ifindex")], {})
+    assert [(e.mac, e.if_index) for e in hd.fdb] == [("00:50:56:00:00:20", 1), ("00:50:56:00:00:30", 1099)]
+
+
+def test_porta_locale_lldp_dalla_regola():
+    """RouterOS 6: la porta da cui si vede il vicino è in una colonna di MikroTik indicizzata come il vicino."""
+    oid = "1.3.6.1.4.1.14988.1.1.11.1.1.8"
+    hd = host_data(SW2, "10.99.0.2")
+    [neighbor] = hd.neighbors
+    neighbor.local_if_index, neighbor.rem_index = None, 3
+    snmp_rules.apply(hd, [rule(lldp_port_oid=oid)], {oid: {3: 49, 4: 2}})
+    assert neighbor.local_if_index == 49 and hd.notes["lldp_port_rule"] == 1
+    assert snmp_rules.tables([rule(lldp_port_oid=oid)]) == [oid]
+
+
+def test_regole_incluse_nel_database(client, session_factory):
+    from app.discovery import builtin_rules
+    from app.models import SnmpRule
+    from app.schemas.discovery import SnmpRuleCreate
+
+    assert {r.name for r in builtin_rules.load()} >= {"TP-Link JetStream", "MikroTik RouterOS"}
+    mine = client.post("/api/snmp-rules", json={"name": "mikrotik routeros", "match_descr": "RouterOS"}).json()
+    file = [SnmpRuleCreate(name="TP-Link JetStream", match_object_id="1.3.6.1.4.1.11863", fdb_port="position"),
+            SnmpRuleCreate(name="MikroTik RouterOS", match_object_id="1.3.6.1.4.1.14988"),
+            SnmpRuleCreate(name="Vecchia", match_descr="x")]
+    with session_factory() as db:
+        # Una regola dell'amministratore con lo stesso nome vince
+        assert builtin_rules.sync(db, file) == {"created": 2, "updated": 0, "deleted": 0, "skipped": 1}
+    rules = {r["name"]: r for r in client.get("/api/snmp-rules").json()["items"]}
+    tp_link = rules["TP-Link JetStream"]
+    assert tp_link["builtin"] is True and rules["mikrotik routeros"]["id"] == mine["id"]
+
+    # Si possono solo spegnere, non cambiare né eliminare
+    url = f"/api/snmp-rules/{tp_link['id']}"
+    assert client.patch(url, json={"enabled": False}).json()["enabled"] is False
+    assert client.patch(url, json={"kind": "router"}).status_code == 422
+    assert client.patch(url, json={"enabled": False, "fdb_port": "position"}).status_code == 200  # uguale: va bene
+    assert client.delete(url).status_code == 409
+    # Fuori dall'export, e un file non può usarne il nome
+    assert "TP-Link JetStream" not in [r["name"] for r in client.get("/api/snmp-rules/export").json()["rules"]]
+    taken = client.post("/api/snmp-rules/import", json={"rules": [{"name": "tp-link jetstream", "match_descr": "x"}]})
+    assert taken.status_code == 422 and "inclusa" in taken.json()["detail"]
+
+    # Aggiornamento: il file cambia, lo stato acceso/spento resta; tolta dal file = tolta dal database
+    file = [SnmpRuleCreate(name="TP-Link JetStream", match_object_id="1.3.6.1.4.1.11863", fdb_port="ifindex")]
+    with session_factory() as db:
+        assert builtin_rules.sync(db, file) == {"created": 0, "updated": 1, "deleted": 1, "skipped": 0}
+        assert builtin_rules.sync(db, file)["updated"] == 0
+        row = db.query(SnmpRule).filter_by(name="TP-Link JetStream").one()
+        assert (row.fdb_port, row.enabled) == ("ifindex", False)
+        assert {r.name for r in db.query(SnmpRule)} == {"TP-Link JetStream", "mikrotik routeros"}

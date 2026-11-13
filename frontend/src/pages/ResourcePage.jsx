@@ -387,7 +387,9 @@ export default function ResourcePage({ resourceKey }) {
                     {canEdit && (
                       <>
                         <IconButton icon="edit" label={t('Modifica')} small className="btn--ghost" onClick={() => setEditing(item)} />
-                        <IconButton icon="trash" label={t('Elimina')} small danger className="btn--ghost" onClick={() => remove(item)} />
+                        {config.canDelete?.(item) !== false && (
+                          <IconButton icon="trash" label={t('Elimina')} small danger className="btn--ghost" onClick={() => remove(item)} />
+                        )}
                       </>
                     )}
                   </td>

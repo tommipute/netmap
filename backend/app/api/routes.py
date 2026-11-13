@@ -107,9 +107,10 @@ _routers = [
          read_schema=sd.DiscoveryJobRead, path="/discovery-jobs", tag="Scansione", filters=("site_id", "enabled"),
          search=("name", "description"), order_by=(DiscoveryJob.name,), hook=rules.discovery_job_hook),
     dict(model=SnmpRule, create_schema=sd.SnmpRuleCreate, update_schema=sd.SnmpRuleUpdate,
-         read_schema=sd.SnmpRuleRead, path="/snmp-rules", tag="Scansione", filters=("enabled",),
+         read_schema=sd.SnmpRuleRead, path="/snmp-rules", tag="Scansione", filters=("enabled", "builtin"),
          search=("name", "description", "match_object_id", "match_descr"), order_by=(SnmpRule.name,),
-         hook=rules.snmp_rule_hook, dependencies=[Depends(require_admin_to_write)]),
+         hook=rules.snmp_rule_hook, delete_hook=rules.snmp_rule_delete_hook,
+         dependencies=[Depends(require_admin_to_write)]),
     # ---------- Campi personalizzati (li leggono tutti, li cambia l'amministratore) ----------
     dict(model=CustomFieldDefinition, create_schema=cfs.CustomFieldCreate, update_schema=cfs.CustomFieldUpdate,
          read_schema=cfs.CustomFieldRead, path="/custom-fields", tag="Campi personalizzati", filters=("type",),

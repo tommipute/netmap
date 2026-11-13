@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (162 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (171 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -297,11 +297,17 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   porta bridge (Avaya/Extreme). Porte con lo stesso nome (Huawei, Dell, SLX, ProCurve "lo0"): il nome è unico per
   device nel database, quindi `planner._unique_names` lo lascia alla porta con l'ifIndex più basso e alle altre dà
   l'ifDescr (se diverso e libero) o "nome (ifIndex)"; in `_interfaces` l'ifDescr non serve ad abbinare se è il nome
-  di un'altra porta. Non corretti (troppo su misura): TP-Link JetStream (porta FDB 1..N contro porte bridge
-  49153+), LLDP di RouterOS 6 con l'indice di un solo numero.
+  di un'altra porta. Indice FDB MAC.numero (Zyxel IES, `_index_suffix`, deciso per tabella) e righe numerate con il
+  MAC solo in `dot1dTpFdbAddress` (Netonix); indice LLDP di 2 numeri (JetStream senza timeMark) o di 1 (RouterOS 6,
+  porta locale ignota: `NeighborData.rem_index` per le regole). ID LLDP locale che è l'ifIndex in testo (Alcatel-Lucent AOS 7,
+  dopo il confronto per nome). Su misura con le regole incluse (sotto): porta FDB
+  1..N contro porte bridge 49153+ (JetStream), porta locale LLDP di RouterOS 6. Non gestiti: tabella MAC di Dell
+  DNOS, FortiSwitch e VSP 9012.
 - **"Cosa ho letto"**: il collector mette in `HostData` `model_source` (entity/sysdescr/chassis), `fdb_source`
   (qbridge/bridge) e `notes` (codice → righe: `bridge_port_ifindex`, `mac_length_prefix`, `fdb_on_lag`,
-  `fdb_unmapped`, `fdb_bad_index`, `cisco_vlan_fdb`; `_Session.notes`), tutti `compare=False` (fuori dai confronti
+  `fdb_unmapped`, `fdb_bad_index`, `cisco_vlan_fdb`, `fdb_index_suffix`, `fdb_address_column`, `lldp_short_index`,
+  `lldp_local_ifindex`;
+  dalle regole `ports_ignored`, `fdb_port_rule`, `lldp_port_rule`; `_Session.notes`; testo in `SnmpReport.jsx`), tutti `compare=False` (fuori dai confronti
   dei test). `discovery/report.py` `build_report` aggiunge `neighbor_no_local_port` e `renamed_ports` (dal planner).
   `runner.save_report` tiene un `SnmpReport` (tabella `snmp_reports`) per device, o per indirizzo con `device_id`
   vuoto finché il device nuovo non è approvato (`apply._create_device` lo passa al device). API
@@ -312,7 +318,9 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   `GET /export`, `POST /import` (stesso nome senza maiuscole = aggiornata, una regola sbagliata = niente
   importato), `POST /test`). Una regola vale per inizio del sysObjectID e/o regex sulla descrizione e cambia solo
   un elenco fisso: modello (OID o regex), seriale (OID), nome delle porte (descr/alias), porte da ignorare (regex
-  sul nome, ifType; mai una porta con un IP), produttore, tipo. `discovery/snmp_rules.py`: `compile_rule`,
+  sul nome, ifType; mai una porta con un IP), produttore, tipo, porte della tabella MAC (`fdb_port`: le righe
+  scartate dal collector, `HostData.fdb_unmapped` con `bridge_ports`, lette come posizione o ifIndex), porta locale
+  LLDP (`lldp_port_oid`: colonna indicizzata da lldpRemIndex, letta con un walk solo se serve, `snmp_rules.tables`). `discovery/snmp_rules.py`: `compile_rule`,
   `matching` (dalla più precisa: sysObjectID più lungo, poi con descrizione, poi id più basso; ogni cosa dalla
   prima regola che la imposta), `apply`. Il collector le riceve compilate (`rules=` in `probe_all`/`collect_host`,
   caricate da `runner.load_rules`), legge gli OID in più (get, se vuoto il primo valore di un walk:
@@ -322,7 +330,13 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   `kind`, `kind_reason`, nota `ports_ignored`. Frontend: risorsa `snmp-rules`, `components/SnmpRuleTest.jsx`
   (campo `custom` con `noSubmit`), `components/SnmpRuleFile.jsx`. Un campo nuovo della regola = colonna,
   `FIELDS` in `api/snmp_rules.py`, `Rule`/`apply`, modulo, manuali (il formato del file è `version: 1`: i campi
-  sconosciuti si rifiutano).
+  sconosciuti si rifiutano). Elenco unico dei campi: `snmp_rules.FIELDS`.
+  **Regole incluse**: `discovery/builtin_rules.json` (formato dell'export), allineate al database da
+  `python -m app.discovery.builtin_rules` in `start.sh` a ogni avvio (`sync`: aggiunge, aggiorna tutto tranne
+  `enabled`, toglie quelle non più nel file; una regola dell'admin con lo stesso nome vince). Colonna `builtin`:
+  nel CRUD si cambia solo `enabled` (`snmp_rule_hook`), non si eliminano (409), fuori dall'export, nome vietato
+  nell'import; in `Rule.precision` vengono dopo quelle dell'admin. Una regola inclusa nuova va provata sul banco
+  delle registrazioni prima di aggiungerla.
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

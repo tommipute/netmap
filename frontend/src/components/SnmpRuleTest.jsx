@@ -15,6 +15,7 @@ const ROWS = [
   ['kind', () => t('Tipo di apparato'), (r) => r.kind && `${kindLabel(r.kind)} (${tServer(r.kind_reason)})`],
   ['interfaces', () => t('Porte'), (r) => r.counts?.interfaces],
   ['fdb', () => t('Tabella MAC'), (r) => r.counts?.fdb],
+  ['lldp', () => t('Vicini LLDP'), (r) => r.counts?.lldp],
   ['rules', () => t('Regole SNMP'), (r) => r.rules?.join(', ') || null],
 ]
 const MAX_PORTS = 20

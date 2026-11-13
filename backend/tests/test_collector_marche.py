@@ -16,7 +16,7 @@ class FakeSession:
     """Solo `walk`: {OID della colonna: {indice: valore}}."""
 
     def __init__(self, tables):
-        self.tables, self.section, self.problems, self.notes = tables, "", [], Counter()
+        self.tables, self.section, self.problems, self.notes, self.fdb_unmapped = tables, "", [], Counter(), []
 
     async def walk(self, oid):
         return dict(self.tables.get(oid, {}))
@@ -89,6 +89,7 @@ def test_mac_imparati_su_un_aggregato():
     rows = run(snmp._dot1d_fdb(session, {1: 1}, {6145}))
     assert sorted(rows) == [("00:50:56:00:00:10", 1), ("00:50:56:00:00:20", 6145)]  # 999 non è nulla: scartata
     assert session.notes == {"fdb_on_lag": 1, "fdb_unmapped": 1}
+    assert session.fdb_unmapped == [("00:01:02:03:04:05", 999, None)]  # per le regole SNMP
     session.notes.clear()
     # Senza sapere che 6145 è un LAG la riga resta fuori
     assert run(snmp._dot1d_fdb(session, {1: 1})) == [("00:50:56:00:00:10", 1)]
@@ -144,3 +145,46 @@ def test_resoconto_della_lettura(client, setup, session_factory):
 def test_resoconto_assente(client, setup):
     device = client.post("/api/devices", json={"name": "a-mano", "site_id": setup["site"]["id"]}).json()
     assert client.get(f"/api/devices/{device['id']}/snmp-report").json() is None
+
+
+def test_mac_con_un_numero_dopo_l_indirizzo():
+    """Zyxel IES: indice MAC.numero invece di 6.MAC; il formato si decide per tutta la tabella."""
+    session = FakeSession({snmp.DOT1D_TP_FDB_PORT: {(*MAC, 1): 1, (0x00, 0x50, 0x56, 0x00, 0x00, 0x20, 0): 2}})
+    rows = run(snmp._dot1d_fdb(session, {1: 1, 2: 2}))
+    assert sorted(rows) == [("00:50:56:00:00:10", 1), ("00:50:56:00:00:20", 2)]
+    assert session.notes == {"fdb_index_suffix": 2}
+
+
+def test_mac_dalla_colonna_degli_indirizzi():
+    """Netonix: righe numerate 1, 2, 3… e il MAC solo nella colonna dot1dTpFdbAddress."""
+    session = FakeSession({
+        snmp.DOT1D_TP_FDB_PORT: {(1,): 1, (2,): 2},
+        snmp.DOT1D_TP_FDB_ADDRESS: {(1,): bytes(MAC), (2,): b"\x00\x50\x56\x00\x00\x20"},
+    })
+    assert sorted(run(snmp._dot1d_fdb(session, {1: 1, 2: 2}))) == [("00:50:56:00:00:10", 1), ("00:50:56:00:00:20", 2)]
+    assert session.notes == {"fdb_address_column": 2}
+
+
+def test_lldp_con_l_indice_accorciato():
+    """TP-Link JetStream: porta locale.indice senza timeMark; RouterOS 6: solo l'indice del vicino."""
+    interfaces = [snmp.IfData(if_index=5, name="gi5", descr="gi5")]
+    session = FakeSession({
+        snmp.LLDP_REM_CHASSIS_ID_SUBTYPE: {(5, 1): 4, (7,): 4},
+        snmp.LLDP_REM_CHASSIS_ID: {(5, 1): bytes(MAC), (7,): b"\x00\x50\x56\x00\x00\x20"},
+        snmp.LLDP_LOC_PORT_ID_SUBTYPE: {(5,): 5},
+        snmp.LLDP_LOC_PORT_ID: {(5,): b"gi5"},
+    })
+    neighbors = run(snmp._lldp(session, interfaces))
+    assert [(n.chassis_mac, n.local_if_index, n.rem_index) for n in neighbors] == [
+        ("00:50:56:00:00:10", 5, 1), ("00:50:56:00:00:20", None, 7)]
+    assert session.notes == {"lldp_short_index": 2}
+
+
+def test_porta_locale_lldp_con_l_ifindex_come_id():
+    """Alcatel-Lucent AOS 7: lldpLocPortNum 2083 ha come ID locale "101035", l'ifIndex della porta 2/1/35."""
+    interfaces = [snmp.IfData(if_index=101035, name="2/1/35", descr="GNI 2/1/35"),
+                  snmp.IfData(if_index=49, name="49", descr="49")]
+    notes = Counter()
+    local = snmp._lldp_local_ports(interfaces, {(2083,): 7, (101,): 7}, {(2083,): b"101035", (101,): b"49"}, {}, notes)
+    assert local == {2083: 101035, 101: 49}  # "49" è prima di tutto il nome di una porta
+    assert notes == {"lldp_local_ifindex": 1}

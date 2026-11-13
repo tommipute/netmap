@@ -236,10 +236,12 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
   return (
     <Modal title={isEdit ? config.editLabel : config.newLabel} onClose={onClose} wide={config.fields.length > 6} drawer>
       <form className="form" onSubmit={submit} noValidate>
+        {config.formNotice?.(item) && <p className="notice">{config.formNotice(item)}</p>}
         <div className="form__grid">
           {config.fields.map((f) => {
             if (f.showIf && !f.showIf(values, item)) return null
-            // lockedFor(item): motivo per cui quel campo di quell'elemento non si cambia (non si invia)
+            // lockedFor(item): motivo per cui quel campo di quell'elemento non si cambia (non si invia); true = senza
+            // motivo sotto il campo (lo dice formNotice in cima al modulo)
             const lockReason = isEdit ? f.lockedFor?.(item) : null
             const locked = (isEdit && f.createOnly) || Boolean(lockReason)
             const disabled = locked || Boolean(filled[f.name])
@@ -255,9 +257,10 @@ export default function ResourceForm({ resourceKey, item = null, preset = {}, on
                   {f.label}
                   {(f.required || (f.requiredOnCreate && !isEdit)) && <span className="field__req" aria-hidden="true"> *</span>}
                 </Label>
-                <FieldControl field={f} value={values[f.name]} values={values} fields={config.fields} resourceKey={config.path}
+                {/* bloccato: niente segnaposto, che in un campo vuoto sembrerebbe un valore */}
+                <FieldControl field={locked ? { ...f, placeholder: undefined } : f} value={values[f.name]} values={values} fields={config.fields} resourceKey={config.path}
                   onChange={(v) => setValue(f.name, v)} disabled={disabled} editingId={item?.id} item={item} />
-                {locked && <span className="hint">{lockReason || t('Non modificabile dopo la creazione.')}</span>}
+                {locked && lockReason !== true && <span className="hint">{lockReason || t('Non modificabile dopo la creazione.')}</span>}
                 {!locked && filled[f.name] && <span className="hint">{f.fillFrom.hint}</span>}
                 {!disabled && f.help && <span className="hint">{f.help}</span>}
               </div>

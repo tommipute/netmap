@@ -952,7 +952,11 @@ const RULE_CHANGES = [
   [(o) => o.ignore_ports || o.ignore_if_types?.length, () => t('porte ignorate')],
   [(o) => o.manufacturer, () => t('produttore')],
   [(o) => o.kind, () => t('tipo di apparato')],
+  [(o) => o.fdb_port, () => t('porte della tabella MAC')],
+  [(o) => o.lldp_port_oid, () => t('porta locale LLDP')],
 ]
+// Regole incluse in NetMap: si possono solo spegnere (il resto lo riscrive l'aggiornamento)
+const builtinLock = (item) => Boolean(item?.builtin)
 const ifTypeError = (text) => (/^\d+$/.test(text) && Number(text) >= 1 ? null : t('Scrivi il numero dell\'ifType, es. 24'))
 
 resources['snmp-rules'] = {
@@ -960,11 +964,19 @@ resources['snmp-rules'] = {
   title: t('Regole SNMP'),
   newLabel: t('Nuova regola SNMP'),
   editLabel: t('Modifica regola SNMP'),
-  intro: t('Correzioni alla lettura di un tipo di apparato che la scansione non legge bene: modello, numero di serie, nomi delle porte, porte da ignorare, produttore e tipo. Valgono dalla scansione successiva; con "Prova" vedi l\'effetto prima di salvare.'),
+  intro: t('Correzioni alla lettura di un tipo di apparato che la scansione non legge bene: modello, numero di serie, nomi delle porte, porte da ignorare, produttore, tipo, tabella MAC e vicini LLDP. Valgono dalla scansione successiva; con "Prova" vedi l\'effetto prima di salvare. Quelle incluse in NetMap valgono dopo le tue.'),
   label: (o) => o.name,
-  filters: [{ name: 'enabled', label: t('Stato'), options: [{ value: 'true', label: t('Attive') }, { value: 'false', label: t('Spente') }] }],
+  filters: [
+    { name: 'enabled', label: t('Stato'), options: [{ value: 'true', label: t('Attive') }, { value: 'false', label: t('Spente') }] },
+    { name: 'builtin', label: t('Origine'), options: [{ value: 'false', label: t('Scritte qui') }, { value: 'true', label: t('Incluse in NetMap') }] },
+  ],
+  canDelete: (o) => !o.builtin,
+  formNotice: (o) => o?.builtin && t('Regola inclusa in NetMap: puoi solo spegnerla. Gli aggiornamenti la tengono aggiornata; per cambiarla scrivine una tua per gli stessi apparati, che vale prima di questa.'),
   columns: [
-    { name: 'name', label: t('Nome'), render: (o) => <strong>{o.name}</strong> },
+    {
+      name: 'name', label: t('Nome'),
+      render: (o) => <><strong>{o.name}</strong>{o.builtin && <span className="badge badge--muted rule-builtin">{t('inclusa')}</span>}</>,
+    },
     { name: 'enabled', label: tc('regola', 'Attiva'), type: 'bool' },
     {
       name: 'match_object_id', label: t('Vale per'), filter: { kind: 'text' },
@@ -999,7 +1011,7 @@ resources['snmp-rules'] = {
     },
     {
       name: 'model_regex', label: t('Modello dalla descrizione (espressione regolare)'), placeholder: '(T\\d{4}G-\\w+)',
-      help: t('Vale il primo gruppo tra parentesi, oppure tutto il testo trovato. Se c\'è anche l\'OID, vale prima l\'OID.'),
+      help: t('Vale il primo gruppo tra parentesi, oppure tutto il testo trovato. Se c\'è anche l\'OID del modello, si applica al suo valore invece che alla descrizione.'),
     },
     { name: 'serial_oid', label: t('OID del numero di serie'), placeholder: '1.3.6.1.4.1.11863.6.1.1.8.0' },
     {
@@ -1018,9 +1030,17 @@ resources['snmp-rules'] = {
       name: 'kind', label: t('Tipo di apparato'), type: 'select', options: O.DEVICE_KINDS, emptyLabel: t('Riconosciuto dalla scansione'),
       help: t('Decide il ruolo dei modelli nuovi.'),
     },
+    {
+      name: 'fdb_port', label: t('Porte della tabella MAC'), type: 'select', options: O.FDB_PORT_MODES, emptyLabel: t('Come senza regola'),
+      help: t('Per gli switch che nella tabella MAC non usano il numero di porta bridge standard: se "Cosa ho letto" segnala righe con porte sconosciute, prova le due scelte con "Prova".'),
+    },
+    {
+      name: 'lldp_port_oid', label: t('OID della porta locale LLDP'), placeholder: '1.3.6.1.4.1.14988.1.1.11.1.1.8',
+      help: t('Colonna del produttore con l\'ifIndex della porta da cui si vede ogni vicino LLDP, per gli apparati che non lo mettono nell\'indice (MikroTik RouterOS 6).'),
+    },
     description,
     { name: 'rule_test', label: t('Prova su un apparato'), type: 'custom', Component: SnmpRuleTest, noSubmit: true },
-  ],
+  ].map((field) => (['enabled', 'rule_test'].includes(field.name) ? field : { ...field, lockedFor: builtinLock })),
 }
 
 const fromDirectory = (item) => item?.source === 'ad' && t('Viene da Active Directory a ogni accesso.')

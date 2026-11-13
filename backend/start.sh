@@ -9,4 +9,6 @@ fi
 
 # Applica solo quelle mancanti (già fatte = niente da fare); se una fallisce l'API non parte e l'updater torna indietro
 alembic upgrade head
+# Regole SNMP incluse in NetMap (app/discovery/builtin_rules.json): un errore qui non deve fermare l'API
+python -m app.discovery.builtin_rules || echo "Regole SNMP incluse non aggiornate: l'API parte lo stesso." >&2
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000 ${UVICORN_EXTRA_ARGS}

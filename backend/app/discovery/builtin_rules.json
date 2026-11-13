@@ -1,0 +1,21 @@
+{
+  "netmap": "snmp-rules",
+  "version": 1,
+  "rules": [
+    {
+      "name": "TP-Link JetStream",
+      "description": "Modello e numero di serie dal MIB di TP-Link (il modello senza la versione hardware); la tabella MAC numera le porte 1, 2, 3… invece di usare le porte bridge (49153 e seguenti).",
+      "match_object_id": "1.3.6.1.4.1.11863",
+      "model_oid": "1.3.6.1.4.1.11863.6.1.1.5.0",
+      "model_regex": "^([A-Z]+[0-9][A-Z0-9-]*)",
+      "serial_oid": "1.3.6.1.4.1.11863.6.1.1.8.0",
+      "fdb_port": "position"
+    },
+    {
+      "name": "MikroTik RouterOS",
+      "description": "RouterOS 6 non dice in LLDP su quale porta ha visto il vicino: si legge dalla tabella dei vicini di MikroTik.",
+      "match_object_id": "1.3.6.1.4.1.14988",
+      "lldp_port_oid": "1.3.6.1.4.1.14988.1.1.11.1.1.8"
+    }
+  ]
+}

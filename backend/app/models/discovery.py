@@ -150,3 +150,6 @@ class SnmpRule(TimestampMixin, Base):
     ignore_if_types: Mapped[list] = mapped_column(JSONType, default=list, server_default="[]")
     manufacturer: Mapped[str | None] = mapped_column(String(100))
     kind: Mapped[str | None] = mapped_column(String(20))  # services/roles.py KINDS
+    fdb_port: Mapped[str | None] = mapped_column(String(10))  # snmp_rules.FDB_PORT_MODES
+    lldp_port_oid: Mapped[str | None] = mapped_column(String(200))
+    builtin: Mapped[bool] = mapped_column(default=False, server_default=false())  # da discovery/builtin_rules.json

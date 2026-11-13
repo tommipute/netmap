@@ -96,6 +96,9 @@ class SnmpRuleBase(InputSchema):
     ignore_if_types: list[IfType] = Field(default_factory=list, description="Porte da ignorare: ifType (24 loopback, 53 virtuale…)")
     manufacturer: str | None = Field(None, max_length=100)
     kind: Annotated[str | None, AfterValidator(_kind)] = Field(None, description="Tipo di apparato (switch, router, ap…)")
+    fdb_port: Literal["position", "ifindex"] | None = Field(
+        None, description="Tabella MAC con porte che non sono porte bridge: n-esima porta bridge o ifIndex")
+    lldp_port_oid: Oid = Field(None, description="Colonna indicizzata da lldpRemIndex con l'ifIndex della porta locale")
 
 
 class SnmpRuleCreate(SnmpRuleBase):
@@ -106,7 +109,7 @@ SnmpRuleUpdate = make_partial(SnmpRuleBase, "SnmpRuleUpdate")
 
 
 class SnmpRuleRead(SnmpRuleCreate, ReadSchema):
-    pass
+    builtin: bool = Field(False, description="Inclusa in NetMap: si può solo spegnere")
 
 
 class SnmpRuleFile(BaseModel):

@@ -446,28 +446,41 @@ due. Il sysObjectID e la descrizione li trovi in **Cosa ho letto via SNMP**. Pu�
 
 - **OID del modello**: un OID del produttore che contiene il modello (un valore singolo o una colonna: vale la prima
   riga); oppure **Modello dalla descrizione**, un'espressione regolare sulla descrizione SNMP (vale il primo gruppo
-  tra parentesi). Se ci sono tutti e due vale prima l'OID;
+  tra parentesi). Se ci sono tutti e due, l'espressione si applica al valore dell'OID: serve a togliere quello che
+  c'è in più, come la versione hardware in `T1600G-28TS 3.0`;
 - **OID del numero di serie**;
 - **Nome delle porte**: ifDescr o ifAlias al posto di ifName. Attenzione: sugli apparati già documentati le porte
   con il nome nuovo vengono proposte come porte nuove;
 - **Porte da ignorare**, per nome (espressione regolare) o per ifType (24 loopback, 53 virtuale, 131 tunnel). Una
   porta con un indirizzo IP non viene mai ignorata, perché spesso è quella di management;
-- **Produttore** e **Tipo di apparato** (il tipo decide il ruolo dei modelli nuovi, come in "Tipo riconosciuto").
+- **Produttore** e **Tipo di apparato** (il tipo decide il ruolo dei modelli nuovi, come in "Tipo riconosciuto");
+- **Porte della tabella MAC**, per gli switch che nella tabella MAC non scrivono il numero di porta bridge standard:
+  "n-esima porta bridge" (i TP-Link JetStream scrivono 1, 2, 3… per la prima, la seconda, la terza porta) oppure
+  "ifIndex della porta". Serve quando **Cosa ho letto** dice che delle righe della tabella MAC indicano una porta
+  che lo switch non elenca: prova le due scelte con **Prova** e tieni quella che fa salire i MAC;
+- **OID della porta locale LLDP**, per gli apparati che non dicono su quale porta vedono i vicini LLDP (MikroTik
+  RouterOS 6): una colonna del produttore, indicizzata come i vicini, con l'ifIndex della porta.
 
 Le espressioni regolari non distinguono maiuscole e minuscole. Le regole valgono dalla scansione successiva, anche
 per la **Prova indirizzi**. Se più regole valgono per lo stesso apparato, per ogni cosa vince la più precisa: prima
-quella con il sysObjectID più lungo, poi quella che guarda anche la descrizione, poi la più vecchia. Una regola che
+quella con il sysObjectID più lungo, poi quella che guarda anche la descrizione, poi la più vecchia; le regole
+incluse in NetMap (sotto) valgono sempre dopo le tue. Una regola che
 imposta solo il seriale non toglie il modello impostato da un'altra. Con **Attiva** spento la regola resta salvata
 ma non vale.
 
 In fondo al modulo, **Prova su un apparato** legge un indirizzo con il profilo SNMP scelto e mostra cosa cambia con
 la regola com'è in quel momento nel modulo, **senza salvare niente**: modello, numero di serie, produttore, tipo,
-numero di porte e di MAC prima e dopo, e l'elenco delle porte rinominate o ignorate. "Prima" conta le altre regole
+numero di porte, di MAC e di vicini LLDP prima e dopo, e l'elenco delle porte rinominate o ignorate. "Prima" conta le altre regole
 attive. Se la regola non vale per quell'apparato, la prova lo dice.
 
 Con i pulsanti in alto nell'elenco puoi **esportare** tutte le regole in un file JSON e **importarle** in un'altra
 installazione: le regole con lo stesso nome (maiuscole e minuscole non contano) si aggiornano, le altre si
 aggiungono. Se una regola del file non è valida non si importa niente e il messaggio dice quale.
+
+Alcune regole sono **incluse in NetMap** (segnate "inclusa" nell'elenco) per apparati che conosciamo già, come i
+TP-Link JetStream e MikroTik RouterOS: si aggiornano da sole con NetMap. Puoi solo spegnerle; per cambiarne una,
+scrivine una tua per gli stessi apparati, che vale prima. Non finiscono nell'export e un file da importare non può
+usarne il nome.
 
 ### Da approvare
 

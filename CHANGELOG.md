@@ -23,7 +23,13 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   SNMP e può impostare modello (da un OID o dalla descrizione), numero di serie (da un OID), nome delle porte
   (ifDescr o ifAlias), porte da ignorare (per nome o ifType, mai quella con l'IP), produttore e tipo di apparato.
   **Prova su un apparato** mostra prima e dopo su un indirizzo senza salvare; le regole si esportano e si
-  importano in JSON; la scheda "Cosa ho letto via SNMP" dice quali regole sono servite.
+  importano in JSON; la scheda "Cosa ho letto via SNMP" dice quali regole sono servite. Una regola sistema anche la
+  tabella MAC (porte scritte come posizione o come ifIndex invece che come porta bridge) e la porta locale dei vicini
+  LLDP (da una colonna del produttore); con l'OID del modello, l'espressione regolare si applica al suo valore.
+
+- **Regole SNMP incluse in NetMap**, aggiornate con NetMap: TP-Link JetStream (modello, numero di serie e tabella
+  MAC, che prima restava vuota) e MikroTik RouterOS (porta locale dei vicini LLDP, che prima non diventavano cavi).
+  Si possono spegnere; una regola scritta dall'amministratore per gli stessi apparati vale prima.
 
 ### Modifiche
 
@@ -50,7 +56,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
     Huawei, Dell N e SNR (manca la tabella porta bridge → porta: ora vale l'ifIndex, come per LibreNMS);
   - i MAC imparati su un aggregato (Avaya/Extreme danno il numero del LAG) si scartavano: ora finiscono sul LAG;
   - due porte con lo stesso nome (Huawei, Dell, Extreme SLX, ProCurve "lo0") facevano fallire l'approvazione del
-    device nuovo: ora la seconda prende la sua descrizione SNMP o il nome con il numero (`mgmt (61)`).
+    device nuovo: ora la seconda prende la sua descrizione SNMP o il nome con il numero (`mgmt (61)`);
+  - tabella MAC vuota su Zyxel IES (un numero dopo il MAC nell'indice) e su Netonix (righe numerate: il MAC si legge
+    dalla colonna degli indirizzi);
+  - vicini LLDP persi sugli apparati che accorciano l'indice (TP-Link JetStream senza timeMark, RouterOS 6).
+  - vicini LLDP senza porta locale su Alcatel-Lucent AOS 7 (indica la porta con l'ifIndex invece del nome).
 - La lingua scelta nella pagina di accesso restava solo fino all'accesso: poi tornava quella salvata per l'utente.
   Ora vale e diventa la lingua dell'utente.
 

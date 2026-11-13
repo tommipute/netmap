@@ -110,9 +110,9 @@ NetMap lavora da solo: l'integrazione con l'app inventory è stata scartata (6/1
 
 - Scansione di apparati di altre marche: provata (novembre 2026) su registrazioni SNMP di oltre 70 famiglie e
   corretti i difetti comuni; c'è la scheda "Cosa ho letto via SNMP" su ogni device e le regole SNMP modificabili
-  dall'amministratore (modello, seriale, nomi delle porte, porte ignorate, produttore, tipo; import ed export).
-  Restano da fare: regole per tabella MAC e LLDP con regole già incluse in NetMap (TP-Link JetStream, MikroTik
-  RouterOS 6, tipo dei Huawei S senza sysServices) provate sulle registrazioni, e il pulsante "Segnala questo
-  apparato" (registrazione anonimizzata e segnalazione su GitHub già compilata).
+  dall'amministratore (modello, seriale, nomi delle porte, porte ignorate, produttore, tipo, tabella MAC, porta
+  locale LLDP; import ed export), più le regole incluse in NetMap (TP-Link JetStream, MikroTik RouterOS 6) provate
+  sulle registrazioni. Resta da fare il pulsante "Segnala questo apparato" (registrazione anonimizzata e
+  segnalazione su GitHub già compilata); tabella MAC di Dell DNOS, FortiSwitch e VSP 9012 non gestita.
 - Accesso con Entra ID (SSO) oltre ad Active Directory.
 - Immagine della VM già pronta (appliance) per chi non vuole installare Docker.

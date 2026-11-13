@@ -2,19 +2,25 @@
 
 Una regola vale per gli apparati con un certo inizio del sysObjectID e/o una descrizione SNMP che corrisponde a
 un'espressione regolare, e cambia solo cose di un elenco fisso: modello e seriale (da un OID del produttore o dalla
-descrizione), nome delle porte (ifName, ifDescr o ifAlias), porte da ignorare, produttore e tipo di apparato.
+descrizione, o un'espressione sul valore dell'OID), nome delle porte (ifName, ifDescr o ifAlias), porte da ignorare, produttore, tipo di apparato, come
+leggere le porte della tabella MAC e la porta locale dei vicini LLDP.
 Si applicano alla fine della lettura (`snmp._read_host`); il collector non tocca il database, quindi le regole
 arrivano già compilate (`compile_rule`).
 
 Più regole sullo stesso apparato: vince la più precisa (sysObjectID più lungo, poi quella che guarda anche la
 descrizione, poi la più vecchia), una cosa per volta: una regola che imposta solo il seriale non toglie il modello
-di un'altra.
+di un'altra. Le regole incluse in NetMap (`builtin_rules.json`) vengono sempre dopo quelle dell'amministratore.
 """
 import re
 from dataclasses import dataclass
 from typing import Any
 
 PORT_NAME_SOURCES = ("name", "descr", "alias")  # ifName (predefinito), ifDescr, ifAlias
+# Campi di una regola nell'API, nel file di export/import e in builtin_rules.json (senza id, date, builtin)
+FIELDS = ("name", "enabled", "description", "match_object_id", "match_descr", "model_oid", "model_regex", "serial_oid",
+          "port_name", "ignore_ports", "ignore_if_types", "manufacturer", "kind", "fdb_port", "lldp_port_oid")
+# Porta di una riga della tabella MAC che non è una porta bridge: la n-esima porta bridge (TP-Link JetStream) o l'ifIndex
+FDB_PORT_MODES = ("position", "ifindex")
 _OID = re.compile(r"^\d+(\.\d+)+$")
 
 
@@ -53,6 +59,9 @@ class Rule:
     ignore_if_types: tuple[int, ...] = ()
     manufacturer: str | None = None
     kind: str | None = None
+    fdb_port: str | None = None
+    lldp_port_oid: str | None = None  # colonna indicizzata da lldpRemIndex con l'ifIndex della porta locale
+    builtin: bool = False
     order: int = 0  # a parità di precisione vince la più vecchia (id più basso)
 
     def matches(self, sys_object_id: str | None, sys_descr: str | None) -> bool:
@@ -65,7 +74,8 @@ class Rule:
         return self.sys_descr is None or bool(self.sys_descr.search(sys_descr or ""))
 
     def precision(self) -> tuple:
-        return (-len(self.sys_object_id.split(".")) if self.sys_object_id else 0, self.sys_descr is None, self.order)
+        return (self.builtin, -len(self.sys_object_id.split(".")) if self.sys_object_id else 0, self.sys_descr is None,
+                self.order)
 
 
 def compile_rule(row: Any) -> Rule:
@@ -85,6 +95,9 @@ def compile_rule(row: Any) -> Rule:
         ignore_if_types=tuple(row.ignore_if_types or ()),
         manufacturer=(row.manufacturer or "").strip() or None,
         kind=row.kind,
+        fdb_port=getattr(row, "fdb_port", None),
+        lldp_port_oid=clean_oid(getattr(row, "lldp_port_oid", None)),
+        builtin=bool(getattr(row, "builtin", False)),
         order=row.id or 0,
     )
 
@@ -95,8 +108,13 @@ def matching(rules: list[Rule], sys_object_id: str | None, sys_descr: str | None
 
 
 def oids(rules: list[Rule]) -> list[str]:
-    """OID da leggere in più per queste regole."""
+    """OID con un valore solo da leggere in più per queste regole."""
     return list(dict.fromkeys(o for r in rules for o in (r.model_oid, r.serial_oid) if o))
+
+
+def tables(rules: list[Rule]) -> list[str]:
+    """Colonne da leggere per queste regole (porta locale dei vicini LLDP)."""
+    return list(dict.fromkeys(r.lldp_port_oid for r in rules if r.lldp_port_oid))
 
 
 def _text(value: Any) -> str | None:
@@ -119,8 +137,10 @@ def apply(data: Any, rules: list[Rule], values: dict[str, Any]) -> None:
     """Applica a `data` (snmp.HostData) le regole già filtrate e ordinate da `matching`; `values` = OID letti.
     Le porte con un indirizzo IP non si ignorano mai: spesso è quella di management (Vlan1, vlanif)."""
     for rule in rules:
-        model = (_text(values.get(rule.model_oid)) if rule.model_oid else None) or \
-            (_from_descr(rule.model_regex, data.sys_descr) if rule.model_regex else None)
+        # l'espressione si applica al valore dell'OID se c'è (per togliere la versione), altrimenti alla descrizione
+        model = _text(values.get(rule.model_oid)) if rule.model_oid else None
+        if rule.model_regex:
+            model = _from_descr(rule.model_regex, model or data.sys_descr)
         if model:
             data.model, data.model_source = model[:100], "rule"
             break
@@ -128,6 +148,9 @@ def apply(data: Any, rules: list[Rule], values: dict[str, Any]) -> None:
         if rule.serial_oid and (serial := _text(values.get(rule.serial_oid))):
             data.serial = serial[:100]
             break
+
+    _fdb_ports(data, next((r for r in rules if r.fdb_port), None))
+    _lldp_ports(data, next((r for r in rules if r.lldp_port_oid), None), values)
 
     if rule := next((r for r in rules if r.port_name), None):
         for iface in data.interfaces:
@@ -159,3 +182,53 @@ def apply(data: Any, rules: list[Rule], values: dict[str, Any]) -> None:
     if rule := next((r for r in rules if r.kind), None):
         data.kind = rule.kind
     data.rules = [r.name for r in rules]  # per la scheda "Cosa ho letto"
+
+
+def _fdb_ports(data: Any, rule: Rule | None) -> None:
+    """Righe della tabella MAC scartate perché la porta non era una porta bridge, lette come dice la regola."""
+    if rule is None or not data.fdb_unmapped:
+        return
+    from app.discovery.snmp import FdbEntry  # snmp importa questo modulo
+
+    if_indexes = {i.if_index for i in data.interfaces}
+    by_position = dict(enumerate(sorted(data.bridge_ports), start=1))
+    seen = {(e.mac, e.if_index, e.vlan) for e in data.fdb}
+    mapped = 0
+    for mac, port, vlan in data.fdb_unmapped:
+        if rule.fdb_port == "position":
+            if_index = data.bridge_ports.get(by_position.get(port))
+        else:
+            if_index = port if port in if_indexes else None
+        if if_index is None:
+            continue
+        mapped += 1
+        vlan = vlan if vlan is not None else data.port_vlans.get(if_index)
+        if (mac, if_index, vlan) not in seen:
+            seen.add((mac, if_index, vlan))
+            data.fdb.append(FdbEntry(mac=mac, if_index=if_index, vlan=vlan))
+    if mapped:
+        data.fdb.sort(key=lambda e: (e.mac, e.if_index, e.vlan or 0))
+        data.fdb_source = data.fdb_source or data.fdb_table
+        data.notes["fdb_port_rule"] = mapped
+        left = data.notes.get("fdb_unmapped", 0) - mapped
+        if left > 0:
+            data.notes["fdb_unmapped"] = left
+        else:
+            data.notes.pop("fdb_unmapped", None)
+
+
+def _lldp_ports(data: Any, rule: Rule | None, values: dict[str, Any]) -> None:
+    """Porta locale dei vicini LLDP che non ce l'hanno (RouterOS 6), da una colonna indicizzata da lldpRemIndex."""
+    table = values.get(rule.lldp_port_oid) if rule else None
+    if not isinstance(table, dict):
+        return
+    if_indexes = {i.if_index for i in data.interfaces}
+    found = 0
+    for neighbor in data.neighbors:
+        if neighbor.protocol == "lldp" and neighbor.local_if_index is None and neighbor.rem_index is not None:
+            port = table.get(neighbor.rem_index)
+            if isinstance(port, int) and port in if_indexes:
+                neighbor.local_if_index = port
+                found += 1
+    if found:
+        data.notes["lldp_port_rule"] = found

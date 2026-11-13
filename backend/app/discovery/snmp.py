@@ -94,6 +94,7 @@ CDP_CACHE_DEVICE_PORT = "1.3.6.1.4.1.9.9.23.1.2.1.1.7"
 
 # Tabelle MAC (BRIDGE-MIB, Q-BRIDGE-MIB), VLAN e ARP: servono a "dov'è collegato?"
 DOT1D_BASE_PORT_IF_INDEX = "1.3.6.1.2.1.17.1.4.1.2"   # porta bridge -> ifIndex
+DOT1D_TP_FDB_ADDRESS = "1.3.6.1.2.1.17.4.3.1.1"       # il MAC, se l'indice non lo è (Netonix)
 DOT1D_TP_FDB_PORT = "1.3.6.1.2.1.17.4.3.1.2"          # indice: MAC (6 numeri)
 DOT1D_TP_FDB_STATUS = "1.3.6.1.2.1.17.4.3.1.3"
 DOT1Q_TP_FDB_PORT = "1.3.6.1.2.1.17.7.1.2.2.1.2"      # indice: fdbId (di solito = VLAN) . MAC
@@ -190,6 +191,7 @@ class NeighborData:
     port_id_type: str = "name"         # name / mac / local
     port_descr: str | None = None
     addresses: list[str] = field(default_factory=list)  # IP di management del vicino
+    rem_index: int | None = field(default=None, compare=False)  # lldpRemIndex (regole SNMP: porta locale da un OID)
 
 
 @dataclass
@@ -251,6 +253,11 @@ class HostData:
     kind: str | None = None
     rules: list[str] = field(default_factory=list, compare=False)
     rule_values: dict[str, Any] = field(default_factory=dict, compare=False)
+    # Righe della tabella MAC con una porta che non è una porta bridge (MAC, porta, VLAN) e porte bridge -> ifIndex:
+    # una regola può dire come leggere quella porta (TP-Link JetStream: 1..N invece di 49153+)
+    fdb_unmapped: list[tuple[str, int, int | None]] = field(default_factory=list, compare=False)
+    bridge_ports: dict[int, int] = field(default_factory=dict, compare=False)
+    fdb_table: str | None = field(default=None, compare=False)  # qbridge, bridge: la tabella letta, anche se scartata
 
 
 @dataclass
@@ -410,6 +417,7 @@ class _Session:
         self.section = ""  # parte che si sta leggendo, per i problemi
         self.problems: list[str] = []
         self.notes: Counter[str] = Counter()  # adattamenti usati, vedi HostData.notes
+        self.fdb_unmapped: list[tuple[str, int, int | None]] = []  # vedi HostData.fdb_unmapped
 
     async def get(self, *oids: str) -> dict[str, Any] | None:
         error, status, _index, var_binds = await get_cmd(
@@ -556,7 +564,8 @@ def _name_key(name: str) -> str:
     return re.sub(r"\s+", "", name.lower())
 
 
-def _lldp_local_ports(interfaces: list[IfData], subtypes: dict, ids: dict, descs: dict) -> dict[int, int]:
+def _lldp_local_ports(interfaces: list[IfData], subtypes: dict, ids: dict, descs: dict,
+                      notes: Counter | None = None) -> dict[int, int]:
     """lldpLocPortNum -> ifIndex. Spesso coincidono, ma non sempre: si confrontano nome e MAC."""
     by_name: dict[str, int] = {}
     for i in interfaces:
@@ -565,6 +574,7 @@ def _lldp_local_ports(interfaces: list[IfData], subtypes: dict, ids: dict, descs
                 by_name.setdefault(_name_key(name), i.if_index)
     by_mac = {i.mac: i.if_index for i in interfaces if i.mac}
     if_indexes = {i.if_index for i in interfaces}
+    notes = Counter() if notes is None else notes
 
     result = {}
     for index in set(subtypes) | set(ids) | set(descs):
@@ -578,6 +588,12 @@ def _lldp_local_ports(interfaces: list[IfData], subtypes: dict, ids: dict, descs
                 if text and _name_key(text) in by_name:
                     found = by_name[_name_key(text)]
                     break
+        if found is None and subtypes.get(index) == LLDP_PORT_LOCAL:
+            # Alcatel-Lucent AOS 7: l'ID locale è l'ifIndex scritto come testo
+            text = _text(ids.get(index))
+            if text and text.isdigit() and int(text) in if_indexes:
+                found = int(text)
+                notes["lldp_local_ifindex"] += 1
         if found is None and port_num in if_indexes:
             found = port_num
         if found is not None:
@@ -600,6 +616,7 @@ async def _lldp(s: _Session, interfaces: list[IfData]) -> list[NeighborData]:
         await s.walk(LLDP_LOC_PORT_ID_SUBTYPE),
         await s.walk(LLDP_LOC_PORT_ID),
         await s.walk(LLDP_LOC_PORT_DESC),
+        s.notes,
     )
 
     addresses: dict[tuple, list[str]] = {}
@@ -612,9 +629,13 @@ async def _lldp(s: _Session, interfaces: list[IfData]) -> list[NeighborData]:
 
     result = []
     for index, chassis_raw in chassis_ids.items():
-        if len(index) != 3:
+        # di solito timeMark.porta locale.lldpRemIndex; TP-Link JetStream senza timeMark, RouterOS 6 solo l'indice
+        if len(index) not in (1, 2, 3):
             continue
-        neighbor = NeighborData(protocol="lldp", local_if_index=local_ports.get(index[1]))
+        if len(index) < 3:
+            s.notes["lldp_short_index"] += 1
+        neighbor = NeighborData(protocol="lldp", local_if_index=local_ports.get(index[-2]) if len(index) > 1 else None,
+                                rem_index=index[-1])
         chassis_type = chassis_types.get(index)
         if chassis_type == LLDP_CHASSIS_MAC:
             neighbor.chassis_mac = _mac(chassis_raw)
@@ -662,9 +683,13 @@ async def _cdp(s: _Session) -> list[NeighborData]:
     return result
 
 
-def _mac_from_index(index: tuple[int, ...]) -> str | None:
-    if len(index) == 7 and index[0] == 6:  # lunghezza davanti al MAC (AOS-CX, Zyxel GS1900, EdgeSwitch, CBS220)
-        index = index[1:]
+def _mac_from_index(index: tuple[int, ...], suffix: bool = False) -> str | None:
+    """`suffix`: la tabella ha un numero in più dopo il MAC (Zyxel IES), non la lunghezza davanti."""
+    if len(index) == 7:
+        if suffix:
+            index = index[:6]
+        elif index[0] == 6:  # lunghezza davanti al MAC (AOS-CX, Zyxel GS1900, EdgeSwitch, CBS220)
+            index = index[1:]
     if len(index) != 6 or any(not 0 <= b <= 255 for b in index):
         return None
     return ":".join(f"{b:02X}" for b in index)
@@ -699,31 +724,52 @@ def _fdb_if_index(base_ports: dict[int, int], lags: set[int], port: Any) -> int 
     return base_ports.get(port, port if port in lags else None)
 
 
+def _index_suffix(indexes: list[tuple[int, ...]]) -> bool:
+    """Indici di 7 numeri: lunghezza davanti al MAC se cominciano tutti con 6, altrimenti un numero in più dopo il MAC
+    (Zyxel IES). Si decide per tutta la tabella: un MAC che comincia con 06 non deve cambiare il modo di leggerla."""
+    long = [index for index in indexes if len(index) == 7]
+    return bool(long) and any(index[0] != 6 for index in long)
+
+
 async def _dot1d_fdb(s: _Session, base_ports: dict[int, int], lags: set[int] = frozenset()) -> list[tuple[str, int]]:
-    """Righe imparate della BRIDGE-MIB (senza VLAN): (MAC, ifIndex)."""
+    """Righe imparate della BRIDGE-MIB (senza VLAN): (MAC, ifIndex). Se l'indice non è il MAC ma un contatore
+    (Netonix), il MAC si prende dalla colonna dot1dTpFdbAddress."""
     ports = await s.walk(DOT1D_TP_FDB_PORT)
     status = await s.walk(DOT1D_TP_FDB_STATUS) if ports else {}
+    addresses = {}
+    if ports and all(len(index) == 1 for index in ports):
+        addresses = {index: mac for index, raw in (await s.walk(DOT1D_TP_FDB_ADDRESS)).items() if (mac := _mac(raw))}
+    suffix = _index_suffix(list(ports))
     rows = []
     for index, port in ports.items():
-        if status.get(index, FDB_LEARNED) == FDB_LEARNED and (row := _fdb_row(s, base_ports, lags, index, port)):
+        if status.get(index, FDB_LEARNED) != FDB_LEARNED:
+            continue
+        if index in addresses:
+            s.notes["fdb_address_column"] += 1
+            row = _fdb_row(s, base_ports, lags, index, port, mac=addresses[index])
+        else:
+            row = _fdb_row(s, base_ports, lags, index, port, suffix=suffix)
+        if row:
             rows.append(row)
     return rows
 
 
 def _fdb_row(s: _Session, base_ports: dict[int, int], lags: set[int], index: tuple[int, ...],
-             port: Any) -> tuple[str, int] | None:
+             port: Any, vlan: int | None = None, suffix: bool = False, mac: str | None = None) -> tuple[str, int] | None:
     """(MAC, ifIndex) di una riga imparata della tabella MAC; le righe scartate e gli adattamenti finiscono nelle
-    note della sessione."""
-    mac = _mac_from_index(index)
+    note della sessione. Quelle con una porta sconosciuta restano anche in `s.fdb_unmapped` per le regole SNMP."""
+    mac = mac or _mac_from_index(index, suffix)
     if mac is None:
         s.notes["fdb_bad_index"] += 1
         return None
     if_index = _fdb_if_index(base_ports, lags, port)
     if if_index is None:
         s.notes["fdb_unmapped"] += 1
+        if isinstance(port, int):
+            s.fdb_unmapped.append((mac, port, vlan))
         return None
     if len(index) == 7:
-        s.notes["mac_length_prefix"] += 1
+        s.notes["fdb_index_suffix" if suffix else "mac_length_prefix"] += 1
     if port not in base_ports:
         s.notes["fdb_on_lag"] += 1
     return mac, if_index
@@ -743,12 +789,13 @@ async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int,
     q_ports = await s.walk(DOT1Q_TP_FDB_PORT)
     if q_ports:
         q_status = await s.walk(DOT1Q_TP_FDB_STATUS)
+        suffix = _index_suffix([index[1:] for index in q_ports])
         for index, port in q_ports.items():
             status = q_status.get(index)
             if status is not None and status != FDB_LEARNED:
                 continue
-            # indice: fdbId (di solito la VLAN) e MAC, a volte con la lunghezza davanti al MAC
-            if row := _fdb_row(s, base_ports, lags, index[1:], port):
+            # indice: fdbId (di solito la VLAN) e MAC, a volte con la lunghezza davanti o un numero dopo il MAC
+            if row := _fdb_row(s, base_ports, lags, index[1:], port, index[0], suffix):
                 mac, if_index = row
                 entries.setdefault((mac, if_index, index[0]), FdbEntry(mac=mac, if_index=if_index, vlan=index[0]))
     else:
@@ -925,7 +972,9 @@ async def _read_host(s: _Session, system: dict[str, Any], rules: list[snmp_rules
         more = [e for e in await _cisco_vlan_fdb(s, cisco_fdb_vlans(cisco_names, cisco_untagged, cisco_tagged))
                 if (e.mac, e.if_index, e.vlan) not in seen]
         data.fdb = sorted(data.fdb + more, key=lambda e: (e.mac, e.if_index, e.vlan or 0))
-    data.fdb_source = ("qbridge" if qbridge else "bridge") if data.fdb else None
+    data.fdb_table = "qbridge" if qbridge else "bridge" if data.fdb or s.fdb_unmapped else None
+    data.fdb_source = data.fdb_table if data.fdb else None
+    data.fdb_unmapped, data.bridge_ports = s.fdb_unmapped, base_ports
     s.section = "VLAN"
     data.port_vlans = {**cisco_untagged, **pvids}
     data.port_tagged = {**cisco_tagged, **await _qbridge_tagged(s, base_ports)}
@@ -936,6 +985,9 @@ async def _read_host(s: _Session, system: dict[str, Any], rules: list[snmp_rules
     if matched:
         s.section = "regole SNMP"
         data.rule_values = await _rule_values(s, snmp_rules.oids(matched))
+        if any(n.local_if_index is None and n.rem_index is not None for n in data.neighbors):
+            for oid in snmp_rules.tables(matched):  # colonne indicizzate come la tabella LLDP: {lldpRemIndex: valore}
+                data.rule_values[oid] = {index[-1]: value for index, value in (await s.walk(oid)).items() if index}
     data.problems = s.problems
     data.notes = dict(s.notes)
     if matched and apply_rules:
