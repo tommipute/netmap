@@ -283,6 +283,10 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   e `role_for` cerca un ruolo esistente per parole; se non c'è la proposta porta solo `create.kind` e `apply.py` crea
   il ruolo (nome, livello, colore del `Kind`) all'approvazione. "role"/"kind" in `data.device_type` sono solo da
   mostrare: tolti dai dati confrontati con le modifiche rifiutate.
+- Modello senza ENTITY-MIB: `vendors.model_from_descr` (per ora solo HP/HPE/Aruba: codice prodotto o nome dopo la
+  marca); un `DeviceType` con `model == sys_object_id` (nome provvisorio) si rinomina in silenzio quando la scansione
+  ha il nome vero. Nomi porta: spazi ripetuti ridotti a uno in lettura (HP 1810 "Port  1"), il planner aggiorna in
+  silenzio i nomi vecchi che differiscono solo negli spazi; `natural_key` li ignora.
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

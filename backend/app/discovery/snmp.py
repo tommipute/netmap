@@ -33,6 +33,7 @@ from pysnmp.hlapi.v3arch.asyncio import (
 )
 
 from app.core.net import normalize_mac
+from app.discovery.vendors import model_from_descr
 
 logger = logging.getLogger(__name__)
 
@@ -448,6 +449,7 @@ async def _interfaces(s: _Session) -> list[IfData]:
         name = _text(columns[IF_NAME].get(index)) or _text(descr.get(index))
         if not name:
             continue
+        name = " ".join(name.split())  # "Port  1" (HP 1810) -> "Port 1"
         high_speed = _int(columns[IF_HIGH_SPEED].get(index))
         speed = _int(columns[IF_SPEED].get(index))
         speed_mbps = high_speed if high_speed else (speed // 1_000_000 if speed else None)
@@ -828,6 +830,7 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data.ips = await _ips(s)
     s.section = "seriale e stack"
     data.serial, data.model, data.members = await _chassis(s)
+    data.model = data.model or model_from_descr(data.sys_descr)
     s.section = "vicini LLDP"
     lldp = await _lldp(s, data.interfaces)
     s.section = "vicini CDP"

@@ -34,8 +34,9 @@ DEFAULT_LEVEL = 2
 
 
 def natural_key(text: str) -> list:
-    """Ordina 'Gi1/0/2' prima di 'Gi1/0/10'."""
-    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", text)]
+    """Ordina 'Gi1/0/2' prima di 'Gi1/0/10'. Gli spazi ripetuti contano come uno: alcuni switch (es. HP 1810)
+    allineano i numeri a una cifra con due spazi ("Port  1"), che altrimenti finirebbero dopo "Port 26"."""
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", " ".join(text.split()))]
 
 
 # ---------------------------------------------------------------- nodi e collegamenti

@@ -1,4 +1,6 @@
-"""Produttore dal sysObjectID: il numero dopo 1.3.6.1.4.1 è l'enterprise number IANA."""
+"""Produttore dal sysObjectID (il numero dopo 1.3.6.1.4.1 è l'enterprise number IANA) e modello dal sysDescr per
+gli apparati senza ENTITY-MIB."""
+import re
 
 ENTERPRISE_PREFIX = "1.3.6.1.4.1."
 
@@ -50,3 +52,22 @@ def vendor_name(sys_object_id: str | None) -> str:
     if number is None:
         return "Sconosciuto"
     return ENTERPRISES.get(number, f"Enterprise {number}")
+
+
+# HP / HPE / Aruba: codice prodotto (J9728A, JL254A, R8N88A) o, senza codice, il nome dopo la marca ("HP 1810-24")
+_HP_DESCR = re.compile(r"\b(?:HPE?|Hewlett[- ]Packard|ProCurve|Aruba)\b", re.IGNORECASE)
+_HP_PRODUCT = re.compile(r"\b((?:J[A-Z]?\d{3,4}|R\d[A-Z]\d{2})[A-Z])\b")
+_HP_NAME = re.compile(r"^(?:HPE?|Hewlett[- ]Packard|ProCurve|Aruba)\s+(?:OfficeConnect\s+)?(?:Switch\s+)?"
+                      r"([A-Za-z]*\d[\w+-]*)", re.IGNORECASE)
+
+
+def model_from_descr(sys_descr: str | None) -> str | None:
+    """Modello letto dal sysDescr, per gli apparati che non lo danno in ENTITY-MIB (es. HP 1810, 1820, 1910):
+    altrimenti il modello nuovo si chiamerebbe con il sysObjectID. Per ora solo HP/HPE/Aruba."""
+    if not sys_descr or not _HP_DESCR.search(sys_descr):
+        return None
+    product = _HP_PRODUCT.search(sys_descr)
+    if product:
+        return product.group(1)
+    name = _HP_NAME.match(sys_descr.strip())
+    return name.group(1).rstrip(",") if name else None

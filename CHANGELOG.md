@@ -25,6 +25,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ### Correzioni
 
+- Switch HP "smart" (1810, 1820, 1910…): le porte con il numero a una cifra finivano in fondo all'elenco (lo switch
+  scrive "Port  1" con due spazi). Ora sono in ordine; alla scansione successiva i nomi si ripuliscono da soli,
+  senza niente da approvare.
+- Gli apparati senza ENTITY-MIB (gli stessi HP) avevano come modello il sysObjectID (`1.3.6.1.4.1.11.2.3.7.11.149`):
+  ora il modello si legge dalla descrizione SNMP (`1810-24`, o il codice prodotto come `J9980A` se c'è), anche per
+  i modelli già creati così, che si rinominano alla scansione successiva.
 - La lingua scelta nella pagina di accesso restava solo fino all'accesso: poi tornava quella salvata per l'utente.
   Ora vale e diventa la lingua dell'utente.
 

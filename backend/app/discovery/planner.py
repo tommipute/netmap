@@ -97,6 +97,11 @@ class Planner:
             return None
         known = self.db.scalars(select(DeviceType).where(DeviceType.sys_object_id == hd.sys_object_id)).first()
         if known:
+            if known.model == known.sys_object_id and hd.model:  # nome provvisorio messo da NetMap: ora c'è quello vero
+                clash = select(DeviceType.id).where(DeviceType.manufacturer_id == known.manufacturer_id,
+                                                    DeviceType.model == hd.model[:100])
+                if self.db.scalar(clash) is None:
+                    known.model = hd.model[:100]
             role = self.db.get(DeviceRole, known.default_role_id) if known.default_role_id else None
             return {"id": known.id, "label": known.model, "role": role.name if role else None}
         model = (hd.model or hd.sys_object_id)[:100]
@@ -282,6 +287,8 @@ class Planner:
             iface.if_index = d.if_index
             iface.oper_status = d.oper_status
             iface.last_seen_at = self.now
+            if d.name and iface.name != d.name and " ".join(iface.name.split()) == d.name:
+                iface.name = d.name  # solo spazi doppi letti prima di ripulirli: niente da approvare
 
             data, diff = self._interface_diff(iface, d, iface.id in cabled)
             if data:

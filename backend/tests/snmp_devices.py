@@ -110,6 +110,7 @@ SW2 = {
 def host_data(device: dict, host: str, profile_id: int | None = None, profile_name: str | None = None):
     """Quello che il collector deve restituire leggendo `device` (serve anche come scansione finta)."""
     from app.discovery.snmp import OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, MemberData, NeighborData
+    from app.discovery.vendors import model_from_descr
 
     interfaces = [
         IfData(
@@ -181,7 +182,7 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         sys_name=system["name"], sys_descr=system["descr"], sys_object_id=system["object_id"],
         sys_location=system["location"], sys_services=system.get("services"), lldp_caps=system.get("lldp_caps", []),
         mibs=[m for m in ("printer", "ups") if system.get(m)], serial=chassis[0][1] if chassis else None,
-        model=chassis[0][2] if chassis else None, interfaces=interfaces, ips=ips, neighbors=neighbors,
+        model=chassis[0][2] if chassis else model_from_descr(system["descr"]), interfaces=interfaces, ips=ips, neighbors=neighbors,
         fdb=[FdbEntry(mac=m, if_index=i, vlan=v) for m, i, v in fdb], arp=arp,
         vlans={**names, **device["vlans"]}, port_vlans=port_vlans, port_tagged=port_tagged, members=members,
     )
