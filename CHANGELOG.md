@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.3.0] - 2026-11-13
+
+Grafica rinnovata con gli stessi colori, Panoramica come pagina iniziale e server di posta comune per gli avvisi
+email. Nessun cambiamento incompatibile: l'aggiornamento applica da solo la migration del database, che sposta il
+server SMTP dei canali email esistenti nelle impostazioni (vedi Modifiche).
+
 ### Novità
 
 - Aggiornamenti: NetMap riconosce come è installato (immagini pronte, codice con git o zip di GitHub; Docker su
