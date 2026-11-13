@@ -9,7 +9,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 ### Modifiche
 
 - Pagina di accesso: la lingua si cambia con un selettore **IT / EN** ben visibile accanto al logo (prima erano due
-  link piccoli sotto il pulsante Accedi).
+  link piccoli sotto il pulsante Accedi) e c'è il pulsante tondo del tema chiaro/scuro in alto a destra, con il
+  cerchio che si allarga come nell'app.
 
 ### Correzioni
 

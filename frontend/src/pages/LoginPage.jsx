@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useAuth } from '../auth'
 import { LANG, LANGUAGES, setLang, t, tc } from '../i18n'
 import { Icon } from '../components/Icon'
+import ThemeButton from '../components/ThemeButton'
 import VersionLabel from '../components/VersionLabel'
 
 /** Accesso; al primo avvio (nessun utente) crea l'amministratore. */
@@ -35,6 +36,7 @@ export default function LoginPage() {
 
   return (
     <div className="login">
+      <ThemeButton className="login__theme" />
       <form className="login__card" onSubmit={submit}>
         <div className="login__head">
           <p className="brand login__brand">

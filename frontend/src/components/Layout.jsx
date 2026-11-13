@@ -3,13 +3,13 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { ROLES, useAuth } from '../auth'
 import { usePendingCount, useStatusSummary, useVersion } from '../hooks'
 import { labelOf } from '../options'
-import { CountUp, revealFrom } from '../motion'
+import { CountUp } from '../motion'
 import { usePref } from '../prefs'
 import { HOME, navGroupOf, navGroups, navItem } from '../resources'
 import PasswordDialog from './PasswordDialog'
 import PrefsDialog from './PrefsDialog'
+import ThemeButton from './ThemeButton'
 import { Icon } from './Icon'
-import { useTheme } from '../theme'
 import { LANG, t, tc } from '../i18n'
 import VersionLabel, { repoFileUrl } from './VersionLabel'
 
@@ -268,22 +268,6 @@ function TopNav({ groups, badges }) {
         </div>
       )}
     </header>
-  )
-}
-
-/** Chiaro o scuro con un clic: il tema nuovo si allarga a cerchio dal pulsante (motion.js). */
-function ThemeButton() {
-  const [theme, setTheme] = useTheme()
-  const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  const label = dark ? t('Passa al tema chiaro') : t('Passa al tema scuro')
-  const toggle = (e) => {
-    const box = e.currentTarget.getBoundingClientRect()
-    revealFrom(box.left + box.width / 2, box.top + box.height / 2, () => setTheme(dark ? 'light' : 'dark'))
-  }
-  return (
-    <button type="button" className="topbar__round" onClick={toggle} title={label} aria-label={label}>
-      <Icon name={dark ? 'sun' : 'moon'} size={18} />
-    </button>
   )
 }
 

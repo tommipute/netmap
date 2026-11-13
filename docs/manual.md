@@ -40,7 +40,8 @@ asks you to create the **administrator**: user name, first name, last name and p
 you sign in with user name and password; a session lasts 12 hours.
 
 On the sign-in page you pick the **language** with the **IT / EN** switch at the top right, next to the globe: it
-stays after signing in and becomes your language on every computer. After signing in, user menu (top right) →
+stays after signing in and becomes your language on every computer. The round button at the top right of the page
+switches between the light and dark theme, like the one in the app's top bar. After signing in, user menu (top right) →
 **Preferences**:
 
 - **Appearance**: light, dark or automatic theme (follows the operating system); normal or **compact** density

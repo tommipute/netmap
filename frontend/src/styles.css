@@ -644,6 +644,8 @@ textarea.input { resize: vertical; min-height: 72px; }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 30px 28px;
   box-shadow: 0 24px 60px -20px rgba(15, 21, 28, 0.28);
 }
+.login { position: relative; }
+.login__theme { position: absolute; top: 16px; right: 18px; }
 .login__brand { padding: 0 0 6px; }
 .login__card .btn { margin-top: 4px; }
 .user-menu { position: relative; }
