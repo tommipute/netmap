@@ -984,9 +984,22 @@ button.tile:hover { border-color: var(--accent); }
 .live-chip a.live-chip__item:hover { text-decoration: none; color: var(--ink); }
 .live-chip a.live-chip__item--down:hover { color: var(--danger); }
 
-.login__lang { display: flex; justify-content: center; gap: 14px; margin-top: 4px; }
+.login__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.login__head .login__brand { padding: 0; }
+/* Scelta della lingua nella pagina di accesso: pillola con mappamondo e IT / EN */
+.login__lang {
+  display: inline-flex; align-items: center; gap: 2px; padding: 3px 3px 3px 10px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+}
+.login__lang > svg { margin-right: 4px; }
+.login__lang-item {
+  font: 600 12px var(--font); letter-spacing: 0.04em; color: var(--muted); background: none; border: 0;
+  min-width: 34px; padding: 4px 8px; border-radius: 999px; cursor: pointer; transition: background .15s, color .15s;
+}
+.login__lang-item:hover { color: var(--ink); }
+.login__lang-item.is-current { background: var(--accent); color: var(--accent-ink); cursor: default; }
+.login__lang-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .login__version { margin: 0; text-align: center; font-size: 11px; color: var(--muted); }
-.login__lang .is-current { color: var(--ink); font-weight: 600; text-decoration: none; cursor: default; }
 
 /* Posizioni ad albero: rientro per livello e un angolo che collega alla posizione sopra */
 .tree-name { display: inline-flex; align-items: center; gap: 6px; padding-left: calc((var(--depth) - 1) * 22px); }

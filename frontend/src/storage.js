@@ -4,7 +4,29 @@
  * Chi scrive una preferenza usa store(): la copia sul server parte subito.
  */
 const PREFIX = 'netmap.'
+// Scelte fatte prima di entrare (lingua nella pagina di accesso): all'accesso vincono su quelle salvate per l'utente
+const CHOSEN = 'netmap-chosen-before-login'
 let syncing = false
+
+function rememberChoice(key) {
+  try {
+    const keys = new Set(JSON.parse(sessionStorage.getItem(CHOSEN) || '[]'))
+    keys.add(key)
+    sessionStorage.setItem(CHOSEN, JSON.stringify([...keys]))
+  } catch {
+    // senza sessionStorage all'accesso valgono quelle dell'utente
+  }
+}
+
+function takeChoices() {
+  try {
+    const keys = JSON.parse(sessionStorage.getItem(CHOSEN) || '[]')
+    sessionStorage.removeItem(CHOSEN)
+    return Array.isArray(keys) ? keys : []
+  } catch {
+    return []
+  }
+}
 
 export function readLocal(key) {
   try {
@@ -22,6 +44,7 @@ export function store(key, value) {
   } catch {
     // senza storage la scelta vale finché la pagina resta aperta
   }
+  if (!syncing) rememberChoice(key)
   push()
 }
 
@@ -63,11 +86,13 @@ const langOf = (value) => (value === 'en' ? 'en' : 'it')
 
 /**
  * Dopo l'accesso, prima di disegnare l'app: le preferenze salvate per l'utente prendono il posto di quelle del
- * browser. La prima volta (sul server non c'è niente) il contrario: si salvano quelle del browser.
+ * browser. La prima volta (sul server non c'è niente) il contrario: si salvano quelle del browser. Quello che si è
+ * scelto prima di entrare (la lingua nella pagina di accesso) vince e si salva per l'utente.
  * true = la lingua è diversa e la pagina si ricarica.
  */
 export function startSync(saved) {
   syncing = true
+  const chosen = takeChoices().map((key) => [key, readLocal(key)])
   if (!saved || Object.keys(saved).length === 0) {
     push()
     return false
@@ -76,9 +101,11 @@ export function startSync(saved) {
   try {
     Object.keys(collect()).filter((key) => !(key in saved)).forEach((key) => localStorage.removeItem(key))
     Object.entries(saved).forEach(([key, value]) => localStorage.setItem(key, value))
+    chosen.forEach(([key, value]) => (value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value)))
   } catch {
     return false
   }
+  if (chosen.length) push()
   applyDocument()
   if (langOf(readLocal('netmap.lang')) !== lang) {
     window.location.reload()

@@ -39,7 +39,8 @@ Open the NetMap address in your browser (for example `https://netmap.company.loc
 asks you to create the **administrator**: user name, first name, last name and password (at least 8 characters). From then on
 you sign in with user name and password; a session lasts 12 hours.
 
-On the sign-in page you pick the **language** (Italian or English). After signing in, user menu (top right) →
+On the sign-in page you pick the **language** with the **IT / EN** switch at the top right, next to the globe: it
+stays after signing in and becomes your language on every computer. After signing in, user menu (top right) →
 **Preferences**:
 
 - **Appearance**: light, dark or automatic theme (follows the operating system); normal or **compact** density

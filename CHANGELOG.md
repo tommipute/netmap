@@ -6,6 +6,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Modifiche
+
+- Pagina di accesso: la lingua si cambia con un selettore **IT / EN** ben visibile accanto al logo (prima erano due
+  link piccoli sotto il pulsante Accedi).
+
+### Correzioni
+
+- La lingua scelta nella pagina di accesso restava solo fino all'accesso: poi tornava quella salvata per l'utente.
+  Ora vale e diventa la lingua dell'utente.
+
 ## [1.3.0] - 2026-11-13
 
 Grafica rinnovata con gli stessi colori, Panoramica come pagina iniziale e server di posta comune per gli avvisi

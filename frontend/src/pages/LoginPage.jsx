@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { LANG, LANGUAGES, setLang, t, tc } from '../i18n'
+import { Icon } from '../components/Icon'
 import VersionLabel from '../components/VersionLabel'
 
 /** Accesso; al primo avvio (nessun utente) crea l'amministratore. */
@@ -35,13 +36,25 @@ export default function LoginPage() {
   return (
     <div className="login">
       <form className="login__card" onSubmit={submit}>
-        <p className="brand login__brand">
-          <span className="brand__mark" aria-hidden="true">
-            <span />
-            <span />
-          </span>
-          NetMap
-        </p>
+        <div className="login__head">
+          <p className="brand login__brand">
+            <span className="brand__mark" aria-hidden="true">
+              <span />
+              <span />
+            </span>
+            NetMap
+          </p>
+          <div className="login__lang" role="group" aria-label={t('Lingua')} title={t('Lingua')}>
+            <Icon name="globe" size={15} />
+            {LANGUAGES.map((option) => (
+              <button key={option.value} type="button" className={`login__lang-item${LANG === option.value ? ' is-current' : ''}`}
+                aria-pressed={LANG === option.value} aria-label={option.label} title={option.label}
+                onClick={() => LANG !== option.value && setLang(option.value)}>
+                {option.value.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
         {setupRequired ? (
           <>
             <h1>{t("Crea l'amministratore")}</h1>
@@ -83,14 +96,6 @@ export default function LoginPage() {
         <button type="submit" className="btn btn--primary" disabled={busy}>
           {busy ? t('Attendi…') : setupRequired ? t('Crea e accedi') : t('Accedi')}
         </button>
-        <div className="login__lang" role="group" aria-label={t('Lingua')}>
-          {LANGUAGES.map((option) => (
-            <button key={option.value} type="button" className={`link-button${LANG === option.value ? ' is-current' : ''}`}
-              aria-pressed={LANG === option.value} onClick={() => LANG !== option.value && setLang(option.value)}>
-              {option.label}
-            </button>
-          ))}
-        </div>
         <p className="login__version"><VersionLabel /></p>
       </form>
     </div>

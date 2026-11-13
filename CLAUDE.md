@@ -692,7 +692,8 @@ componenti. **Salvate per utente** (`storage.js`): tutte le chiavi `netmap.*` de
 colonne delle tabelle) si scrivono con `store()`, che le manda subito a `PUT /api/auth/me/preferences`
 (`User.preferences`, JSON; fuori dallo storico; niente token API); `auth.jsx` dopo `/auth/me` o il login chiama
 `startSync(user.preferences)` prima di disegnare l'app: quelle del server sostituiscono quelle del browser (la prima
-volta il contrario), lingua diversa = ricarica. Densità compatta: `:root[data-density="compact"]` (applicata anche
+volta il contrario), lingua diversa = ricarica. Le scelte fatte da scollegati (selettore IT / EN della pagina di accesso) vanno in
+sessionStorage `netmap-chosen-before-login` e all'accesso vincono su quelle del server, che le riceve. Densità compatta: `:root[data-density="compact"]` (applicata anche
 da `index.html`). Pagina iniziale: `StartPage`
 in `App.jsx` (se l'utente non la vede più nel menu, le mappe). **Menu** (`Layout.jsx`): solo i nomi delle sezioni;
 `SideNav` a fisarmonica (una sezione alla volta, quella della pagina aperta si apre da sola, `navGroupOf`; il numero

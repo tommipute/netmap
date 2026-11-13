@@ -37,7 +37,8 @@ Apri l'indirizzo di NetMap nel browser (per esempio `https://netmap.azienda.loca
 chiede di creare l'**amministratore**: nome utente, nome, cognome e password (almeno 8 caratteri). Da quel momento
 si entra con nome utente e password; la sessione dura 12 ore, poi si rientra.
 
-Nella pagina di accesso scegli la **lingua** (italiano o inglese). Dopo l'accesso, menu utente (in alto a
+Nella pagina di accesso scegli la **lingua** con il selettore **IT / EN** in alto a destra, accanto al mappamondo:
+vale anche dopo l'accesso e diventa la tua lingua su ogni computer. Dopo l'accesso, menu utente (in alto a
 destra) → **Preferenze**:
 
 - **Aspetto**: tema chiaro, scuro o automatico (segue il sistema operativo); densità normale o **compatta**
