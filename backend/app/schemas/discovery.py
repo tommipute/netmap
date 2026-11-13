@@ -155,6 +155,33 @@ class ProbeAttempt(BaseModel):
     answered: bool  # l'apparato ha risposto, anche se con un errore
 
 
+class SnmpReportData(BaseModel):
+    """Cosa ha letto la scansione da un apparato (discovery/report.py)."""
+    host: str
+    profile: str | None = None
+    sys_name: str | None = None
+    sys_object_id: str | None = None
+    manufacturer: str | None = None
+    sys_descr: str | None = None
+    model: str | None = None
+    model_source: str | None = Field(None, description="entity, sysdescr, chassis")
+    serial: str | None = None
+    counts: dict[str, int] = Field(description="Righe lette: interfaces, ips, members, lldp, cdp, vlans, port_vlans, fdb, arp")
+    fdb_source: str | None = Field(None, description="qbridge, bridge")
+    notes: dict[str, int] = Field(
+        default_factory=dict,
+        description="Adattamenti e righe scartate: bridge_port_ifindex, mac_length_prefix, fdb_on_lag, fdb_unmapped, "
+                    "fdb_bad_index, cisco_vlan_fdb, neighbor_no_local_port, renamed_ports")
+    problems: list[str] = Field(default_factory=list, description="Tabelle che non si sono lette, con il motivo")
+
+
+class SnmpReportRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    read_at: datetime
+    run_id: int | None = None
+    data: SnmpReportData
+
+
 class ProbeFound(BaseModel):
     profile: str | None = None
     sys_name: str | None = None
@@ -176,6 +203,7 @@ class ProbeFound(BaseModel):
     problems: list[str]
     device_id: int | None = None
     device_name: str | None = None
+    report: SnmpReportData | None = None
 
 
 class ProbeResult(BaseModel):

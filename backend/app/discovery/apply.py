@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile,
-    StackMember,
+    SnmpReport, StackMember,
 )
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
 from app.services import roles
@@ -143,6 +143,11 @@ def _create_device(db: Session, data: dict, change: DiscoveryChange) -> None:
     for member in data.get("stack_members", []):
         _new_stack_member(db, device.id, member)
     change.device_id = device.id
+    # Il resoconto della lettura ("Cosa ho letto"), salvato per indirizzo finché il device non c'era
+    report = db.scalars(select(SnmpReport).where(SnmpReport.device_id.is_(None), SnmpReport.host == change.host)
+                        .order_by(SnmpReport.read_at.desc())).first()
+    if report is not None:
+        report.device_id = device.id
 
 
 def _update_device(db: Session, data: dict, change: DiscoveryChange) -> None:

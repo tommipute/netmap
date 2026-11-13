@@ -299,6 +299,14 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   l'ifDescr (se diverso e libero) o "nome (ifIndex)"; in `_interfaces` l'ifDescr non serve ad abbinare se è il nome
   di un'altra porta. Non corretti (troppo su misura): TP-Link JetStream (porta FDB 1..N contro porte bridge
   49153+), LLDP di RouterOS 6 con l'indice di un solo numero.
+- **"Cosa ho letto"**: il collector mette in `HostData` `model_source` (entity/sysdescr/chassis), `fdb_source`
+  (qbridge/bridge) e `notes` (codice → righe: `bridge_port_ifindex`, `mac_length_prefix`, `fdb_on_lag`,
+  `fdb_unmapped`, `fdb_bad_index`, `cisco_vlan_fdb`; `_Session.notes`), tutti `compare=False` (fuori dai confronti
+  dei test). `discovery/report.py` `build_report` aggiunge `neighbor_no_local_port` e `renamed_ports` (dal planner).
+  `runner.save_report` tiene un `SnmpReport` (tabella `snmp_reports`) per device, o per indirizzo con `device_id`
+  vuoto finché il device nuovo non è approvato (`apply._create_device` lo passa al device). API
+  `GET /devices/{id}/snmp-report` (null se mai letto); anche `ProbeFound.report`. Frontend `components/SnmpReport.jsx`
+  (testi delle note lì; un codice nuovo va aggiunto in `NOTES` e in en.js).
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

@@ -73,12 +73,16 @@ def _unique_names(interfaces: list[IfData]) -> dict[int, str]:
 class Planner:
     def __init__(self, db: Session, job: DiscoveryJob, now: datetime):
         self.db, self.job, self.now = db, job, now
+        self.device: Device | None = None  # device trovato dall'ultimo plan (None = nuovo)
+        self.renamed_ports = 0  # porte dell'ultimo plan rinominate perché il nome era già usato
 
     # ------------------------------------------------------------ ingresso
     def plan(self, hd: HostData) -> list[Proposal]:
-        if renamed := _unique_names(hd.interfaces):
+        renamed = _unique_names(hd.interfaces)
+        self.renamed_ports = len(renamed)
+        if renamed:
             hd = replace(hd, interfaces=[replace(i, name=renamed.get(i.if_index, i.name)) for i in hd.interfaces])
-        device = find_device(
+        device = self.device = find_device(
             self.db,
             serial=hd.serial,
             sys_name=hd.sys_name,

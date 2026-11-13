@@ -322,6 +322,9 @@ def test_prova_di_pochi_indirizzi(client, session_factory, setup, monkeypatch):
     found = results[0]["found"]
     assert found["sys_name"] == "sw-sim-01.lab.local" and found["device_id"] is None and found["interfaces"] > 0
     assert found["kind"] == "Switch (descrizione SNMP)" and found["problems"] == ["tabella MAC: nessuna risposta"]
+    report = found["report"]  # lo stesso resoconto della scheda "Cosa ho letto"
+    assert report["counts"]["interfaces"] == found["interfaces"] and report["counts"]["cdp"] == 1
+    assert report["problems"] == ["tabella MAC: nessuna risposta"]
     assert results[1]["ping_ms"] == 0.8 and results[1]["found"] is None
     assert pending(client) == []  # non salva niente
 

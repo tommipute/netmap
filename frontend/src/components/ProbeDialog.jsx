@@ -6,6 +6,7 @@ import { targetError, targetsSummary } from '../targets'
 import { ErrorBox, Mono } from './Bits'
 import ChipInput from './ChipInput'
 import Modal from './Modal'
+import { SnmpReportBody } from './SnmpReport'
 import { RefMulti } from './RefSelect'
 
 export const PROBE_MAX_HOSTS = 256 // come MAX_HOSTS in backend/app/discovery/probe.py
@@ -48,6 +49,12 @@ function Found({ f }) {
         <ul className="probe__problems">
           {f.problems.map((p) => <li key={p}>{t('Non letto')}: {tServer(p)}</li>)}
         </ul>
+      )}
+      {f.report && (
+        <details>
+          <summary>{t('Cosa ho letto')}</summary>
+          <SnmpReportBody data={f.report} compact />
+        </details>
       )}
     </>
   )

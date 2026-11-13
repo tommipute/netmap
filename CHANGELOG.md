@@ -13,6 +13,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   NetMap metteva la VLAN della porta: ora "Dov'è collegato?" trova anche i PC e i telefoni nelle altre VLAN, con la
   VLAN giusta. Se lo switch non permette la lettura per VLAN, il log lo dice una volta e si tiene la VLAN 1.
 
+- Pagina del device: la sezione **Cosa ho letto via SNMP** dice cosa ha risposto l'apparato all'ultima scansione,
+  tabella per tabella (porte, IP, stack, LLDP, CDP, VLAN, tabella MAC, ARP) con il numero di righe e la MIB, da dove
+  viene il modello, gli adattamenti alle stranezze dello switch, le righe scartate e le tabelle che non si leggono.
+  Serve a capire da soli perché manca qualcosa. Lo stesso resoconto c'è nella **Prova indirizzi**.
+
 ### Modifiche
 
 - Pagina di accesso: la lingua si cambia con un selettore **IT / EN** ben visibile accanto al logo (prima erano due

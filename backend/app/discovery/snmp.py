@@ -7,6 +7,7 @@ import asyncio
 import ipaddress
 import logging
 import re
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -238,6 +239,11 @@ class HostData:
     port_tagged: dict[int, list[int]] = field(default_factory=dict)  # ifIndex -> VLAN tagged (trunk)
     members: list[MemberData] = field(default_factory=list)  # stack: un elemento per switch (vuoto se non è uno stack)
     problems: list[str] = field(default_factory=list)  # tabelle che non si sono lette, con il motivo
+    # Per la scheda "Cosa ho letto" (fuori dai confronti dei test): da dove vengono modello e tabella MAC e gli
+    # adattamenti usati per le stranezze dello switch, con quante righe (vedi discovery/report.py)
+    model_source: str | None = field(default=None, compare=False)  # entity, sysdescr, chassis
+    fdb_source: str | None = field(default=None, compare=False)    # qbridge, bridge
+    notes: dict[str, int] = field(default_factory=dict, compare=False)
 
 
 @dataclass
@@ -396,6 +402,7 @@ class _Session:
         self.last_error: Any = None  # ultimo errore di get (per dire perché un profilo non va)
         self.section = ""  # parte che si sta leggendo, per i problemi
         self.problems: list[str] = []
+        self.notes: Counter[str] = Counter()  # adattamenti usati, vedi HostData.notes
 
     async def get(self, *oids: str) -> dict[str, Any] | None:
         error, status, _index, var_binds = await get_cmd(
@@ -672,6 +679,7 @@ async def _base_ports(s: _Session, if_indexes: list[int] | None = None) -> dict[
         return ports
     for table in (DOT1Q_PVID, DOT1Q_TP_FDB_PORT, DOT1D_TP_FDB_PORT):
         if await s.walk(table):
+            s.notes["bridge_port_ifindex"] = 1
             return {i: i for i in if_indexes}
     return {}
 
@@ -690,11 +698,28 @@ async def _dot1d_fdb(s: _Session, base_ports: dict[int, int], lags: set[int] = f
     status = await s.walk(DOT1D_TP_FDB_STATUS) if ports else {}
     rows = []
     for index, port in ports.items():
-        mac = _mac_from_index(index)
-        if_index = _fdb_if_index(base_ports, lags, port)
-        if mac is not None and if_index is not None and status.get(index, FDB_LEARNED) == FDB_LEARNED:
-            rows.append((mac, if_index))
+        if status.get(index, FDB_LEARNED) == FDB_LEARNED and (row := _fdb_row(s, base_ports, lags, index, port)):
+            rows.append(row)
     return rows
+
+
+def _fdb_row(s: _Session, base_ports: dict[int, int], lags: set[int], index: tuple[int, ...],
+             port: Any) -> tuple[str, int] | None:
+    """(MAC, ifIndex) di una riga imparata della tabella MAC; le righe scartate e gli adattamenti finiscono nelle
+    note della sessione."""
+    mac = _mac_from_index(index)
+    if mac is None:
+        s.notes["fdb_bad_index"] += 1
+        return None
+    if_index = _fdb_if_index(base_ports, lags, port)
+    if if_index is None:
+        s.notes["fdb_unmapped"] += 1
+        return None
+    if len(index) == 7:
+        s.notes["mac_length_prefix"] += 1
+    if port not in base_ports:
+        s.notes["fdb_on_lag"] += 1
+    return mac, if_index
 
 
 async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int, int],
@@ -708,20 +733,17 @@ async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int,
 
     entries: dict[tuple[str, int, int | None], FdbEntry] = {}
 
-    def add(mac: str | None, base_port: Any, status: Any, vlan: int | None) -> None:
-        if_index = _fdb_if_index(base_ports, lags, base_port)
-        if mac is None or if_index is None or (status is not None and status != FDB_LEARNED):
-            return
-        entries.setdefault((mac, if_index, vlan), FdbEntry(mac=mac, if_index=if_index, vlan=vlan))
-
     q_ports = await s.walk(DOT1Q_TP_FDB_PORT)
     if q_ports:
         q_status = await s.walk(DOT1Q_TP_FDB_STATUS)
         for index, port in q_ports.items():
-            if len(index) == 8 and index[1] == 6:  # lunghezza davanti al MAC, dopo la VLAN
-                index = index[:1] + index[2:]
-            if len(index) == 7:
-                add(_mac_from_index(index[1:]), port, q_status.get(index), index[0])
+            status = q_status.get(index)
+            if status is not None and status != FDB_LEARNED:
+                continue
+            # indice: fdbId (di solito la VLAN) e MAC, a volte con la lunghezza davanti al MAC
+            if row := _fdb_row(s, base_ports, lags, index[1:], port):
+                mac, if_index = row
+                entries.setdefault((mac, if_index, index[0]), FdbEntry(mac=mac, if_index=if_index, vlan=index[0]))
     else:
         for mac, if_index in await _dot1d_fdb(s, base_ports, lags):
             entries.setdefault((mac, if_index, None), FdbEntry(mac=mac, if_index=if_index,
@@ -755,6 +777,8 @@ async def _cisco_vlan_fdb(s: _Session, vids: list[int]) -> list[FdbEntry]:
         if sub.problems and not answered:
             break
         answered = True
+        s.notes.update(sub.notes)
+        s.notes["cisco_vlan_fdb"] += 1
         entries.extend(FdbEntry(mac=mac, if_index=if_index, vlan=vid) for mac, if_index in rows)
     return entries
 
@@ -861,7 +885,11 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     data.ips = await _ips(s)
     s.section = "seriale e stack"
     data.serial, data.model, data.members, chassis_hint = await _chassis(s)
-    data.model = data.model or model_from_descr(data.sys_descr) or chassis_hint
+    for source, model in (("entity", data.model), ("sysdescr", model_from_descr(data.sys_descr)),
+                          ("chassis", chassis_hint)):
+        if model:
+            data.model, data.model_source = model, source
+            break
     s.section = "vicini LLDP"
     lldp = await _lldp(s, data.interfaces)
     s.section = "vicini CDP"
@@ -877,6 +905,7 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
         more = [e for e in await _cisco_vlan_fdb(s, cisco_fdb_vlans(cisco_names, cisco_untagged, cisco_tagged))
                 if (e.mac, e.if_index, e.vlan) not in seen]
         data.fdb = sorted(data.fdb + more, key=lambda e: (e.mac, e.if_index, e.vlan or 0))
+    data.fdb_source = ("qbridge" if qbridge else "bridge") if data.fdb else None
     s.section = "VLAN"
     data.port_vlans = {**cisco_untagged, **pvids}
     data.port_tagged = {**cisco_tagged, **await _qbridge_tagged(s, base_ports)}
@@ -884,6 +913,7 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     s.section = "tabella ARP"
     data.arp = await _arp(s)
     data.problems = s.problems
+    data.notes = dict(s.notes)
     return data
 
 

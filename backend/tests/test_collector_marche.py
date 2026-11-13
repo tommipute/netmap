@@ -1,9 +1,11 @@
 """Stranezze di switch di altre marche, viste sulle registrazioni SNMP di molti produttori: dati costruiti a mano."""
 import asyncio
 import copy
+from collections import Counter
 
 from app.discovery import snmp
 from app.discovery.vendors import model_from_text
+from app.models import SnmpReport
 from tests.snmp_devices import SW2
 from tests.test_discovery import approve_all, device_named, pending, scan, setup  # noqa: F401
 
@@ -14,7 +16,7 @@ class FakeSession:
     """Solo `walk`: {OID della colonna: {indice: valore}}."""
 
     def __init__(self, tables):
-        self.tables, self.section, self.problems = tables, "", []
+        self.tables, self.section, self.problems, self.notes = tables, "", [], Counter()
 
     async def walk(self, oid):
         return dict(self.tables.get(oid, {}))
@@ -66,11 +68,13 @@ def test_indice_mac_con_la_lunghezza_davanti():
     fdb, _pvids, qbridge = run(snmp._bridge(session, {1: 101}, {}))
     assert qbridge
     assert fdb == [snmp.FdbEntry(mac="00:50:56:00:00:10", if_index=101, vlan=10)]
+    assert session.notes == {"mac_length_prefix": 1}  # per la scheda "Cosa ho letto"
 
 
 def test_porta_bridge_uguale_all_ifindex_se_manca_la_tabella():
     with_pvid = FakeSession({snmp.DOT1Q_PVID: {(1,): 10, (2,): 20}})
     assert run(snmp._base_ports(with_pvid, [1, 2, 3])) == {1: 1, 2: 2, 3: 3}
+    assert with_pvid.notes == {"bridge_port_ifindex": 1}
     # Niente tabelle del bridge: lo switch non fa da bridge, nessuna porta
     assert run(snmp._base_ports(FakeSession({}), [1, 2, 3])) == {}
     # Con dot1dBasePortIfIndex vale quella
@@ -84,6 +88,8 @@ def test_mac_imparati_su_un_aggregato():
     session = FakeSession({snmp.DOT1D_TP_FDB_PORT: {MAC: 1, other: 6145, (0, 1, 2, 3, 4, 5): 999}})
     rows = run(snmp._dot1d_fdb(session, {1: 1}, {6145}))
     assert sorted(rows) == [("00:50:56:00:00:10", 1), ("00:50:56:00:00:20", 6145)]  # 999 non è nulla: scartata
+    assert session.notes == {"fdb_on_lag": 1, "fdb_unmapped": 1}
+    session.notes.clear()
     # Senza sapere che 6145 è un LAG la riga resta fuori
     assert run(snmp._dot1d_fdb(session, {1: 1})) == [("00:50:56:00:00:10", 1)]
 
@@ -110,3 +116,31 @@ def test_porte_con_lo_stesso_nome(client, setup, session_factory):
     # Alla scansione dopo non c'è niente da proporre: ogni porta si ritrova
     scan(client, session_factory, setup["job"]["id"], (_porte_omonime(), "10.99.0.2"))
     assert [c for c in pending(client) if c["object_type"] == "interface"] == []
+
+
+def test_resoconto_della_lettura(client, setup, session_factory):
+    """Scheda "Cosa ho letto": il resoconto del device nuovo passa al device approvandolo e si aggiorna."""
+    scan(client, session_factory, setup["job"]["id"], (_porte_omonime(), "10.99.0.2"))
+    with session_factory() as db:
+        [report] = db.query(SnmpReport).all()
+        assert report.device_id is None and report.host == "10.99.0.2"
+    approve_all(client)
+    device = device_named(client, "sw-omonime")
+    read = client.get(f"/api/devices/{device['id']}/snmp-report").json()
+    data = read["data"]
+    assert data["host"] == "10.99.0.2" and data["model"] == "J9728A" and data["serial"] == "SGSIM0002"
+    assert data["counts"]["interfaces"] == 8 and data["counts"]["fdb"] == 3 and data["counts"]["lldp"] == 1
+    assert data["notes"] == {"renamed_ports": 2}  # "mgmt (61)" e la descrizione del secondo lo0
+    assert data["manufacturer"] == "HPE"
+
+    # Scansione dopo: stesso resoconto aggiornato, nessuno nuovo
+    first_run = read["run_id"]
+    scan(client, session_factory, setup["job"]["id"], (_porte_omonime(), "10.99.0.2"))
+    assert client.get(f"/api/devices/{device['id']}/snmp-report").json()["run_id"] != first_run
+    with session_factory() as db:
+        assert db.query(SnmpReport).count() == 1
+
+
+def test_resoconto_assente(client, setup):
+    device = client.post("/api/devices", json={"name": "a-mano", "site_id": setup["site"]["id"]}).json()
+    assert client.get(f"/api/devices/{device['id']}/snmp-report").json() is None

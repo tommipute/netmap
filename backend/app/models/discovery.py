@@ -109,3 +109,20 @@ class DiscoveryChange(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SnmpReport(Base):
+    """Cosa ha letto l'ultima scansione da un apparato (scheda "Cosa ho letto" del device): un resoconto per device.
+
+    Finché il device nuovo non è approvato il resoconto è legato solo all'indirizzo (`device_id` vuoto); approvando
+    il device passa a lui (apply.py).
+    """
+
+    __tablename__ = "snmp_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), unique=True)
+    host: Mapped[str] = mapped_column(String(45), index=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("discovery_runs.id", ondelete="SET NULL"))
+    read_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    data: Mapped[dict] = mapped_column(JSONType, default=dict)  # discovery/report.py

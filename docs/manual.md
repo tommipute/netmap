@@ -408,6 +408,28 @@ real scan. For each address it tells:
 Addresses that answer nothing are hidden: a checkbox shows them. From the page of a scan the test starts with its
 profiles and, if they are no more than 256, with its addresses.
 
+Under each device that was read, **What I read** opens the same report as the device page (see below).
+
+### What I read over SNMP
+
+On the page of a device read by the scan, the **What I read over SNMP** section (closed: click to open it) tells
+what the device answered at the last scan, when, from which address and with which profile. Use it when something
+is missing (the model, the cables, the endpoints) to tell whether the switch doesn't give it or NetMap doesn't
+understand it:
+
+- the model and where it comes from (ENTITY-MIB, SNMP description or chassis description), serial number,
+  manufacturer and sysObjectID;
+- how many rows it read for each table (ports, IPs, stack members, LLDP and CDP neighbours, VLANs, MAC table, ARP
+  table) and from which MIB. "Nothing" means the switch gave no data: it may not have that table, have it empty or
+  not give it with that profile (SNMP view);
+- the adjustments to the switch's quirks, for example MACs written in an unusual way, MACs learned on an aggregate,
+  ports with the same name;
+- in yellow, the rows NetMap had to discard: for example MAC table rows on ports the switch does not list, or LLDP
+  neighbours on ports it does not recognise. If there are many, the switch does something NetMap doesn't know yet;
+- the tables that could not be read, with the reason.
+
+The section appears from the first scan that reads the device; for a new device, after you approve it.
+
 ### To approve
 
 **To approve** (with the counter next to it) collects what the scan found, grouped by device: new devices with

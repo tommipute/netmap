@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.discovery import snmp
 from app.discovery.matching import find_device
+from app.discovery.report import build_report
 from app.discovery.vendors import vendor_name
 from app.models import DeviceType
 from app.services.roles import detect_kind
@@ -54,6 +55,7 @@ def describe(db: Session, probe: snmp.HostProbe) -> dict:
         "problems": hd.problems,
         "device_id": device.id if device else None,
         "device_name": device.name if device else None,
+        "report": build_report(hd),
     }
     return result
 

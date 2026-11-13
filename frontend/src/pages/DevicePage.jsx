@@ -11,6 +11,7 @@ import HistoryList from '../components/HistoryList'
 import { IconButton, IconLink, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
+import SnmpReport from '../components/SnmpReport'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, formatDateTime, formatSpeed, labelOf } from '../options'
 import { t, tn } from '../i18n'
@@ -166,6 +167,7 @@ export default function DevicePage() {
   const { data: ports, error: portsError, reload: reloadPorts } = useApi(`/devices/${id}/ports`)
   const { data: pending } = useApi(`/discovery-changes?device_id=${id}&limit=1`)
   const { data: stack, reload: reloadStack } = useApi(`/stack-members?device_id=${id}&limit=100`)
+  const { data: snmpReport } = useApi(`/devices/${id}/snmp-report`)
   const [dialog, setDialog] = useState(null)
   const [checking, setChecking] = useState(false)
   const { canEdit } = useAuth()
@@ -394,6 +396,7 @@ export default function DevicePage() {
         )}
       </section>
 
+      <SnmpReport report={snmpReport} />
       <DeviceHistory deviceId={device.id} />
       <PrintFooter />
 

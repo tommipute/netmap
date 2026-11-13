@@ -1103,11 +1103,22 @@ button.tile:hover { border-color: var(--accent); }
 .source-icon--import { color: var(--import); }
 td .mono + .source-icon { margin-left: 6px; }
 .nowrap { white-space: nowrap; }
-details.directory-test > summary { cursor: pointer; list-style: none; justify-content: flex-start; }
-details.directory-test > summary::-webkit-details-marker { display: none; }
-details.directory-test > summary::before { content: '▸'; color: var(--muted); width: 12px; }
-details.directory-test[open] > summary::before { content: '▾'; }
-details.directory-test:not([open]) > summary { margin-bottom: 0; }
+details.directory-test > summary, details.disclosure > summary { cursor: pointer; list-style: none; justify-content: flex-start; }
+details.directory-test > summary::-webkit-details-marker, details.disclosure > summary::-webkit-details-marker { display: none; }
+details.directory-test > summary::before, details.disclosure > summary::before { content: '▸'; color: var(--muted); width: 12px; }
+details.directory-test[open] > summary::before, details.disclosure[open] > summary::before { content: '▾'; }
+details.directory-test:not([open]) > summary, details.disclosure:not([open]) > summary { margin-bottom: 0; }
+
+/* Cosa ho letto via SNMP (pagina del device, prova indirizzi) */
+.snmp-report { display: grid; gap: 12px; }
+.snmp-report__facts { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin: 0; max-width: 720px; }
+.snmp-report__table { max-width: 720px; }
+.snmp-report__notes { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.snmp-report__note--warn { color: var(--warn); }
+.snmp-report .hint { margin: 0; }
+.probe details > summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.probe .snmp-report__facts { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 12px 14px; }
+.probe details[open] > summary { margin-bottom: 8px; }
 
 /* Modelli dei messaggi di avviso, con anteprima */
 .alert-templates { display: grid; gap: 10px; }

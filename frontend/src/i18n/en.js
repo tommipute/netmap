@@ -1768,6 +1768,43 @@ const strings = {
   'Ultimo backup {when}': 'Last backup {when}',
   'Ultimo backup non riuscito': 'Last backup failed',
   'Ancora nessun backup': 'No backups yet',
+  // scheda "Cosa ho letto via SNMP" (components/SnmpReport.jsx)
+  'Membri dello stack': 'Stack members',
+  'Vicini LLDP': 'LLDP neighbors',
+  'Vicini CDP': 'CDP neighbors',
+  'Porte con la VLAN': 'Ports with a VLAN',
+  'Tabella MAC': 'MAC table',
+  'Tabella ARP': 'ARP table',
+  'dalla ENTITY-MIB': 'from ENTITY-MIB',
+  'dalla descrizione SNMP': 'from the SNMP description',
+  'dalla descrizione dello chassis': 'from the chassis description',
+  "Lo switch non ha la tabella che collega le porte del bridge alle porte (dot1dBasePortIfIndex): NetMap usa il numero della porta come ifIndex, come per gli altri switch che la omettono.":
+    'The switch has no table linking bridge ports to ports (dot1dBasePortIfIndex): NetMap uses the port number as the ifIndex, as for the other switches that omit it.',
+  "1 MAC scritto con la lunghezza davanti all'indirizzo: letto lo stesso.": '1 MAC written with its length before the address: read anyway.',
+  "{n} MAC scritti con la lunghezza davanti all'indirizzo: letti lo stesso.": '{n} MACs written with their length before the address: read anyway.',
+  "1 MAC imparato su un aggregato (LAG): assegnato all'aggregato.": '1 MAC learned on an aggregate (LAG): assigned to the aggregate.',
+  "{n} MAC imparati su un aggregato (LAG): assegnati all'aggregato.": '{n} MACs learned on an aggregate (LAG): assigned to the aggregate.',
+  'Tabella MAC letta VLAN per VLAN (1 VLAN).': 'MAC table read VLAN by VLAN (1 VLAN).',
+  'Tabella MAC letta VLAN per VLAN ({n} VLAN).': 'MAC table read VLAN by VLAN ({n} VLANs).',
+  "1 porta ha lo stesso nome di un'altra: ha preso la sua descrizione SNMP o il nome con il numero.":
+    '1 port has the same name as another: it took its SNMP description or the name with its number.',
+  "{n} porte hanno lo stesso nome di un'altra: hanno preso la loro descrizione SNMP o il nome con il numero.":
+    '{n} ports have the same name as another: they took their SNMP description or the name with their number.',
+  '1 riga della tabella MAC indica una porta che lo switch non elenca: scartata.': '1 MAC table row points to a port the switch does not list: discarded.',
+  '{n} righe della tabella MAC indicano una porta che lo switch non elenca: scartate.': '{n} MAC table rows point to a port the switch does not list: discarded.',
+  '1 riga della tabella MAC non ha un MAC valido: scartata.': '1 MAC table row has no valid MAC: discarded.',
+  '{n} righe della tabella MAC non hanno un MAC valido: scartate.': '{n} MAC table rows have no valid MAC: discarded.',
+  '1 vicino LLDP/CDP è su una porta che NetMap non riconosce: non diventa un cavo.': '1 LLDP/CDP neighbor is on a port NetMap does not recognise: it does not become a cable.',
+  '{n} vicini LLDP/CDP sono su una porta che NetMap non riconosce: non diventano cavi.': '{n} LLDP/CDP neighbors are on a port NetMap does not recognise: they do not become cables.',
+  'Produttore (sysObjectID)': 'Manufacturer (sysObjectID)',
+  'Dati': 'Data',
+  'Righe lette': 'Rows read',
+  'niente': 'nothing',
+  '"Niente" vuol dire che lo switch non ha risposto con dati per quella tabella: può non averla, averla vuota o non darla con questo profilo SNMP.':
+    '"Nothing" means the switch did not answer with data for that table: it may not have it, have it empty or not give it with this SNMP profile.',
+  'Cosa ho letto via SNMP': 'What I read over SNMP',
+  'Cosa ho letto': 'What I read',
+  '{date} da {host}, profilo {profile}': '{date} from {host}, profile {profile}',
 }
 
 // Parti delle righe del log delle scansioni (discovery/runner.py e snmp.py)

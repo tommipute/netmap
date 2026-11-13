@@ -11,8 +11,9 @@ from app.core.secrets import SecretError, decrypt
 from app.discovery import snmp
 from app.discovery.apply import APPLY_ORDER, ApplyError, apply_change
 from app.discovery.planner import Planner, Proposal
+from app.discovery.report import build_report
 from app.discovery.targets import TargetError, expand_targets
-from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
+from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile, SnmpReport
 from app.models.enums import ChangeStatus, RunStatus
 from app.services.endpoints import update_endpoints
 
@@ -119,6 +120,28 @@ def apply_in_savepoint(db: Session, change: DiscoveryChange) -> str | None:
         return str(exc)
 
 
+def save_report(db: Session, device_id: int | None, run: DiscoveryRun, hd: snmp.HostData, renamed_ports: int = 0) -> None:
+    """Resoconto della lettura per la scheda "Cosa ho letto": uno per device, o per indirizzo finché il device nuovo
+    non è approvato."""
+    same_host = select(SnmpReport).where(SnmpReport.device_id.is_(None), SnmpReport.host == hd.host)
+    report = None
+    if device_id is not None:
+        report = db.scalars(select(SnmpReport).where(SnmpReport.device_id == device_id)).first()
+        for orphan in db.scalars(same_host):  # letto quando il device non era ancora approvato
+            if report is None:
+                report, orphan.device_id = orphan, device_id
+            else:
+                db.delete(orphan)
+    else:
+        report = db.scalars(same_host).first()
+    if report is None:
+        report = SnmpReport(device_id=device_id)
+        db.add(report)
+    report.host, report.run_id, report.read_at = hd.host, run.id, now()
+    report.data = build_report(hd, renamed_ports)
+    db.flush()
+
+
 def record(db: Session, job: DiscoveryJob, run: DiscoveryRun, host: str, proposals: list[Proposal]) -> None:
     keys = set()
     for p in proposals:
@@ -219,8 +242,10 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
             savepoint = db.begin_nested()
             try:
                 before = (run.changes_proposed, run.changes_applied)
-                proposals = Planner(db, job, now()).plan(hd)
+                planner = Planner(db, job, now())
+                proposals = planner.plan(hd)
                 record(db, job, run, hd.host, proposals)
+                save_report(db, planner.device.id if planner.device else None, run, hd, planner.renamed_ports)
                 savepoint.commit()
                 proposed, applied = run.changes_proposed - before[0], run.changes_applied - before[1]
                 _log(run, f"{hd.host} {hd.sys_name or '(senza sysName)'} [{hd.profile_name}]: "

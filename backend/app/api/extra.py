@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.api.crud import apply_column_filters
 from app.database import get_db
-from app.models import Device, MapBackground, NetworkMap, Prefix, Rack
+from app.models import Device, MapBackground, NetworkMap, Prefix, Rack, SnmpReport
 from app.schemas.common import Page
+from app.schemas.discovery import SnmpReportRead
 from app.schemas.ipam import IPAddressRead
 from app.schemas.maps import CableRoute, MapBackgroundRead, MapBackgroundUpdate, MapRead, MapView, NodePosition
 from app.schemas.views import (
@@ -134,6 +135,13 @@ def get_ports(device_id: int, db: Session = Depends(get_db)):
     _get_or_404(db, Device, device_id)
     return device_ports(db, device_id)
 
+
+
+@router.get("/devices/{device_id}/snmp-report", response_model=SnmpReportRead | None, tags=["Device"],
+            summary="Cosa ha letto l'ultima scansione SNMP dal device (null se non è mai stato letto)")
+def get_snmp_report(device_id: int, db: Session = Depends(get_db)):
+    _get_or_404(db, Device, device_id)
+    return db.scalars(select(SnmpReport).where(SnmpReport.device_id == device_id)).first()
 
 
 @router.get("/devices/{device_id}/neighbors", response_model=list[Neighbor], tags=["Device"],

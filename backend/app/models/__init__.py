@@ -23,7 +23,7 @@ from app.models.dcim import (
     StackMember,
     interface_tagged_vlans,
 )
-from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile
+from app.models.discovery import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile, SnmpReport
 from app.models.imports import ImportRun
 from app.models.integrations import ApiToken, Webhook
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
@@ -103,6 +103,7 @@ __all__ = [
     "Site",
     "StackMember",
     "SnmpProfile",
+    "SnmpReport",
     "User",
     "VLAN",
     "VRF",

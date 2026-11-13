@@ -410,6 +410,29 @@ ACL prima della scansione vera. Per ogni indirizzo dice:
 Gli indirizzi che non rispondono a niente sono nascosti: c'è una casella per mostrarli. Dalla pagina di una
 scansione la prova parte con i suoi profili e, se non sono più di 256, con i suoi indirizzi.
 
+Sotto ogni apparato letto, **Cosa ho letto** apre lo stesso resoconto della pagina del device (vedi sotto).
+
+### Cosa ho letto via SNMP
+
+Nella pagina di un device letto dalla scansione, la sezione **Cosa ho letto via SNMP** (chiusa: si apre con un
+clic) dice cosa ha risposto l'apparato all'ultima scansione, quando, da quale indirizzo e con quale profilo. Serve
+quando manca qualcosa (il modello, i cavi, gli endpoint) per capire se è lo switch che non lo dà o NetMap che non lo
+capisce:
+
+- modello e da dove viene (ENTITY-MIB, descrizione SNMP o descrizione dello chassis), numero di serie, produttore
+  e sysObjectID;
+- quante righe ha letto per ogni tabella (porte, IP, membri dello stack, vicini LLDP e CDP, VLAN, tabella MAC,
+  tabella ARP) e da quale MIB. "Niente" vuol dire che lo switch non ha dato dati: può non avere quella tabella,
+  averla vuota o non darla con quel profilo (vista SNMP);
+- gli adattamenti alle stranezze dello switch, per esempio MAC scritti in modo insolito, MAC imparati su un
+  aggregato, porte con lo stesso nome;
+- in giallo le righe che NetMap ha dovuto scartare: per esempio righe della tabella MAC su porte che lo switch non
+  elenca, o vicini LLDP su porte che non riconosce. Se ce ne sono molte, lo switch fa qualcosa che NetMap non
+  conosce ancora;
+- le tabelle che non si sono lette, con il motivo.
+
+La sezione compare dalla prima scansione che legge il device; per un device nuovo, dopo averlo approvato.
+
 ### Da approvare
 
 La voce **Da approvare** (con il numero accanto) raccoglie quello che la scansione ha trovato, raggruppato per
