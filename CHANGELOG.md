@@ -6,6 +6,13 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.4.0] - 2026-11-13
+
+Scansione più affidabile sugli switch di altre marche (provata su registrazioni SNMP di oltre 70 famiglie), scheda
+"Cosa ho letto via SNMP" e **Regole SNMP** per correggere da soli la lettura di un apparato, con regole già incluse
+per TP-Link JetStream e MikroTik RouterOS. Nessun cambiamento incompatibile: l'aggiornamento applica da solo le
+migration del database e aggiunge le regole incluse all'avvio.
+
 ### Novità
 
 - Scansione degli switch Cisco: la tabella MAC si legge VLAN per VLAN (community `public@10`, in SNMPv3 il context
