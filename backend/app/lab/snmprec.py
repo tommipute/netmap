@@ -130,5 +130,34 @@ def snmprec(device: dict) -> str:
         add(f"1.3.6.1.2.1.4.22.1.2.{if_index}.{address}", HEX, mac_hex(mac))
         add(f"1.3.6.1.2.1.4.22.1.4.{if_index}.{address}", INT, 3)
 
+    return _render(rows)
+
+
+def _render(rows: list[tuple[str, str, str]]) -> str:
     rows.sort(key=lambda row: tuple(int(part) for part in row[0].split(".")))
     return "".join(f"{oid}|{kind}|{value}\n" for oid, kind, value in rows)
+
+
+def snmprec_vlan(device: dict, vid: int) -> str:
+    """Cisco: quello che lo switch risponde con `community@VLAN` (SNMPv3: context `vlan-N`), cioè la BRIDGE-MIB di
+    quella VLAN. Le righe stanno in device["cisco"]["fdb"][vid]: (MAC, porta bridge, stato)."""
+    rows: list[tuple[str, str, str]] = []
+    for base_port, if_index in device["bridge_ports"].items():
+        rows.append((f"1.3.6.1.2.1.17.1.4.1.2.{base_port}", INT, str(if_index)))
+    for mac, base_port, status in device.get("cisco", {}).get("fdb", {}).get(vid, []):
+        arcs = ".".join(str(b) for b in bytes.fromhex(mac_hex(mac)))
+        rows.append((f"1.3.6.1.2.1.17.4.3.1.2.{arcs}", INT, str(base_port)))
+        rows.append((f"1.3.6.1.2.1.17.4.3.1.3.{arcs}", INT, str(status)))
+    return _render(rows)
+
+
+def snmprec_files(device: dict, community: str) -> dict[str, str]:
+    """I file dati di un apparato, per nome: `<community>.snmprec` e, sui Cisco, uno per VLAN (`<community>@N` per
+    SNMP v1/v2c, `vlan-N` per i context SNMPv3). snmpsim sceglie il file dalla community o dal context."""
+    files = {f"{community}.snmprec": snmprec(device)}
+    for vid in device.get("cisco", {}).get("names", {}):
+        if vid != 1 and vid not in range(1002, 1006):
+            data = snmprec_vlan(device, vid)
+            files[f"{community}@{vid}.snmprec"] = data
+            files[f"vlan-{vid}.snmprec"] = data
+    return files

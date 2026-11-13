@@ -1,10 +1,11 @@
-"""Due switch finti per i test della scansione: sw-sim-01 (Cisco) e sw-sim-02 (HPE), collegati via LLDP.
+"""Switch finti per i test della scansione: sw-sim-01 (Cisco) e sw-sim-02 (HPE), collegati via LLDP, e sw-sim-03
+(Cisco con le VLAN, solo per i test d'integrazione).
 
 `snmprec(device)` produce il file dati per snmpsim; gli stessi valori servono ai test del collector.
 """
 import ipaddress
 
-from app.lab.snmprec import snmprec  # noqa: F401  (usato dai test d'integrazione)
+from app.lab.snmprec import snmprec, snmprec_files  # noqa: F401  (usati dai test d'integrazione)
 
 SW1_CHASSIS_MAC = "00:11:22:33:44:00"
 SW2_CHASSIS_MAC = "00:22:33:44:55:00"
@@ -54,6 +55,23 @@ SW1 = {
     "vlans": {},
     # ARP: (ifIndex, IP, MAC)
     "arp": [(99, "10.99.0.10", PC_A_MAC), (99, "10.99.0.20", PC_B_MAC)],
+}
+
+# Cisco con VLAN: la community normale dà solo la VLAN 1, le altre si leggono con public@VLAN (v3: context vlan-N)
+SW3 = {
+    **SW1,
+    "system": {**SW1["system"], "name": "sw-sim-03"},
+    "cdp": {}, "lldp_local": {}, "lldp_remote": {},
+    "cisco": {
+        "names": {1: "default", 10: "UFFICI", 20: "VOCE", 30: "OSPITI", 1002: "fddi-default", 1005: "trnet-default"},
+        "access": {1: 10, 2: 20},
+        "trunks": {9: (1, [1, 10, 20])},  # la 30 non è su nessuna porta: non si legge
+        "fdb": {
+            10: [(PC_A_MAC, 1, 3), ("00:22:33:44:55:02", 9, 3)],
+            20: [(PC_B_MAC, 2, 3), ("00:11:22:33:44:02", 2, 4)],
+        },
+    },
+    "fdb": [(None, "00:22:33:44:55:31", 9, 3), (None, "00:11:22:33:44:01", 1, 4)],
 }
 
 SW2 = {
@@ -149,6 +167,9 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         {
             (mac.upper(), bridge[bp], vlan if device["qbridge"] else port_vlans.get(bridge[bp]))
             for vlan, mac, bp, status in device["fdb"] if status == 3
+        } | {
+            (mac.upper(), bridge[bp], vid)
+            for vid, rows in cisco.get("fdb", {}).items() for mac, bp, status in rows if status == 3
         },
         key=lambda e: (e[0], e[1], e[2] or 0),
     )

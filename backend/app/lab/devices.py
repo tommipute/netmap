@@ -108,18 +108,21 @@ CORE = {
     },
     # Lo switch Cisco del piano 3 si vede solo via CDP
     "cdp": {(11, 1): ("sw-lab-p3", "GigabitEthernet1/0/25", P3_IP)},
-    "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {9: TRUNK, 10: TRUNK, 11: TRUNK}},
+    # Tabella MAC: con la community normale solo la VLAN 1, le altre con community@VLAN ("fdb" qui sotto)
+    "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {9: TRUNK, 10: TRUNK, 11: TRUNK}, "fdb": {
+        10: [
+            (_port_mac(FW_MAC, 1), 1, LEARNED),
+            (SERVER[0], 2, LEARNED),
+            *[(mac, 9, LEARNED) for mac, _ in (PC1, PC2, PRINTER)],
+            *[(mac, 10, LEARNED) for mac, _ in (PC3, PC4)],
+            *[(mac, 11, LEARNED) for mac, _ in (PC5, AP, *WIFI)],
+        ],
+        20: [(PHONE[0], 10, LEARNED)],
+    }},
     "qbridge": False,
     "bridge_ports": {1: 1, 2: 2, 9: 9, 10: 10, 11: 11},
     "pvid": {},
-    "fdb": [
-        (None, _port_mac(FW_MAC, 1), 1, LEARNED),
-        (None, SERVER[0], 2, LEARNED),
-        *[(None, mac, 9, LEARNED) for mac, _ in (PC1, PC2, PRINTER)],
-        *[(None, mac, 10, LEARNED) for mac, _ in (PHONE, PC3, PC4)],
-        *[(None, mac, 11, LEARNED) for mac, _ in (PC5, AP, *WIFI)],
-        (None, _port_mac(CORE_MAC, 1), 1, SELF),
-    ],
+    "fdb": [(None, _port_mac(CORE_MAC, 1), 1, SELF)],
     "vlans": {},
     "arp": [
         *[(110, ip, mac) for mac, ip in (SERVER, PC1, PC2, PC3, PC4, PC5, PRINTER, AP, *WIFI)],
@@ -195,17 +198,19 @@ P3 = {
     "lldp_local": {},
     "lldp_remote": {},
     "cdp": {(25, 1): ("core-lab-01.lab.local", "TenGigabitEthernet1/1/3", CORE_IP)},
-    "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {25: TRUNK}},
+    "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {25: TRUNK}, "fdb": {
+        10: [
+            (PC5[0], 1, LEARNED),
+            # Access point con tre client Wi-Fi: quattro MAC sulla stessa porta
+            (AP[0], 2, LEARNED),
+            *[(mac, 2, LEARNED) for mac, _ in WIFI],
+        ],
+        99: [(_port_mac(CORE_MAC, 199), 25, LEARNED)],
+    }},
     "qbridge": False,
     "bridge_ports": {1: 1, 2: 2, 25: 25},
     "pvid": {},
-    "fdb": [
-        (None, PC5[0], 1, LEARNED),
-        # Access point con tre client Wi-Fi: quattro MAC sulla stessa porta
-        (None, AP[0], 2, LEARNED),
-        *[(None, mac, 2, LEARNED) for mac, _ in WIFI],
-        (None, _port_mac(CORE_MAC, 199), 25, LEARNED),
-    ],
+    "fdb": [],
     "vlans": {},
     "arp": [],
 }

@@ -1779,9 +1779,10 @@ const SNMP_SECTIONS = {
   'vicini CDP': 'CDP neighbors', VLAN: 'VLANs', 'tabella MAC': 'MAC table', 'tabella ARP': 'ARP table',
 }
 const hostList = (text) => text.replace(/ e altri (\d+)$/, ' and $1 more')
+const snmpSection = (name) => SNMP_SECTIONS[name] || name.replace(/^tabella MAC della VLAN (\d+)$/, 'MAC table of VLAN $1')
 function snmpProblem(text) {
   const match = /^(.+?): (.+)$/.exec(text)
-  return match ? `${SNMP_SECTIONS[match[1]] || match[1]}: ${inner(match[2])}` : inner(text)
+  return match ? `${snmpSection(match[1])}: ${inner(match[2])}` : inner(text)
 }
 
 // Messaggi del server con nomi o numeri: si traducono con un modello ($1, $2... = le parti tra parentesi)
@@ -1795,6 +1796,7 @@ const patterns = [
   [/^(\d\d:\d\d:\d\d )?Non rispondono né al ping né a SNMP: (\d+) indirizzi$/, '$1No answer to ping or SNMP: $2 addresses'],
   [/^(\d\d:\d\d:\d\d )?(\S+): lettura SNMP fallita \((.*)\)$/, '$1$2: SNMP read failed ($3)'],
   [/^(porte|indirizzi IP|seriale e stack|vicini LLDP|vicini CDP|VLAN|tabella MAC|tabella ARP): (.+)$/, (m) => snmpProblem(m)],
+  [/^tabella MAC della VLAN \d+: .+$/, (m) => snmpProblem(m)],
   // import da NetBox (anche le righe del log, che iniziano con l'ora)
   [/^(\d\d:\d\d:\d\d )?Connessione a (\S+) (.+)$/, '$1Connected to $2 $3'],
   // scansione: tipo di apparato riconosciuto (services/roles.py) e ruolo o modello nuovo nelle proposte

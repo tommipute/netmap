@@ -109,6 +109,6 @@ email, webhook e Telegram. Cosa c'è in ogni versione: `CHANGELOG.md`.
 NetMap lavora da solo: l'integrazione con l'app inventory è stata scartata (6/10/2026).
 
 - Prova della scansione su apparati veri di più marche (Cisco, HPE/Aruba, Fortinet, Ubiquiti…): finora solo
-  apparati simulati. Caso noto: sugli switch Cisco la tabella MAC si legge per VLAN (community `public@10`), oggi no.
+  apparati simulati.
 - Accesso con Entra ID (SSO) oltre ad Active Directory.
 - Immagine della VM già pronta (appliance) per chi non vuole installare Docker.

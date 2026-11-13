@@ -352,6 +352,11 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   `oper_status` delle porte da ifOperStatus (abbinate per `if_index`).
 - **Endpoint** (`services/endpoints.py`, tabella `endpoints`): dopo ogni scansione unisce tabelle MAC
   (BRIDGE/Q-BRIDGE), PVID/nomi VLAN e ARP; scarta gli uplink; tiene porta precedente e data dello spostamento.
+  Cisco senza Q-BRIDGE (`snmp.py`, `_cisco_vlan_fdb`): con la community normale la BRIDGE-MIB ha solo la VLAN 1, le
+  VLAN usate dalle porte (`cisco_fdb_vlans`) si leggono con `community@VID` / context v3 `vlan-VID`; se la prima non
+  risponde ci si ferma con un problema "tabella MAC della VLAN N" (mai la community nel testo). Lab e test:
+  `device["cisco"]["fdb"]` + `snmprec_files` (snmpsim sceglie il file da community o context; risponde anche a
+  community@VLAN senza file, ripiegando: il caso "non risponde" nel test si simula con un'altra community).
 - Frontend: `auth.jsx` (`useAuth()` → `canEdit`, `isAdmin`; con login spento tutto permesso), `LoginPage`,
   `PasswordDialog`, `EndpointsPage` (`/where`), `RackPage` (`/racks/:id`), voce `NAV` con `admin: true`.
   **Ogni pulsante che scrive va nascosto con `canEdit`** (il backend risponde comunque 403).

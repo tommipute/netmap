@@ -365,6 +365,11 @@ propone modifiche che approvi tu.
    lascia vuoto il campo per non cambiarle.
 2. Sugli apparati: SNMP attivo in sola lettura, e l'indirizzo del server NetMap ammesso nelle ACL. Serve la
    porta UDP 161 aperta dal server NetMap verso gli apparati.
+3. Sugli switch Cisco la tabella MAC di ogni VLAN si legge a parte: NetMap lo fa da solo, con la community seguita
+   da `@` e il numero della VLAN (`public@10`) o, in SNMPv3, con il context `vlan-10`, solo per le VLAN usate da
+   qualche porta. Di solito non serve configurare niente; con SNMPv3 il gruppo deve ammettere quei context
+   (`snmp-server group NOME v3 priv context vlan- match prefix`). Se lo switch non lo permette, nel log la
+   «tabella MAC della VLAN N» è tra quelle che non si leggono e NetMap conosce solo i MAC della VLAN 1.
 
 ### Scansioni
 

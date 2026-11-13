@@ -364,6 +364,11 @@ it proposes changes that you approve.
    to keep them.
 2. On the devices: SNMP enabled read-only, and the NetMap server address allowed in the ACLs. UDP port 161 must be
    open from the NetMap server to the devices.
+3. On Cisco switches the MAC table of each VLAN is read separately: NetMap does it by itself, with the community
+   followed by `@` and the VLAN number (`public@10`) or, with SNMPv3, with the context `vlan-10`, only for the VLANs
+   used by some port. Usually nothing needs configuring; with SNMPv3 the group must allow those contexts
+   (`snmp-server group NAME v3 priv context vlan- match prefix`). If the switch does not allow it, the log lists
+   the "MAC table of VLAN N" among the tables that could not be read and NetMap only knows the MACs of VLAN 1.
 
 ### Scans
 

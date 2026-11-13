@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from app.lab.devices import COMMUNITY, LAB_DEVICES, LAB_TARGETS
-from app.lab.snmprec import snmprec
+from app.lab.snmprec import snmprec_files
 
 SITE = "Laboratorio di rete (simulato)"
 PROFILE = "Laboratorio (community public)"
@@ -27,7 +27,8 @@ def agent(name: str) -> None:
     for folder, mode in ((base, 0o755), (data_dir, 0o755), (cache_dir, 0o777)):
         folder.mkdir(parents=True, exist_ok=True)
         folder.chmod(mode)
-    (data_dir / f"{COMMUNITY}.snmprec").write_text(snmprec(data))
+    for file_name, content in snmprec_files(data, COMMUNITY).items():  # i Cisco anche uno per VLAN
+        (data_dir / file_name).write_text(content)
     print(f"{name}: agent SNMP v2c (community {COMMUNITY}) sulla porta 161", flush=True)
     os.execvp("snmpsim-command-responder", [
         "snmpsim-command-responder", f"--data-dir={data_dir}", f"--cache-dir={cache_dir}",

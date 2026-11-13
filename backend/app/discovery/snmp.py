@@ -7,7 +7,7 @@ import asyncio
 import ipaddress
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from pysnmp.hlapi.v3arch.asyncio import (
@@ -653,11 +653,25 @@ async def _base_ports(s: _Session) -> dict[int, int]:
             if len(index) == 1 and isinstance(value, int)}
 
 
-async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int, int]) -> tuple[list[FdbEntry], dict[int, int]]:
+async def _dot1d_fdb(s: _Session, base_ports: dict[int, int]) -> list[tuple[str, int]]:
+    """Righe imparate della BRIDGE-MIB (senza VLAN): (MAC, ifIndex)."""
+    ports = await s.walk(DOT1D_TP_FDB_PORT)
+    status = await s.walk(DOT1D_TP_FDB_STATUS) if ports else {}
+    rows = []
+    for index, port in ports.items():
+        mac = _mac_from_index(index)
+        if_index = base_ports.get(port) if isinstance(port, int) else None
+        if mac is not None and if_index is not None and status.get(index, FDB_LEARNED) == FDB_LEARNED:
+            rows.append((mac, if_index))
+    return rows
+
+
+async def _bridge(s: _Session, base_ports: dict[int, int],
+                  port_vlans: dict[int, int]) -> tuple[list[FdbEntry], dict[int, int], bool]:
     """Tabella MAC: prima Q-BRIDGE (con la VLAN), altrimenti BRIDGE-MIB (VLAN presa da port_vlans, es. Cisco).
-    Ritorna anche il PVID delle porte."""
+    Ritorna anche il PVID delle porte e se la tabella veniva da Q-BRIDGE."""
     if not base_ports:
-        return [], {}
+        return [], {}, False
     pvids = {base_ports[index[0]]: value for index, value in (await s.walk(DOT1Q_PVID)).items()
              if len(index) == 1 and index[0] in base_ports and isinstance(value, int)}
 
@@ -676,13 +690,40 @@ async def _bridge(s: _Session, base_ports: dict[int, int], port_vlans: dict[int,
             if len(index) == 7:
                 add(_mac_from_index(index[1:]), port, q_status.get(index), index[0])
     else:
-        ports = await s.walk(DOT1D_TP_FDB_PORT)
-        status = await s.walk(DOT1D_TP_FDB_STATUS) if ports else {}
-        for index, port in ports.items():
-            mac = _mac_from_index(index)
-            if_index = base_ports.get(port) if isinstance(port, int) else None
-            add(mac, port, status.get(index), pvids.get(if_index, port_vlans.get(if_index)))
-    return sorted(entries.values(), key=lambda e: (e.mac, e.if_index, e.vlan or 0)), pvids
+        for mac, if_index in await _dot1d_fdb(s, base_ports):
+            entries.setdefault((mac, if_index, None), FdbEntry(mac=mac, if_index=if_index,
+                                                               vlan=pvids.get(if_index, port_vlans.get(if_index))))
+    return sorted(entries.values(), key=lambda e: (e.mac, e.if_index, e.vlan or 0)), pvids, bool(q_ports)
+
+
+def cisco_fdb_vlans(names: dict[int, str], untagged: dict[int, int], tagged: dict[int, list[int]]) -> list[int]:
+    """VLAN di cui leggere la tabella MAC una per una: quelle usate da qualche porta (access, nativa o permessa sul
+    trunk), tutte se lo switch non dice quali porte hanno quali VLAN. La 1 no: è quella della community normale."""
+    used = {*untagged.values(), *(vid for vids in tagged.values() for vid in vids)}
+    return sorted(vid for vid in names if vid != 1 and (vid in used or not used))
+
+
+async def _cisco_vlan_fdb(s: _Session, vids: list[int]) -> list[FdbEntry]:
+    """Cisco senza Q-BRIDGE: con la community normale la BRIDGE-MIB ha solo la VLAN 1, le altre si leggono una per
+    una con `community@VLAN` (SNMPv3: context `vlan-N`). Se la prima VLAN non risponde lo switch non lo permette
+    (vista SNMP, gruppo v3 senza i context vlan-): ci si ferma lì, con un problema nel log, senza aspettare le altre."""
+    entries: list[FdbEntry] = []
+    answered = False
+    for vid in vids:
+        creds = (replace(s.creds, context=f"vlan-{vid}") if s.creds.version == "v3"
+                 else replace(s.creds, community=f"{s.creds.community or ''}@{vid}"))
+        sub = _Session(s.engine, s.host, creds, s.transport)
+        sub.section = f"tabella MAC della VLAN {vid}"
+        base_ports = await _base_ports(sub)
+        rows = await _dot1d_fdb(sub, base_ports) if base_ports else []
+        for problem in sub.problems:
+            if problem not in s.problems:
+                s.problems.append(problem)
+        if sub.problems and not answered:
+            break
+        answered = True
+        entries.extend(FdbEntry(mac=mac, if_index=if_index, vlan=vid) for mac, if_index in rows)
+    return entries
 
 
 async def _qbridge_tagged(s: _Session, base_ports: dict[int, int]) -> dict[int, list[int]]:
@@ -795,7 +836,12 @@ async def _read_host(s: _Session, system: dict[str, Any]) -> HostData:
     cisco_names, cisco_untagged, cisco_tagged = await _cisco_vlans(s)
     s.section = "tabella MAC"
     base_ports = await _base_ports(s)
-    data.fdb, pvids = await _bridge(s, base_ports, cisco_untagged)
+    data.fdb, pvids, qbridge = await _bridge(s, base_ports, cisco_untagged)
+    if cisco_names and base_ports and not qbridge:
+        seen = {(e.mac, e.if_index, e.vlan) for e in data.fdb}
+        more = [e for e in await _cisco_vlan_fdb(s, cisco_fdb_vlans(cisco_names, cisco_untagged, cisco_tagged))
+                if (e.mac, e.if_index, e.vlan) not in seen]
+        data.fdb = sorted(data.fdb + more, key=lambda e: (e.mac, e.if_index, e.vlan or 0))
     s.section = "VLAN"
     data.port_vlans = {**cisco_untagged, **pvids}
     data.port_tagged = {**cisco_tagged, **await _qbridge_tagged(s, base_ports)}
