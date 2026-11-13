@@ -593,12 +593,12 @@ hand.
 ### Installations without the script (manual updates)
 
 Without the script, for example on a PC with Docker Desktop, the page has no buttons or settings but a **How to
-update** section: type the **NetMap folder** (the one with `docker-compose.yml` and `.env`) and, if you downloaded it
-as a zip, the **Folder extracted from the zip** of the new version; the commands below fill themselves in
-(PowerShell on Windows, terminal elsewhere) and **Copy the commands** puts them on the clipboard. They back up the
-database to `backups/manual-prima-aggiornamento.dump`, install the new version (`git pull`, copying the zip files
-without touching `.env` and data, or `docker compose pull` with the images) and restart NetMap; database migrations
-run by themselves. The folders you type are saved for your user.
+update** section: type the **NetMap folder** (the one with `docker-compose.yml` and `.env`); the commands below fill
+themselves in (PowerShell on Windows, terminal elsewhere) and **Copy the commands** puts them on the clipboard. They
+back up the database to `backups/manual-prima-aggiornamento.dump`, install the new version (`git pull`,
+`docker compose pull` with the images or, if you downloaded it as a zip, the zip of the latest stable version, which
+the commands download from GitHub by themselves and copy over the old files without touching `.env` and data) and
+restart NetMap; database migrations run by themselves. The folder you type is saved for your user.
 
 **Back up now** and restores on the Backup page need the script too: without it, back up with the commands in this
 section. If the script ran but has been silent for more than a week (folder copied from a server, stopped timer),

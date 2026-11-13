@@ -19,6 +19,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   link piccoli sotto il pulsante Accedi) e c'è il pulsante tondo del tema chiaro/scuro in alto a destra, con il
   cerchio che si allarga come nell'app.
 
+- Aggiornamento a mano di un'installazione da zip (Amministrazione → Aggiornamenti, **Come aggiornare**): i comandi
+  scaricano ed estraggono da soli l'ultima versione stabile da GitHub, in PowerShell come nel terminale. Non serve
+  più scaricare lo zip e scrivere la cartella in cui l'hai estratto.
+
 ### Correzioni
 
 - La lingua scelta nella pagina di accesso restava solo fino all'accesso: poi tornava quella salvata per l'utente.

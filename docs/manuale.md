@@ -600,12 +600,12 @@ scaricato da GitHub; su Docker per Linux o su Docker Desktop per Windows o Mac; 
 ### Installazioni senza lo script (aggiornamento a mano)
 
 Se lo script non c'è, per esempio su un PC con Docker Desktop, la pagina non ha pulsanti né impostazioni ma la
-sezione **Come aggiornare**: scrivi la **Cartella di NetMap** (quella con `docker-compose.yml` e `.env`) e, se l'hai
-scaricato come zip, la **Cartella estratta dallo zip** della versione nuova; i comandi sotto si completano da soli
-(per PowerShell su Windows, per il terminale altrove) e **Copia i comandi** li mette negli appunti. Fanno un backup
-del database in `backups/manual-prima-aggiornamento.dump`, poi installano la versione nuova (`git pull`, la copia dei
-file dello zip senza toccare `.env` e dati, oppure `docker compose pull` con le immagini) e riavviano NetMap; le
-migration del database partono da sole. Le cartelle scritte restano salvate per il tuo utente.
+sezione **Come aggiornare**: scrivi la **Cartella di NetMap** (quella con `docker-compose.yml` e `.env`); i comandi
+sotto si completano da soli (per PowerShell su Windows, per il terminale altrove) e **Copia i comandi** li mette negli
+appunti. Fanno un backup del database in `backups/manual-prima-aggiornamento.dump`, poi installano la versione nuova
+(`git pull`, `docker compose pull` con le immagini oppure, se l'hai scaricato come zip, lo zip dell'ultima versione
+stabile, che i comandi scaricano da GitHub da soli e copiano sopra i file vecchi senza toccare `.env` e dati) e
+riavviano NetMap; le migration del database partono da sole. La cartella scritta resta salvata per il tuo utente.
 
 Anche **Backup ora** e il ripristino nella pagina Backup servono allo script: senza, il backup si fa con i comandi di
 questa sezione. Se lo script ha girato ma tace da più di una settimana (cartella copiata da un server, timer fermo),
