@@ -1,14 +1,24 @@
 # NetMap
 
-Documentazione di rete in stile NetBox: device, porte, cavi, VLAN, subnet e mappe di rete
-automatiche o disegnate a mano.
+Documentazione di rete in stile NetBox: device, porte, cavi, VLAN, subnet e mappe di rete automatiche o disegnate
+a mano, con una scansione SNMP che trova da sola apparati e collegamenti. Interfaccia in italiano e in inglese, con
+tema chiaro e scuro. Ultima versione nelle [release](https://github.com/tommipute/netmap/releases), novità di ogni
+versione in [CHANGELOG.md](CHANGELOG.md).
 
-- **Fase 1** ✔ modello dati + API REST
-- **Fase 2** ✔ interfaccia web: elenchi e moduli per tutto, scheda device con le porte, subnet con IP liberi, mappe,
-  import/export dei device (CSV ed Excel), import da NetBox
-- **Fase 3** ✔ scansione SNMP (v1, v2c e v3: interfacce, IP, seriale, vicini LLDP/CDP) con modifiche da approvare
-- **Fase 4** ✔ stato live sulla mappa e ricerca "dov'è collegato questo PC" (tabelle MAC e ARP), login con ruoli
-  (anche con Active Directory), storico delle modifiche, avvisi, backup
+- **Panoramica**: la pagina iniziale con chi non risponde, le modifiche degli ultimi giorni, device per ruolo e per
+  sede, le subnet più piene e l'avviso quando c'è una versione nuova.
+- **Inventario**: sedi, posizioni e rack (con la vista del rack), device con porte e membri dello stack, cavi, campi
+  personalizzati; subnet con gli IP liberi, VLAN e VRF.
+- **Mappe** automatiche per livello o disegnate a mano: cavi colorati per tipo, vista per VLAN, export PNG e SVG.
+- **Scansione SNMP** (v1, v2c e v3): porte, IP, VLAN, seriale e stack, vicini LLDP/CDP (i cavi) e tipo di
+  apparato diventano proposte da approvare; niente cambia da solo sui dati inseriti a mano.
+- **Dov'è collegato?**: cerchi un PC per MAC, IP o nome e trovi switch, porta e VLAN (tabelle MAC e ARP; sugli
+  switch Cisco VLAN per VLAN).
+- **Stato live e avvisi**: ping e SNMP sui device, porte su e giù, avvisi via email, webhook e Telegram.
+- **Import** da CSV o Excel, NetBox, Zabbix, LibreNMS, Observium, PRTG, GLPI e Lansweeper; export CSV e JSON.
+- **Utenti** con ruoli, anche da Active Directory; storico di ogni modifica; token API e webhook delle modifiche.
+- **Backup** ogni notte con copie su NAS o SFTP, e **aggiornamenti** dalla pagina Amministrazione, con il ritorno
+  da solo alla versione di prima se qualcosa va storto.
 
 **Manuale d'uso**: [docs/manuale.md](docs/manuale.md) · English: [docs/manual.md](docs/manual.md)
 (nell'app: menu utente → Manuale).
@@ -31,8 +41,8 @@ docker run --rm ghcr.io/tommipute/netmap-backend:stable cat /app/deploy/install.
 sudo bash install-netmap.sh                       # oppure: --address https://netmap.azienda.local
 ```
 
-Finché non esce la 1.0.0 ci sono solo pre-release: usa `netmap-backend:beta` nel primo comando e aggiungi
-`--channel beta` al secondo. Serve Docker con il plugin compose (per esempio da https://get.docker.com).
+Serve Docker con il plugin compose (per esempio da https://get.docker.com). Per provare anche le versioni di prova
+(rc, beta) usa `netmap-backend:beta` nel primo comando e aggiungi `--channel beta` al secondo.
 
 L'installer (`deploy/install.sh`, anche allegato a ogni [release su GitHub](https://github.com/tommipute/netmap/releases)) installa `jq` se manca, scarica
 l'ultima versione stabile, crea `/opt/netmap` con `.env` (password del database casuale), avvia NetMap dietro
@@ -43,7 +53,7 @@ HTTPS e installa l'updater (timer systemd). Opzioni: `--address`, `--tls`, `--di
 |---|---|
 | Interfaccia | `https://<server>` (al primo accesso si crea l'amministratore); http reindirizza a https |
 | Impostazioni | `/opt/netmap/.env` (indirizzo, certificato, porte), poi `docker compose up -d` |
-| Aggiornamenti e backup | NetMap → Amministrazione (canale stabile o beta) |
+| Aggiornamenti e backup | NetMap → Amministrazione (canale stabile o beta; l'aggiornamento automatico si accende lì) |
 | Da tenere al sicuro | `.env`, `data/` (chiave delle credenziali SNMP) e `backups/` |
 
 **Certificato** (`NETMAP_TLS` nel `.env`, letto da `deploy/Caddyfile`):
@@ -72,7 +82,7 @@ docker compose exec api python -m app.seed    # facoltativo: rete di esempio con
 | API e documentazione (Swagger) | http://localhost:8001/docs |
 | Postgres | `localhost:5433` |
 
-Le porte sono diverse dai default così l'app può girare insieme all'app inventory.
+Le porte sono diverse da quelle di solito usate (5173, 8000, 5432), così NetMap può girare accanto ad altre app.
 
 Il primo avvio richiede qualche minuto: il container `web` scarica le dipendenze del frontend
 e il container `api` crea le tabelle applicando le migration di `backend/alembic/versions/`.
@@ -111,8 +121,9 @@ LibreNMS, Observium, PRTG, GLPI e Lansweeper.
 
 1. **Profili SNMP**: crea le credenziali (community per v1 e v2c, utente e chiavi per v3). Vengono salvate cifrate
    e non si possono rileggere: in modifica lascia vuoto il campo per non cambiarle.
-2. **Scansioni**: indica gli indirizzi (uno per riga: `10.10.99.0/24`, `10.10.98.1-20`, `10.10.1.1`),
-   i profili da provare in ordine, la sede dove mettere i device nuovi e, se vuoi, ogni quante ore ripeterla.
+2. **Scansioni**: indica gli indirizzi (`10.10.99.0/24`, `10.10.98.1-20`, `10.10.1.1`: Invio, virgola o spazio
+   li trasformano in bolle), i profili da provare in ordine, la sede dove mettere i device nuovi e, se vuoi, ogni
+   quante ore ripeterla. Con la lente **Prova indirizzi** controlli prima community e ACL, senza salvare niente.
 3. Apri la scansione e premi **Avvia scansione**: il servizio `worker` la esegue in pochi secondi;
    nello storico trovi il log di ogni esecuzione.
 4. In **Da approvare** (il numero accanto alla voce di menu) vedi cosa ha trovato, raggruppato per device:
@@ -164,7 +175,7 @@ docker compose exec api python -m app.lab elenco    # apparati e IP
 | Apparato | IP | Cosa simula |
 |---|---|---|
 | fw-lab-01 | 172.31.250.10 | FortiGate 100F, collegato al core (LLDP) |
-| core-lab-01 | 172.31.250.11 | Catalyst 9300, VLAN 10/20/99, tabella ARP di PC, telefono, stampante, AP |
+| core-lab-01 | 172.31.250.11 | Catalyst 9300, VLAN 10/20/99 (tabella MAC per VLAN), tabella ARP di PC, telefono, stampante, AP |
 | sw-lab-p1 | 172.31.250.21 | HPE 2930F: due PC e una stampante |
 | sw-lab-p2 | 172.31.250.22 | HPE 2930F: telefono IP con un PC dietro (due MAC sulla stessa porta) |
 | sw-lab-p3 | 172.31.250.23 | Catalyst 1000 visto solo via CDP: un PC e un access point con tre client Wi-Fi |
@@ -201,8 +212,11 @@ Versione mostrata dalle installazioni con git: quella della release (tag `vX.Y.Z
 l'ultima release più i commit successivi (`1.0.0+3`). Quello che segue vale per tutte e tre; dove si parla di
 git e deploy key riguarda solo docker e vm.
 
-Sul server di produzione NetMap si aggiorna da GitHub con lo script `updater/updater.sh`, che gira **sull'host**
-(fuori dai container) ogni minuto grazie a un timer systemd. L'app non si aggiorna da sola: niente socket Docker nel
+Sul server NetMap si aggiorna con lo script `updater/updater.sh`, che gira **sull'host** (fuori dai container) ogni
+minuto grazie a un timer systemd. L'installer lo mette da solo; con il repo git si installa a mano (passo 2 qui
+sotto). Senza lo script, per esempio con Docker Desktop su Windows o Mac, la pagina Aggiornamenti mostra i comandi per
+aggiornare a mano. L'aggiornamento automatico è spento finché non lo accendi nella pagina: prima NetMap controlla e
+mostra le versioni nuove, senza installarle. L'app non si aggiorna da sola: niente socket Docker nel
 container e niente credenziali GitHub nell'app. App e script si parlano solo con la cartella `updater-data/`,
 montata nel container `api` come `/updater-data`:
 
@@ -360,7 +374,7 @@ mandarlo a qualcuno. Dal server, senza l'app: `updater/updater.sh diagnostics > 
 docker compose exec api pytest
 ```
 
-Comprendono una scansione vera contro due switch simulati (snmpsim, già installato nell'immagine).
+Comprendono una scansione vera contro tre switch simulati (snmpsim, già installato nell'immagine).
 
 Su GitHub il workflow **Test** (`.github/workflows/test.yml`) gira a ogni push e pull request: pytest,
 `alembic check` (migration allineate ai modelli), build dell'interfaccia, sintassi degli script e file compose.
@@ -399,17 +413,21 @@ backend/
     schemas/     validazione input/output
     api/         crud.py generatore endpoint, routes.py elenco entità, extra.py endpoint speciali
     services/    rules.py regole di coerenza, ipam.py, topology.py (porte, topologia, mappe, ricerca),
-                 device_import_export.py
+                 endpoints.py (dov'è collegato), alerts.py e mail.py (avvisi), netbox.py e connectors.py (import),
+                 updater.py e offsite.py (aggiornamenti e copie dei backup), directory.py (Active Directory)
     discovery/   scansione SNMP: lettura (snmp.py), confronto (planner.py), applicazione, coda (runner.py)
-    worker.py    processo che esegue le scansioni
+    lab/         rete di laboratorio con apparati finti (snmpsim)
+    worker.py    processo che esegue scansioni, import, webhook e copie dei backup
+    monitor.py   processo dello stato live e degli avvisi
     seed.py      dati di esempio
   alembic/       migration
   tests/
 frontend/
   src/
     resources.jsx   colonne e campi di ogni entità: per aggiungere un campo al modulo basta qui
-    pages/          elenco generico, scheda device, subnet, ricerca, editor mappa, scansioni, da approvare
-    components/     moduli, selettore porte, finestre
+    pages/          Panoramica, elenco generico, scheda device, subnet, rack, editor mappa, scansioni, da approvare…
+    components/     moduli, selettore porte, finestre, menu
+    i18n/           traduzione inglese (le stringhe italiane sono le chiavi)
     map/            nodo device, disposizione automatica, colori dei cavi
 ```
 
