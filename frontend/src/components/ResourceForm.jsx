@@ -26,6 +26,7 @@ function initialValues(fields, item, preset) {
     const source = item ? item[f.name] : preset[f.name] ?? f.default
     if (f.type === 'secret' || f.type === 'secretText') values[f.name] = '' // i segreti non tornano mai dall'API
     else if (f.type === 'lines') values[f.name] = (source || []).join('\n')
+    else if (f.type === 'tags') values[f.name] = (source || []).map(String) // l'API può dare numeri (ifType delle regole SNMP)
     else values[f.name] = source ?? emptyValue(f)
   }
   return values

@@ -14,6 +14,8 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ### Correzioni
 
+- Una regola SNMP con delle porte da ignorare per ifType non si salvava più dopo la creazione: "Salva modifiche"
+  non faceva niente.
 - Una regola SNMP corregge anche i modelli creati prima di lei: il produttore provvisorio ("Enterprise 52642")
   prende il nome della regola, o il modello passa al produttore che c'è già con quel nome. Ai device creati dalla
   scansione senza ruolo, **Da approvare** propone il ruolo del tipo riconosciuto; prima restavano senza ruolo.
