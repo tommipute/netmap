@@ -173,6 +173,7 @@ class DiscoveryRunRead(BaseModel):
     changes_proposed: int
     changes_applied: int
     log: str = ""
+    host: str | None = None  # rilettura di un solo device
 
 
 class DiscoveryChangeRead(BaseModel):
@@ -271,11 +272,22 @@ class SnmpRuleTestResult(BaseModel):
     ports: list[SnmpRulePortChange] = Field(default_factory=list, description="Porte rinominate o ignorate (after null)")
 
 
+class SnmpRuleRef(BaseModel):
+    id: int
+    name: str
+    builtin: bool = False
+    updated_at: datetime | None = None  # cambiata dopo la lettura: vale dalla prossima
+
+
 class SnmpReportRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     read_at: datetime
     run_id: int | None = None
     data: SnmpReportData
+    # Regole attive che valgono adesso per l'apparato (sysObjectID e descrizione letti): diverse da data.rules se una
+    # regola è nuova o cambiata dopo la lettura
+    rules_now: list[SnmpRuleRef] = []
+    host_run: DiscoveryRunRead | None = None  # rilettura in coda o in corso
 
 
 class ProbeFound(BaseModel):

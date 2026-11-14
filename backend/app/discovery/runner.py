@@ -12,7 +12,7 @@ from app.discovery import snmp
 from app.discovery.apply import APPLY_ORDER, ApplyError, apply_change
 from app.discovery.planner import Planner, Proposal
 from app.discovery.report import build_report
-from app.discovery.targets import TargetError, expand_targets
+from app.discovery.targets import TargetError, contains, expand_targets
 from app.discovery import snmp_rules
 from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpProfile, SnmpReport, SnmpRule
 from app.models.enums import ChangeStatus, RunStatus
@@ -228,12 +228,13 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
     job = db.get(DiscoveryJob, run.job_id)
     run.status, run.started_at = RunStatus.RUNNING.value, run.started_at or now()
     try:
-        hosts = expand_targets(job.targets, settings.discovery_max_hosts)
+        hosts = [run.host] if run.host else expand_targets(job.targets, settings.discovery_max_hosts)
         credentials = load_credentials(db, job.profile_ids)
         if not credentials:
             raise RunError("Il job non ha profili SNMP validi")
         run.hosts_total = len(hosts)
-        _log(run, f"Scansione di {len(hosts)} indirizzi con i profili: {', '.join(c.name for c in credentials)}")
+        _log(run, (f"Rilettura del solo {run.host}" if run.host else f"Scansione di {len(hosts)} indirizzi")
+             + f" con i profili: {', '.join(c.name for c in credentials)}")
         db.commit()
 
         rules = [snmp_rules.compile_rule(r) for r in load_rules(db)]
@@ -265,8 +266,11 @@ def execute_run(db: Session, run_id: int, collector: Collector | None = None) ->
                 _log(run, f"{hd.host}: errore durante l'elaborazione ({exc})")
             db.commit()
 
-        # Tabelle MAC e ARP di tutti gli switch insieme: servono per scartare gli uplink
-        if any(hd.fdb or hd.arp for hd in results):
+        # Tabelle MAC e ARP di tutti gli switch insieme: servono per scartare gli uplink. Con un solo switch gli uplink
+        # verso gli altri non si riconoscono e i PC finirebbero sulle porte sbagliate: si aspetta la scansione completa.
+        if run.host and any(hd.fdb or hd.arp for hd in results):
+            _log(run, "Tabelle MAC e ARP: non aggiornate, servono tutti gli switch del job (scansione completa)")
+        elif any(hd.fdb or hd.arp for hd in results):
             savepoint = db.begin_nested()
             try:
                 located = update_endpoints(db, results, now())
@@ -304,11 +308,20 @@ def active_run(db: Session, job_id: int) -> DiscoveryRun | None:
     ).first()
 
 
-def enqueue(db: Session, job: DiscoveryJob) -> DiscoveryRun:
-    run = DiscoveryRun(job_id=job.id, status=RunStatus.QUEUED.value, requested_at=now(), log="")
+def enqueue(db: Session, job: DiscoveryJob, host: str | None = None) -> DiscoveryRun:
+    run = DiscoveryRun(job_id=job.id, status=RunStatus.QUEUED.value, requested_at=now(), log="", host=host)
     db.add(run)
     db.commit()
     return run
+
+
+def job_for_report(db: Session, report: SnmpReport) -> DiscoveryJob | None:
+    """Job con cui rileggere un device: quello dell'ultima lettura, altrimenti il primo che contiene il suo indirizzo."""
+    run = db.get(DiscoveryRun, report.run_id) if report.run_id else None
+    if run is not None:
+        return db.get(DiscoveryJob, run.job_id)
+    jobs = db.scalars(select(DiscoveryJob).order_by(DiscoveryJob.enabled.desc(), DiscoveryJob.id))
+    return next((j for j in jobs if any(contains(t, report.host) for t in j.targets)), None)
 
 
 def schedule_due_jobs(db: Session, current: datetime | None = None) -> int:
@@ -319,7 +332,8 @@ def schedule_due_jobs(db: Session, current: datetime | None = None) -> int:
     for job in jobs:
         if active_run(db, job.id):
             continue
-        last = _aware(db.scalar(select(func.max(DiscoveryRun.requested_at)).where(DiscoveryRun.job_id == job.id)))
+        last = _aware(db.scalar(select(func.max(DiscoveryRun.requested_at))
+                                .where(DiscoveryRun.job_id == job.id, DiscoveryRun.host.is_(None))))  # le riletture non contano
         if last is None or last + timedelta(hours=job.interval_hours) <= current:
             enqueue(db, job)
             queued += 1

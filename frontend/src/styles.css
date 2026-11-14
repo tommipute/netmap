@@ -1120,6 +1120,8 @@ details.directory-test:not([open]) > summary, details.disclosure:not([open]) > s
   padding: 10px 14px; border: 1px dashed var(--line); border-radius: var(--radius); font-size: 13px;
 }
 .snmp-report__rule > span { flex: 1 1 320px; }
+.snmp-report__rule--pending { border-style: solid; border-color: var(--accent); }
+.rescan-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .snmp-report__notes { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .snmp-report__note--warn { color: var(--warn); }
 .snmp-report .hint { margin: 0; }

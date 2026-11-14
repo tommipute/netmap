@@ -340,3 +340,57 @@ def test_prova_di_pochi_indirizzi(client, session_factory, setup, monkeypatch):
     assert "Rispondono con un errore (profilo Lab v2c: utente SNMPv3 sconosciuto sull'apparato): 10.99.0.3" in log
     assert "Non rispondono né al ping né a SNMP: 3 indirizzi" in log
     assert "non lette: tabella MAC: nessuna risposta" in log
+
+
+def test_rileggi_un_solo_device(client, setup, session_factory):
+    """"Rileggi ora": solo l'indirizzo del device, con il job dell'ultima lettura; MAC e ARP aspettano il job intero."""
+    from app.discovery.targets import contains
+
+    job_id = setup["job"]["id"]
+    scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))
+    approve_all(client)
+    sw2 = device_named(client, "sw-sim-02")
+    manual = create(client, "/devices", {"name": "a-mano", "site_id": setup["site"]["id"]})
+    assert client.post(f"/api/devices/{manual['id']}/rescan").status_code == 409  # mai letto
+
+    run = client.post(f"/api/devices/{sw2['id']}/rescan")
+    assert run.status_code == 202 and run.json()["host"] == SW2_HOST and run.json()["job_id"] == job_id
+    assert client.post(f"/api/devices/{sw2['id']}/rescan").status_code == 409  # già in coda
+    assert client.post(f"/api/discovery-jobs/{job_id}/run").status_code == 409
+    assert client.get(f"/api/devices/{sw2['id']}/snmp-report").json()["host_run"]["id"] == run.json()["id"]
+
+    seen = []
+    with session_factory() as db:
+        assert schedule_due_jobs(db) == 0  # c'è la rilettura in coda
+        done = execute_run(db, run.json()["id"],
+                           collector=lambda hosts, creds: seen.append(hosts) or [host_data(SW2, SW2_HOST, 1, "Lab v2c")])
+        assert done.status == "done" and done.hosts_total == 1
+        assert "Rilettura del solo 10.99.0.2" in done.log and "Tabelle MAC e ARP: non aggiornate" in done.log
+    assert seen == [[SW2_HOST]]
+    assert client.get(f"/api/devices/{sw2['id']}/snmp-report").json()["host_run"] is None
+
+    # La rilettura non conta come esecuzione del job per la pianificazione
+    client.patch(f"/api/discovery-jobs/{job_id}", json={"interval_hours": 1})
+    with session_factory() as db:
+        for r in db.scalars(select(DiscoveryRun).where(DiscoveryRun.host.is_(None))):
+            r.requested_at = now() - timedelta(hours=2)
+        db.commit()
+        assert schedule_due_jobs(db) == 1
+
+    assert contains("10.99.0.0/29", SW2_HOST) and contains("10.99.0.1-10.99.0.3", SW2_HOST)
+    assert not contains("10.99.1.0/24", SW2_HOST) and not contains("fd00::1-fd00::9", SW2_HOST)
+
+
+def test_regole_che_valgono_adesso(client, setup, session_factory):
+    """La scheda dice subito quali regole valgono per il device, anche prima della scansione successiva."""
+    scan(client, session_factory, setup["job"]["id"], (SW2, SW2_HOST))
+    approve_all(client)
+    sw2 = device_named(client, "sw-sim-02")
+    rule = create(client, "/snmp-rules", {"name": "HP di prova", "match_object_id": SW2["system"]["object_id"],
+                                          "serial_oid": "1.3.6.1.4.1.11.9.0"})
+    create(client, "/snmp-rules", {"name": "Altra marca", "match_object_id": "1.3.6.1.4.1.9"})
+    report = client.get(f"/api/devices/{sw2['id']}/snmp-report").json()
+    assert report["data"]["rules"] == [] and [(r["id"], r["name"]) for r in report["rules_now"]] == [(rule["id"], "HP di prova")]
+    assert report["rules_now"][0]["updated_at"]
+    client.patch(f"/api/snmp-rules/{rule['id']}", json={"enabled": False})
+    assert client.get(f"/api/devices/{sw2['id']}/snmp-report").json()["rules_now"] == []

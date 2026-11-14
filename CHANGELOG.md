@@ -11,6 +11,9 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Scheda **Cosa ho letto via SNMP**: mostra anche la descrizione SNMP e, agli amministratori, cosa manca o non torna
   (modello, produttore sconosciuto, tipo, righe scartate) con il pulsante **Crea una regola SNMP**, che apre una
   regola già compilata con il sysObjectID dell'apparato e con indirizzo e profilo pronti per la **Prova**.
+- Pagina del device: **Rileggi ora** rilegge via SNMP solo quel device, con il job dell'ultima lettura, e dice
+  com'è andata; le tabelle MAC e ARP restano alla scansione completa. La scheda "Cosa ho letto" avvisa quando le
+  regole SNMP sono cambiate dopo la lettura e dice quali valgono adesso.
 
 ### Correzioni
 

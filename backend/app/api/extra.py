@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.api.crud import apply_column_filters
 from app.database import get_db
-from app.models import Device, MapBackground, NetworkMap, Prefix, Rack, SnmpReport
+from app.discovery import runner, snmp_rules
+from app.models import Device, DiscoveryRun, MapBackground, NetworkMap, Prefix, Rack, SnmpReport
+from app.models.enums import RunStatus
 from app.schemas.common import Page
 from app.schemas.discovery import SnmpReportRead
 from app.schemas.ipam import IPAddressRead
@@ -141,7 +143,18 @@ def get_ports(device_id: int, db: Session = Depends(get_db)):
             summary="Cosa ha letto l'ultima scansione SNMP dal device (null se non è mai stato letto)")
 def get_snmp_report(device_id: int, db: Session = Depends(get_db)):
     _get_or_404(db, Device, device_id)
-    return db.scalars(select(SnmpReport).where(SnmpReport.device_id == device_id)).first()
+    report = db.scalars(select(SnmpReport).where(SnmpReport.device_id == device_id)).first()
+    if report is None:
+        return None
+    rows = {r.id: r for r in runner.load_rules(db)}
+    rules = [snmp_rules.compile_rule(r) for r in rows.values()]
+    found = snmp_rules.matching(rules, report.data.get("sys_object_id"), report.data.get("sys_descr"))
+    active = db.scalars(select(DiscoveryRun).where(
+        DiscoveryRun.host == report.host, DiscoveryRun.status.in_([RunStatus.QUEUED.value, RunStatus.RUNNING.value]),
+    ).order_by(DiscoveryRun.id.desc())).first()
+    return {"read_at": report.read_at, "run_id": report.run_id, "data": report.data, "host_run": active,
+            "rules_now": [{"id": r.order, "name": r.name, "builtin": r.builtin, "updated_at": rows[r.order].updated_at}
+                          for r in found]}
 
 
 @router.get("/devices/{device_id}/neighbors", response_model=list[Neighbor], tags=["Device"],

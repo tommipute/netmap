@@ -437,7 +437,17 @@ La sezione compare dalla prima scansione che legge il device; per un device nuov
 Gli amministratori vedono anche cosa manca o non torna (modello, produttore che NetMap non conosce e chiama
 "Enterprise" con un numero, tipo di apparato, righe della tabella MAC o vicini LLDP scartati) e il pulsante **Crea una
 regola SNMP**: apre una regola nuova già compilata con il sysObjectID di quell'apparato e, in fondo, con il suo
-indirizzo e il profilo per la **Prova**. Compili quello che manca, provi, salvi e rilanci la scansione (vedi sotto).
+indirizzo e il profilo per la **Prova**. Compili quello che manca, provi, salvi e rileggi il device (vedi sotto).
+
+Se le regole SNMP che valgono per l'apparato sono cambiate dopo l'ultima lettura (una regola nuova, modificata o
+spenta), la sezione lo dice e indica quelle che valgono adesso: contano dalla lettura successiva.
+
+**Rileggi ora** (l'icona dell'antenna in alto nella pagina del device, oppure il pulsante nella sezione, per chi può
+modificare) rilegge via SNMP solo quel device, con il job e i profili dell'ultima lettura, senza aspettare la
+scansione di tutto il job. Le modifiche si applicano o vanno in **Da approvare** come in una scansione normale, e in
+alto compare com'è andata. Le tabelle MAC e ARP ("Dov'è collegato?") invece si aggiornano solo con la scansione
+completa del job: servono tutti gli switch insieme per riconoscere gli uplink. Nello storico del job la rilettura
+compare come una scansione di un solo indirizzo e non sposta la scansione pianificata.
 
 ### Regole SNMP
 

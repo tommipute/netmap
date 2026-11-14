@@ -434,7 +434,17 @@ The section appears from the first scan that reads the device; for a new device,
 Administrators also see what is missing or wrong (model, a manufacturer NetMap doesn't know and calls "Enterprise"
 with a number, device type, MAC table rows or LLDP neighbours that were discarded) and the **Create an SNMP rule**
 button: it opens a new rule already filled in with that device's sysObjectID and, at the bottom, with its address and
-profile for the **Test**. Fill in what is missing, test, save and run the scan again (see below).
+profile for the **Test**. Fill in what is missing, test, save and read the device again (see below).
+
+If the SNMP rules that apply to the device changed after the last reading (a new, edited or disabled rule), the
+section says so and shows the ones that apply now: they count from the next reading.
+
+**Read again now** (the antenna icon at the top of the device page, or the button in the section, for users who can
+edit) reads only that device over SNMP again, with the job and profiles of the last reading, without waiting for the
+scan of the whole job. Changes are applied or go to **To approve** as in a normal scan, and the outcome appears at
+the top. The MAC and ARP tables ("Where is it connected?") are updated only by the full scan of the job instead:
+all the switches together are needed to recognise the uplinks. In the job history the reading shows up as a scan of
+a single address and does not move the scheduled scan.
 
 ### SNMP rules
 

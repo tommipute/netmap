@@ -53,7 +53,7 @@ const NOTES = {
  * Cosa ha letto la scansione da un apparato, tabella per tabella, con gli adattamenti e cosa non si è letto.
  * `compact` (prova indirizzi, dove i problemi sono già scritti sopra): senza la colonna delle MIB e senza i problemi.
  */
-export function SnmpReportBody({ data, compact = false }) {
+export function SnmpReportBody({ data, compact = false, report = null, onChanged, onRescan, rescanning = false }) {
   const notes = Object.entries(data.notes || {}).filter(([key]) => NOTES[key])
   const model = MODEL_SOURCES[data.model_source]
   return (
@@ -83,7 +83,8 @@ export function SnmpReportBody({ data, compact = false }) {
           <div className="facts__wide"><dt>{t('Descrizione SNMP')}</dt><dd className="snmp-report__descr">{data.sys_descr}</dd></div>
         )}
       </dl>
-      {!compact && <RuleHint data={data} />}
+      {report && <RulesChanged report={report} onRescan={onRescan} rescanning={rescanning} />}
+      {!compact && <RuleHint data={data} onSaved={onChanged} />}
       <table className="table table--dense snmp-report__table">
         <thead>
           <tr><th>{t('Dati')}</th><th>{t('Righe lette')}</th>{!compact && <th>{t('Da')}</th>}</tr>
@@ -135,7 +136,7 @@ function missingOf(data) {
 }
 
 /** Solo amministratori: dice cosa si può correggere e apre una regola SNMP per questo apparato, con la prova pronta. */
-function RuleHint({ data }) {
+function RuleHint({ data, onSaved }) {
   const { isAdmin } = useAuth()
   const [preset, setPreset] = useState(null)
   if (!isAdmin || !data.sys_object_id) return null
@@ -164,13 +165,38 @@ function RuleHint({ data }) {
           : t('Qualcosa non torna? Puoi correggerlo con una regola SNMP, che vale per tutti gli apparati di questo tipo.')}
       </span>
       <button type="button" className="btn btn--sm" onClick={open}>{t('Crea una regola SNMP')}</button>
-      {preset && <ResourceForm resourceKey="snmp-rules" preset={preset} onClose={() => setPreset(null)} onSaved={() => setPreset(null)} />}
+      {preset && <ResourceForm resourceKey="snmp-rules" preset={preset} onClose={() => setPreset(null)} onSaved={() => { setPreset(null); onSaved?.() }} />}
+    </div>
+  )
+}
+
+/** Regole SNMP nuove, cambiate o spente dopo l'ultima lettura: valgono dalla prossima (il pulsante la fa subito). */
+function RulesChanged({ report, onRescan, rescanning }) {
+  const now = report.rules_now || []
+  const used = report.data.rules || []
+  const readAt = new Date(report.read_at)
+  const changed = now.length !== used.length || now.some((r, i) => r.name !== used[i] || new Date(r.updated_at) > readAt)
+  if (!changed) return null
+  const names = now.map((r) => r.name).join(', ')
+  return (
+    <div className="snmp-report__rule snmp-report__rule--pending">
+      <span>
+        {now.length
+          ? tn(now.length, 'Le regole SNMP sono cambiate dopo questa lettura: ora vale {list}. Conta dalla prossima lettura.',
+            'Le regole SNMP sono cambiate dopo questa lettura: ora valgono {list}. Contano dalla prossima lettura.', { list: names })
+          : t('Le regole SNMP sono cambiate dopo questa lettura: ora non ne vale nessuna. Conta dalla prossima lettura.')}
+      </span>
+      {onRescan && (
+        <button type="button" className="btn btn--sm btn--primary" onClick={onRescan} disabled={rescanning}>
+          {rescanning ? t('Rilettura in corso…') : t('Rileggi ora')}
+        </button>
+      )}
     </div>
   )
 }
 
 /** Sezione della pagina del device, chiusa: si apre quando qualcosa non torna. */
-export default function SnmpReport({ report }) {
+export default function SnmpReport({ report, onChanged, onRescan, rescanning }) {
   if (!report) return null
   const { data } = report
   return (
@@ -183,7 +209,7 @@ export default function SnmpReport({ report }) {
           </span>
         </h2>
       </summary>
-      <SnmpReportBody data={data} />
+      <SnmpReportBody data={data} report={report} onChanged={onChanged} onRescan={onRescan} rescanning={rescanning} />
     </details>
   )
 }

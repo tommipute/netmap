@@ -63,6 +63,20 @@ def iter_hosts(target: str) -> Iterator[str]:
         yield str(ipaddress.ip_address(target))
 
 
+def contains(target: str, host: str) -> bool:
+    """L'indirizzo fa parte dell'intervallo (già normalizzato)?"""
+    try:
+        ip = ipaddress.ip_address(host)
+        if "-" in target:
+            start, end = _range(target)
+            return start.version == ip.version and start <= ip <= end
+        if "/" in target:
+            return ip in ipaddress.ip_network(target, strict=False)
+        return ip == ipaddress.ip_address(target)
+    except (ValueError, TargetError):
+        return False
+
+
 def validate_targets(targets: list[str], max_hosts: int) -> list[str]:
     normalized = [normalize_target(t) for t in targets]
     total = sum(count_hosts(t) for t in normalized)

@@ -12,6 +12,7 @@ import { IconButton, IconLink, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import SnmpReport from '../components/SnmpReport'
+import { RescanNotice, useRescan } from '../components/DeviceRescan'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, formatDateTime, formatSpeed, labelOf } from '../options'
 import { t, tn } from '../i18n'
@@ -165,13 +166,21 @@ export default function DevicePage() {
   const navigate = useNavigate()
   const { data: device, error, reload } = useApi(`/devices/${id}`)
   const { data: ports, error: portsError, reload: reloadPorts } = useApi(`/devices/${id}/ports`)
-  const { data: pending } = useApi(`/discovery-changes?device_id=${id}&limit=1`)
+  const { data: pending, reload: reloadPending } = useApi(`/discovery-changes?device_id=${id}&limit=1`)
   const { data: stack, reload: reloadStack } = useApi(`/stack-members?device_id=${id}&limit=100`)
-  const { data: snmpReport } = useApi(`/devices/${id}/snmp-report`)
+  const { data: snmpReport, reload: reloadReport } = useApi(`/devices/${id}/snmp-report`)
   const [dialog, setDialog] = useState(null)
   const [checking, setChecking] = useState(false)
   const { canEdit } = useAuth()
   const customDefinitions = useCustomFields('devices')
+  const rescan = useRescan(id, snmpReport, () => {
+    invalidate()
+    reload()
+    reloadPorts()
+    reloadStack()
+    reloadPending()
+    reloadReport()
+  })
 
   const refresh = () => {
     setDialog(null)
@@ -241,6 +250,10 @@ export default function DevicePage() {
             <IconButton icon="refresh" label={checking ? t('Controllo in corso…') : t("Controlla ora (ping e SNMP sull'IP di management)")}
               className={checking ? 'is-spinning' : ''} onClick={checkNow} disabled={checking} />
           )}
+          {canEdit && snmpReport && (
+            <IconButton icon="radar" label={rescan.active ? t('Rilettura in corso…') : t('Rileggi ora via SNMP (solo questo device)')}
+              className={rescan.active ? 'is-spinning' : ''} onClick={rescan.start} disabled={rescan.active} />
+          )}
           {canEdit && stack?.total === 0 && (
             <IconButton icon="stack" label={t('È uno stack: aggiungi i suoi switch')} onClick={() => setDialog({ kind: 'member' })} />
           )}
@@ -249,6 +262,7 @@ export default function DevicePage() {
         </div>
       </header>
 
+      <RescanNotice run={rescan.run} onClose={rescan.dismiss} />
       {pending?.total > 0 && (
         <p className="notice no-print">
           {tn(pending.total, 'La scansione SNMP ha 1 modifica da approvare per questo device.', 'La scansione SNMP ha {n} modifiche da approvare per questo device.')}{' '}
@@ -396,7 +410,7 @@ export default function DevicePage() {
         )}
       </section>
 
-      <SnmpReport report={snmpReport} />
+      <SnmpReport report={snmpReport} onChanged={reloadReport} onRescan={canEdit ? rescan.start : null} rescanning={rescan.active} />
       <DeviceHistory deviceId={device.id} />
       <PrintFooter />
 

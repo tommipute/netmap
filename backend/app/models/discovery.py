@@ -78,6 +78,8 @@ class DiscoveryRun(Base):
     changes_proposed: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     changes_applied: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     log: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # Rilettura di un solo device ("Rileggi ora" nella sua pagina): solo questo indirizzo invece di quelli del job
+    host: Mapped[str | None] = mapped_column(String(45))
 
 
 class DiscoveryChange(Base):

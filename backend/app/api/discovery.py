@@ -8,7 +8,7 @@ from app.database import get_db
 from app.discovery import runner
 from app.discovery.probe import run_probe
 from app.discovery.targets import expand_targets
-from app.models import DiscoveryChange, DiscoveryJob, DiscoveryRun
+from app.models import Device, DiscoveryChange, DiscoveryJob, DiscoveryRun, SnmpReport
 from app.models.enums import ChangeStatus
 from app.schemas.common import Page
 from app.schemas.discovery import (
@@ -34,6 +34,22 @@ def run_job(job_id: int, db: Session = Depends(get_db)):
     if runner.active_run(db, job.id):
         raise HTTPException(409, "C'è già una scansione in coda o in corso per questo job")
     return runner.enqueue(db, job)
+
+
+@router.post("/devices/{device_id}/rescan", response_model=DiscoveryRunRead, status_code=202, tags=["Device"],
+             summary="Rilegge solo questo device con il job dell'ultima lettura: il worker la avvia entro pochi secondi")
+def rescan_device(device_id: int, db: Session = Depends(get_db)):
+    if db.get(Device, device_id) is None:
+        raise HTTPException(404, "Elemento non trovato")
+    report = db.scalars(select(SnmpReport).where(SnmpReport.device_id == device_id)).first()
+    if report is None:
+        raise HTTPException(409, "Questo device non è mai stato letto da una scansione: aggiungi il suo indirizzo a un job")
+    job = runner.job_for_report(db, report)
+    if job is None:
+        raise HTTPException(409, f"Nessun job contiene l'indirizzo {report.host}: aggiungilo a un job")
+    if runner.active_run(db, job.id):
+        raise HTTPException(409, f"C'è già una scansione in coda o in corso per il job {job.name}: riprova quando ha finito")
+    return runner.enqueue(db, job, host=report.host)
 
 
 @router.post("/discovery/probe", response_model=list[ProbeResult],
