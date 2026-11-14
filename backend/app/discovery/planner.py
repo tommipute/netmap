@@ -14,14 +14,15 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 import ipaddress
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.discovery.matching import find_device, find_port, interface_type, norm_ifname, short_name
 from app.discovery.snmp import HostData, IfData
-from app.discovery.vendors import manufacturer_of
+from app.discovery.vendors import PROVISIONAL_MANUFACTURER, manufacturer_of
 from app.services.roles import detect_for, role_for
-from app.models import VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, StackMember
+from app.models import (VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, Manufacturer,
+                        StackMember)
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
     ChangeAction,
@@ -126,6 +127,7 @@ class Planner:
                                                     DeviceType.model == hd.model[:100])
                 if self.db.scalar(clash) is None:
                     known.model = hd.model[:100]
+            self._fix_manufacturer(known, manufacturer_of(hd))
             role = self.db.get(DeviceRole, known.default_role_id) if known.default_role_id else None
             return {"id": known.id, "label": known.model, "role": role.name if role else None}
         model = (hd.model or hd.sys_object_id)[:100]
@@ -143,6 +145,22 @@ class Planner:
             "role": role.name if role else f"{detected.kind.role} (nuovo)" if detected else None,
             "kind": f"{detected.kind.role} ({detected.reason})" if detected else None,
         }
+
+    def _fix_manufacturer(self, dev_type: DeviceType, name: str | None) -> None:
+        """Produttore provvisorio messo da NetMap ("Enterprise 52642") e ora quello vero (di solito da una regola SNMP).
+        Il provvisorio vale per tutto il numero del produttore: si rinomina, o il modello passa a quello che c'è già."""
+        current = self.db.get(Manufacturer, dev_type.manufacturer_id)
+        if (current is None or not name or not PROVISIONAL_MANUFACTURER.match(current.name)
+                or PROVISIONAL_MANUFACTURER.match(name) or current.name == name):
+            return
+        name = name[:100]
+        existing = self.db.scalars(select(Manufacturer).where(func.lower(Manufacturer.name) == name.lower())).first()
+        if existing is None:
+            current.name = name
+            return
+        clash = select(DeviceType.id).where(DeviceType.manufacturer_id == existing.id, DeviceType.model == dev_type.model)
+        if self.db.scalar(clash) is None:
+            dev_type.manufacturer_id = existing.id
 
     def _new_device(self, hd: HostData) -> Proposal:
         name = (short_name(hd.sys_name) or hd.host)[:100]
@@ -210,6 +228,21 @@ class Planner:
                 data=data,
                 diff=diff,
                 auto=device.source == SNMP,
+            ))
+        # Device senza ruolo (il tipo non si capiva quando è stato creato) e ora il tipo si riconosce, per esempio
+        # grazie a una regola SNMP: si propone il ruolo come per un device nuovo, sempre da approvare (può creare un
+        # ruolo nel catalogo). Un ruolo scelto non si tocca, e nemmeno quello lasciato vuoto su un device inserito a mano.
+        if device.role_id is None and device.source == SNMP and (detected := detect_for(hd, hd.model)):
+            role = role_for(self.db, detected.kind)
+            out.append(Proposal(
+                key=f"device:role:{device.id}",
+                object_type=ChangeObject.DEVICE.value,
+                action=ChangeAction.UPDATE.value,
+                object_id=device.id,
+                summary=f"Ruolo di {device.name}: {detected.kind.role.lower()} riconosciuto dalla scansione",
+                data={"role_kind": detected.kind.key},
+                diff={"Ruolo": [None, role.name if role else f"{detected.kind.role} (nuovo)"],
+                      "Tipo riconosciuto": [None, f"{detected.kind.role} ({detected.reason})"]},
             ))
 
     # ------------------------------------------------------------ stack

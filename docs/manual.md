@@ -418,7 +418,7 @@ is missing (the model, the cables, the endpoints) to tell whether the switch doe
 understand it:
 
 - the model and where it comes from (ENTITY-MIB, SNMP description or chassis description), serial number,
-  manufacturer and sysObjectID;
+  manufacturer and sysObjectID, SNMP description;
 - how many rows it read for each table (ports, IPs, stack members, LLDP and CDP neighbours, VLANs, MAC table, ARP
   table) and from which MIB. "Nothing" means the switch gave no data: it may not have that table, have it empty or
   not give it with that profile (SNMP view);
@@ -430,6 +430,11 @@ understand it:
 - the recognised device type and the **SNMP rules** used for that device (see below).
 
 The section appears from the first scan that reads the device; for a new device, after you approve it.
+
+Administrators also see what is missing or wrong (model, a manufacturer NetMap doesn't know and calls "Enterprise"
+with a number, device type, MAC table rows or LLDP neighbours that were discarded) and the **Create an SNMP rule**
+button: it opens a new rule already filled in with that device's sysObjectID and, at the bottom, with its address and
+profile for the **Test**. Fill in what is missing, test, save and run the scan again (see below).
 
 ### SNMP rules
 
@@ -463,6 +468,11 @@ more rules match the same device, for each thing the most precise wins: first th
 then the one that also checks the description, then the oldest; the rules included in NetMap (below) always come
 after yours. A rule that only sets the serial number does not
 remove the model set by another one. With **Enabled** off the rule stays saved but does not apply.
+
+A rule also fixes the models the scan has already created: at the next scan the model gets the right name, the
+provisional manufacturer ("Enterprise 52642") takes the one from the rule (or the model moves to the manufacturer you
+already have with that name) and, for devices created by the scan without a role, **To approve** proposes the role of
+the recognised type. Once approved, the role also becomes the model's default role.
 
 At the bottom of the form, **Test on a device** reads an address with the chosen SNMP profile and shows what changes
 with the rule as it is in the form at that moment, **without saving anything**: model, serial number,

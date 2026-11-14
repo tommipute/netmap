@@ -1113,6 +1113,13 @@ details.directory-test:not([open]) > summary, details.disclosure:not([open]) > s
 .snmp-report { display: grid; gap: 12px; }
 .snmp-report__facts { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin: 0; max-width: 720px; }
 .snmp-report__table { max-width: 720px; }
+.snmp-report__descr { white-space: pre-line; font-size: 13px; }
+/* Invito a correggere con una regola SNMP (solo amministratori) */
+.snmp-report__rule {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; max-width: 720px;
+  padding: 10px 14px; border: 1px dashed var(--line); border-radius: var(--radius); font-size: 13px;
+}
+.snmp-report__rule > span { flex: 1 1 320px; }
 .snmp-report__notes { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .snmp-report__note--warn { color: var(--warn); }
 .snmp-report .hint { margin: 0; }

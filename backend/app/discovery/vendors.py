@@ -47,6 +47,10 @@ def enterprise_number(sys_object_id: str | None) -> int | None:
     return int(first) if first.isdigit() else None
 
 
+# Nome dato da NetMap a un produttore che non conosce: si corregge appena una regola SNMP dice quello vero
+PROVISIONAL_MANUFACTURER = re.compile(r"^Enterprise \d+$")
+
+
 def vendor_name(sys_object_id: str | None) -> str:
     number = enterprise_number(sys_object_id)
     if number is None:

@@ -1808,6 +1808,12 @@ const strings = {
   // Regole SNMP (resources.jsx snmp-rules, components/SnmpRuleTest.jsx, SnmpRuleFile.jsx)
   'Regola SNMP': 'SNMP rule',
   'Regole SNMP': 'SNMP rules',
+  'righe della tabella MAC': 'MAC table rows',
+  'porta locale dei vicini': 'local port of the neighbors',
+  'Apparati come {name}': 'Devices like {name}',
+  'Manca o non torna: {list}. Puoi correggerlo con una regola SNMP, che vale per tutti gli apparati di questo tipo.': 'Missing or wrong: {list}. You can fix it with an SNMP rule, which applies to every device of this type.',
+  'Qualcosa non torna? Puoi correggerlo con una regola SNMP, che vale per tutti gli apparati di questo tipo.': 'Something wrong? You can fix it with an SNMP rule, which applies to every device of this type.',
+  'Crea una regola SNMP': 'Create an SNMP rule',
   'Nuova regola SNMP': 'New SNMP rule',
   'Modifica regola SNMP': 'Edit SNMP rule',
   "Correzioni alla lettura di un tipo di apparato che la scansione non legge bene: modello, numero di serie, nomi delle porte, porte da ignorare, produttore, tipo, tabella MAC e vicini LLDP. Valgono dalla scansione successiva; con \"Prova\" vedi l'effetto prima di salvare. Quelle incluse in NetMap valgono dopo le tue.": 'Corrections to how a kind of device is read when the scan gets it wrong: model, serial number, port names, ports to ignore, manufacturer, type, MAC table and LLDP neighbors. They apply from the next scan; with "Test" you see the effect before saving. The ones included in NetMap apply after yours.',

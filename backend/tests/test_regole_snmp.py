@@ -1,6 +1,8 @@
 """Regole SNMP: controlli, export e import, prova su un indirizzo, effetto sulla scansione."""
 from types import SimpleNamespace
 
+import pytest
+
 from app.discovery import snmp, snmp_rules
 from app.discovery.runner import execute_run
 from tests.snmp_devices import SW2, host_data
@@ -221,3 +223,68 @@ def test_regole_incluse_nel_database(client, session_factory):
         row = db.query(SnmpRule).filter_by(name="TP-Link JetStream").one()
         assert (row.fdb_port, row.enabled) == ("ifindex", False)
         assert {r.name for r in db.query(SnmpRule)} == {"TP-Link JetStream", "mikrotik routeros"}
+
+
+def _apparato_sconosciuto():
+    """SW2 come lo legge NetMap senza regole: produttore che non conosce, niente modello e niente tipo."""
+    hd = host_data(SW2, "10.99.0.2", 1, "Lab v2c")
+    hd.sys_object_id, hd.sys_descr, hd.model = "1.3.6.1.4.1.52642.1.445.0", "S3400-48T4SP", None
+    hd.sys_services, hd.lldp_caps, hd.members = None, [], []
+    return hd
+
+
+@pytest.mark.parametrize("fs_exists", [False, True])
+def test_la_regola_corregge_il_modello_gia_creato(client, setup, session_factory, fs_exists):
+    """Modello creato prima della regola: si correggono nome, produttore provvisorio e ruolo (quest'ultimo da approvare)."""
+    from app.models import Device, DeviceType, Manufacturer
+    from tests.test_discovery import approve_all
+
+    if fs_exists:
+        client.post("/api/manufacturers", json={"name": "FS"})
+
+    def scan(hd):
+        run = client.post(f"/api/discovery-jobs/{setup['job']['id']}/run").json()
+        with session_factory() as db:
+            assert execute_run(db, run["id"], collector=lambda hosts, creds: [hd]).status == "done"
+
+    scan(_apparato_sconosciuto())
+    approve_all(client)
+    with session_factory() as db:
+        device = db.query(Device).one()
+        assert device.role_id is None
+        assert db.get(Manufacturer, db.get(DeviceType, device.device_type_id).manufacturer_id).name == "Enterprise 52642"
+
+    hd = _apparato_sconosciuto()
+    hd.model = "S3400-48T4SP"
+    snmp_rules.apply(hd, [rule(match_object_id="1.3.6.1.4.1.52642", manufacturer="FS", kind="switch")], {})
+    scan(hd)
+    [change] = [c for c in pending(client) if c["data"].get("role_kind")]
+    assert change["data"] == {"role_kind": "switch"} and change["object_type"] == "device"
+    assert ["Ruolo", None, "Switch (nuovo)"] in change["diff"]
+    with session_factory() as db:
+        device = db.query(Device).one()
+        dev_type = db.get(DeviceType, device.device_type_id)
+        assert dev_type.model == "S3400-48T4SP" and device.role_id is None  # il ruolo aspetta l'approvazione
+        assert db.get(Manufacturer, dev_type.manufacturer_id).name == "FS"
+        assert db.query(Manufacturer).filter(Manufacturer.name == "FS").count() == 1
+        # Se FS c'era già, il provvisorio resta (senza modelli); altrimenti è stato rinominato
+        assert (db.query(Manufacturer).filter(Manufacturer.name == "Enterprise 52642").count() == 1) == fs_exists
+
+    approve_all(client)
+    with session_factory() as db:
+        device = db.query(Device).one()
+        assert device.role_id is not None
+        assert db.get(DeviceType, device.device_type_id).default_role_id == device.role_id
+    scan(hd)  # ruolo messo: non lo propone più
+    assert not [c for c in pending(client) if c["data"].get("role_kind")]
+
+
+def test_resoconto_con_il_profilo(client, setup, session_factory):
+    """Il resoconto tiene l'id del profilo: la scheda apre la regola con la prova già pronta."""
+    from app.models import SnmpReport
+
+    run = client.post(f"/api/discovery-jobs/{setup['job']['id']}/run").json()
+    with session_factory() as db:
+        execute_run(db, run["id"], collector=lambda hosts, creds: [_apparato_sconosciuto()])
+        report = db.query(SnmpReport).one().data
+    assert report["profile_id"] == 1 and report["profile"] == "Lab v2c"

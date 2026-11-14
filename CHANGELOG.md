@@ -6,6 +6,18 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- Scheda **Cosa ho letto via SNMP**: mostra anche la descrizione SNMP e, agli amministratori, cosa manca o non torna
+  (modello, produttore sconosciuto, tipo, righe scartate) con il pulsante **Crea una regola SNMP**, che apre una
+  regola già compilata con il sysObjectID dell'apparato e con indirizzo e profilo pronti per la **Prova**.
+
+### Correzioni
+
+- Una regola SNMP corregge anche i modelli creati prima di lei: il produttore provvisorio ("Enterprise 52642")
+  prende il nome della regola, o il modello passa al produttore che c'è già con quel nome. Ai device creati dalla
+  scansione senza ruolo, **Da approvare** propone il ruolo del tipo riconosciuto; prima restavano senza ruolo.
+
 ## [1.4.0] - 2026-11-13
 
 Scansione più affidabile sugli switch di altre marche (provata su registrazioni SNMP di oltre 70 famiglie), scheda

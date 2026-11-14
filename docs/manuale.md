@@ -420,7 +420,7 @@ quando manca qualcosa (il modello, i cavi, gli endpoint) per capire se è lo swi
 capisce:
 
 - modello e da dove viene (ENTITY-MIB, descrizione SNMP o descrizione dello chassis), numero di serie, produttore
-  e sysObjectID;
+  e sysObjectID, descrizione SNMP;
 - quante righe ha letto per ogni tabella (porte, IP, membri dello stack, vicini LLDP e CDP, VLAN, tabella MAC,
   tabella ARP) e da quale MIB. "Niente" vuol dire che lo switch non ha dato dati: può non avere quella tabella,
   averla vuota o non darla con quel profilo (vista SNMP);
@@ -433,6 +433,11 @@ capisce:
 - il tipo di apparato riconosciuto e le **regole SNMP** che sono servite per quel device (vedi sotto).
 
 La sezione compare dalla prima scansione che legge il device; per un device nuovo, dopo averlo approvato.
+
+Gli amministratori vedono anche cosa manca o non torna (modello, produttore che NetMap non conosce e chiama
+"Enterprise" con un numero, tipo di apparato, righe della tabella MAC o vicini LLDP scartati) e il pulsante **Crea una
+regola SNMP**: apre una regola nuova già compilata con il sysObjectID di quell'apparato e, in fondo, con il suo
+indirizzo e il profilo per la **Prova**. Compili quello che manca, provi, salvi e rilanci la scansione (vedi sotto).
 
 ### Regole SNMP
 
@@ -467,6 +472,11 @@ quella con il sysObjectID più lungo, poi quella che guarda anche la descrizione
 incluse in NetMap (sotto) valgono sempre dopo le tue. Una regola che
 imposta solo il seriale non toglie il modello impostato da un'altra. Con **Attiva** spento la regola resta salvata
 ma non vale.
+
+Una regola corregge anche i modelli già creati dalla scansione: alla scansione successiva il modello prende il nome
+giusto, il produttore provvisorio ("Enterprise 52642") prende quello della regola (o il modello passa al produttore
+che hai già con quel nome) e, per i device creati dalla scansione senza ruolo, **Da approvare** propone il ruolo del
+tipo riconosciuto. Approvato, il ruolo diventa anche quello predefinito del modello.
 
 In fondo al modulo, **Prova su un apparato** legge un indirizzo con il profilo SNMP scelto e mostra cosa cambia con
 la regola com'è in quel momento nel modulo, **senza salvare niente**: modello, numero di serie, produttore, tipo,

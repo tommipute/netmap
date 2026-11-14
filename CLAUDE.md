@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (171 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (174 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -337,6 +337,13 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   nel CRUD si cambia solo `enabled` (`snmp_rule_hook`), non si eliminano (409), fuori dall'export, nome vietato
   nell'import; in `Rule.precision` vengono dopo quelle dell'admin. Una regola inclusa nuova va provata sul banco
   delle registrazioni prima di aggiungerla.
+  **Dopo una regola nuova**: scheda "Cosa ho letto" (solo admin, `RuleHint` in `SnmpReport.jsx`) con il pulsante che
+  apre `ResourceForm` `snmp-rules` con `preset` (sysObjectID, `rule_test: {host, profile_id}` letto da
+  `SnmpRuleTest`; `profile_id` nel resoconto). Il planner corregge i modelli già creati: nome provvisorio
+  (= sysObjectID) rinominato, produttore provvisorio (`vendors.PROVISIONAL_MANUFACTURER`, "Enterprise N")
+  rinominato o modello spostato sul produttore esistente (`_fix_manufacturer`, silenzioso); device `source=snmp`
+  senza ruolo: proposta da approvare `device:role:<id>` con `role_kind` (apply mette il ruolo e, se vuoto, il ruolo
+  predefinito del modello).
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

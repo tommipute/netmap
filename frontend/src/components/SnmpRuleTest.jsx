@@ -35,8 +35,9 @@ function draftOf(values) {
 
 /** Campo del modulo delle regole SNMP: prova la regola com'è (anche non salvata) su un indirizzo, prima e dopo. */
 export default function SnmpRuleTest({ values, item }) {
-  const [host, setHost] = useState('')
-  const [profile, setProfile] = useState('')
+  // Aperta dalla scheda "Cosa ho letto": indirizzo e profilo di quell'apparato
+  const [host, setHost] = useState(values.rule_test?.host || '')
+  const [profile, setProfile] = useState(values.rule_test?.profile_id ? String(values.rule_test.profile_id) : '')
   const [result, setResult] = useState(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)

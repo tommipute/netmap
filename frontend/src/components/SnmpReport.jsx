@@ -1,6 +1,10 @@
+import { useState } from 'react'
+import { api, qs } from '../api'
+import { useAuth } from '../auth'
 import { DEVICE_KINDS, formatDateTime } from '../options'
 import { t, tn, tServer } from '../i18n'
 import { Mono } from './Bits'
+import ResourceForm from './ResourceForm'
 
 // Tabelle lette, nell'ordine della scansione: chiave in counts, nome, MIB da cui arrivano
 const ROWS = [
@@ -75,7 +79,11 @@ export function SnmpReportBody({ data, compact = false }) {
         {data.rules?.length > 0 && (
           <div><dt>{t('Regole SNMP')}</dt><dd>{data.rules.join(', ')}</dd></div>
         )}
+        {data.sys_descr && (
+          <div className="facts__wide"><dt>{t('Descrizione SNMP')}</dt><dd className="snmp-report__descr">{data.sys_descr}</dd></div>
+        )}
       </dl>
+      {!compact && <RuleHint data={data} />}
       <table className="table table--dense snmp-report__table">
         <thead>
           <tr><th>{t('Dati')}</th><th>{t('Righe lette')}</th>{!compact && <th>{t('Da')}</th>}</tr>
@@ -108,6 +116,55 @@ export function SnmpReportBody({ data, compact = false }) {
         </ul>
       )}
       <p className="hint">{t('"Niente" vuol dire che lo switch non ha risposto con dati per quella tabella: può non averla, averla vuota o non darla con questo profilo SNMP.')}</p>
+    </div>
+  )
+}
+
+// Produttore che NetMap non conosce: nome provvisorio dal numero del sysObjectID
+const PROVISIONAL_MANUFACTURER = /^Enterprise \d+$/
+
+/** Cosa manca nella lettura e una regola SNMP può correggere */
+function missingOf(data) {
+  return [
+    !data.model && t('modello'),
+    (!data.manufacturer || PROVISIONAL_MANUFACTURER.test(data.manufacturer)) && t('produttore'),
+    !data.kind && t('tipo di apparato'),
+    data.notes?.fdb_unmapped && t('righe della tabella MAC'),
+    data.notes?.neighbor_no_local_port && t('porta locale dei vicini'),
+  ].filter(Boolean)
+}
+
+/** Solo amministratori: dice cosa si può correggere e apre una regola SNMP per questo apparato, con la prova pronta. */
+function RuleHint({ data }) {
+  const { isAdmin } = useAuth()
+  const [preset, setPreset] = useState(null)
+  if (!isAdmin || !data.sys_object_id) return null
+  const missing = missingOf(data)
+
+  const open = async () => {
+    let profileId = data.profile_id
+    if (!profileId && data.profile) { // resoconti di prima della 1.4.1: solo il nome del profilo
+      try {
+        const page = await api.get(`/snmp-profiles${qs({ q: data.profile, limit: 50 })}`)
+        profileId = page.items.find((p) => p.name === data.profile)?.id
+      } catch { /* la prova resta da completare a mano */ }
+    }
+    setPreset({
+      name: t('Apparati come {name}', { name: data.sys_name || data.host }),
+      match_object_id: data.sys_object_id,
+      rule_test: { host: data.host, profile_id: profileId },
+    })
+  }
+
+  return (
+    <div className="snmp-report__rule">
+      <span>
+        {missing.length
+          ? t('Manca o non torna: {list}. Puoi correggerlo con una regola SNMP, che vale per tutti gli apparati di questo tipo.', { list: missing.join(', ') })
+          : t('Qualcosa non torna? Puoi correggerlo con una regola SNMP, che vale per tutti gli apparati di questo tipo.')}
+      </span>
+      <button type="button" className="btn btn--sm" onClick={open}>{t('Crea una regola SNMP')}</button>
+      {preset && <ResourceForm resourceKey="snmp-rules" preset={preset} onClose={() => setPreset(null)} onSaved={() => setPreset(null)} />}
     </div>
   )
 }

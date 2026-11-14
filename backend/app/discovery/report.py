@@ -19,6 +19,7 @@ def build_report(hd: HostData, renamed_ports: int = 0) -> dict:
     return {
         "host": hd.host,
         "profile": hd.profile_name,
+        "profile_id": hd.profile_id,  # per aprire la regola SNMP con la prova già pronta
         "sys_name": hd.sys_name,
         "sys_object_id": hd.sys_object_id,
         "manufacturer": manufacturer_of(hd),

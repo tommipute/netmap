@@ -44,6 +44,16 @@ def _get(db: Session, model, object_id: int | None, what: str):
     return obj
 
 
+def _role_for_kind(db: Session, kind: roles.Kind) -> DeviceRole:
+    """Ruolo del tipo riconosciuto: quello adatto, altrimenti nuovo."""
+    role = roles.role_for(db, kind)
+    if role is None:
+        role = DeviceRole(name=kind.role, level=kind.level, color=kind.color)
+        db.add(role)
+        db.flush()
+    return role
+
+
 def _device_type_id(db: Session, ref: dict | None) -> int | None:
     if not ref:
         return None
@@ -67,12 +77,8 @@ def _device_type_id(db: Session, ref: dict | None) -> int | None:
         role_id = spec.get("default_role_id")  # proposte di prima della 1.1
         role = db.get(DeviceRole, role_id) if role_id else None
         kind = roles.BY_KEY.get(spec.get("kind") or "")
-        if role is None and kind is not None:  # ruolo del tipo riconosciuto: quello adatto, altrimenti nuovo
-            role = roles.role_for(db, kind)
-            if role is None:
-                role = DeviceRole(name=kind.role, level=kind.level, color=kind.color)
-                db.add(role)
-                db.flush()
+        if role is None and kind is not None:
+            role = _role_for_kind(db, kind)
         dev_type = DeviceType(manufacturer_id=manufacturer.id, model=spec["model"],
                               default_role_id=role.id if role else None)
         db.add(dev_type)
@@ -156,6 +162,12 @@ def _update_device(db: Session, data: dict, change: DiscoveryChange) -> None:
         device.serial = data["serial"]
     if "device_type" in data:
         device.device_type_id = _device_type_id(db, data["device_type"])
+    kind = roles.BY_KEY.get(data.get("role_kind") or "")
+    if kind is not None and device.role_id is None:
+        device.role_id = _role_for_kind(db, kind).id
+        dev_type = db.get(DeviceType, device.device_type_id) if device.device_type_id else None
+        if dev_type is not None and dev_type.default_role_id is None:
+            dev_type.default_role_id = device.role_id  # anche per i prossimi device dello stesso modello
 
 
 # ---------------------------------------------------------------- stack
