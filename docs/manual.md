@@ -424,10 +424,14 @@ understand it:
   not give it with that profile (SNMP view);
 - the adjustments to the switch's quirks, for example MACs written in an unusual way, MACs learned on an aggregate,
   ports with the same name;
-- in yellow, the rows NetMap had to discard: for example MAC table rows on ports the switch does not list, or LLDP
-  neighbours on ports it does not recognise. If there are many, the switch does something NetMap doesn't know yet;
+- in yellow, the rows NetMap had to discard: for example MAC table rows on ports the switch does not list, LLDP
+  neighbours on ports it does not recognise, or IP addresses on ports the switch does not list or that have no name.
+  If there are many, the switch does something NetMap doesn't know yet. Also in yellow, when the address the device
+  was read from is not among the IPs of its ports (for example because it goes through NAT): the device stays
+  without a management IP and you can set it by hand;
 - the tables that could not be read, with the reason;
-- the recognised device type and the **SNMP rules** used for that device (see below).
+- the recognised device type and the **SNMP rules** used for that device (see below); for administrators the name
+  of a rule opens it.
 
 The section appears from the first scan that reads the device; for a new device, after you approve it.
 
@@ -488,6 +492,10 @@ At the bottom of the form, **Test on a device** reads an address with the chosen
 with the rule as it is in the form at that moment, **without saving anything**: model, serial number,
 manufacturer, type, number of ports, MACs and LLDP neighbors before and after, and the list of renamed or ignored ports. "Before"
 includes the other enabled rules. If the rule does not apply to that device, the test says so.
+
+In the list, the **Device** column says how many devices each rule applies to, according to their last reading
+(even when the rule is off: this way you see what it would touch before turning it on). The number opens the device
+list filtered on that rule; to remove the filter choose "SNMP rule: all".
 
 With the buttons at the top of the list you can **export** all rules to a JSON file and **import** them into another
 installation: rules with the same name (upper and lower case don't matter) are updated, the others are added. If a

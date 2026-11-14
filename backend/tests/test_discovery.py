@@ -394,3 +394,29 @@ def test_regole_che_valgono_adesso(client, setup, session_factory):
     assert report["rules_now"][0]["updated_at"]
     client.patch(f"/api/snmp-rules/{rule['id']}", json={"enabled": False})
     assert client.get(f"/api/devices/{sw2['id']}/snmp-report").json()["rules_now"] == []
+
+
+def test_device_di_una_regola(client, setup, session_factory):
+    """Nell'elenco delle regole il numero dei device a cui valgono porta all'elenco dei device filtrato."""
+    scan(client, session_factory, setup["job"]["id"], (SW1, SW1_HOST), (SW2, SW2_HOST))
+    approve_all(client)
+    sw2 = device_named(client, "sw-sim-02")
+    rule = create(client, "/snmp-rules", {"name": "HP di prova", "match_object_id": SW2["system"]["object_id"]})
+    other = create(client, "/snmp-rules", {"name": "Altra marca", "match_object_id": "1.3.6.1.4.1.99999"})
+    usage = client.get("/api/snmp-rules/usage").json()
+    assert usage[str(rule["id"])] == 1 and usage[str(other["id"])] == 0
+    page = client.get(f"/api/devices?snmp_rule={rule['id']}").json()
+    assert [d["id"] for d in page["items"]] == [sw2["id"]] and page["total"] == 1
+    assert client.get(f"/api/devices?snmp_rule={other['id']}").json()["total"] == 0
+    assert client.get("/api/devices?snmp_rule=99999").json()["total"] == 0
+    exported = client.get(f"/api/devices/export?format=json&snmp_rule={rule['id']}").json()
+    assert [d["name"] for d in exported] == ["sw-sim-02"]
+    # Nella lettura con la regola il resoconto ha anche l'id, per il link della scheda
+    from app.discovery import snmp_rules
+    from app.discovery.report import build_report
+    from app.models import SnmpRule
+
+    hd = host_data(SW2, SW2_HOST)
+    with session_factory() as db:
+        snmp_rules.apply(hd, [snmp_rules.compile_rule(db.get(SnmpRule, rule["id"]))], {})
+    assert build_report(hd)["rules"] == ["HP di prova"] and build_report(hd)["rule_ids"] == [rule["id"]]

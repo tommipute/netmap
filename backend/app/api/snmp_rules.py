@@ -12,13 +12,25 @@ from app.database import get_db
 from app.discovery import runner, snmp, snmp_rules
 from app.discovery.report import build_report
 from app.discovery.targets import TargetError, expand_targets
-from app.models import SnmpRule
+from app.models import Device, SnmpRule
 from app.schemas.discovery import SnmpRuleFile, SnmpRuleImportResult, SnmpRuleTest, SnmpRuleTestResult
 from app.services.rules import snmp_rule_hook
 
 router = APIRouter(tags=["Scansione"], dependencies=[Depends(require_admin)])
 
 FIELDS = snmp_rules.FIELDS
+
+
+def filter_devices(db: Session, stmt, rule_id: int):
+    """Filtro `snmp_rule` dell'elenco dei device (e del loro export): quelli a cui la regola vale adesso."""
+    row = db.get(SnmpRule, rule_id)
+    return stmt.where(Device.id.in_(runner.rule_devices(db, [row])[row.id] if row else []))
+
+
+@router.get("/snmp-rules/usage", response_model=dict[int, int],
+            summary="Per ogni regola quanti device ha trovato (dall'ultima lettura di ciascuno, anche se è spenta)")
+def rules_usage(db: Session = Depends(get_db)):
+    return {rule_id: len(ids) for rule_id, ids in runner.rule_devices(db, list(db.scalars(select(SnmpRule)))).items()}
 
 
 @router.get("/snmp-rules/export", response_model=SnmpRuleFile,

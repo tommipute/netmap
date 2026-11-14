@@ -113,6 +113,20 @@ def load_rules(db: Session) -> list[SnmpRule]:
     return list(db.scalars(select(SnmpRule).where(SnmpRule.enabled.is_(True)).order_by(SnmpRule.id)))
 
 
+def rule_devices(db: Session, rows: list[SnmpRule]) -> dict[int, list[int]]:
+    """Device a cui ogni regola vale adesso (anche spenta), dal sysObjectID e dalla descrizione dell'ultima lettura."""
+    rules = [snmp_rules.compile_rule(row) for row in rows]
+    found: dict[int, list[int]] = {row.id: [] for row in rows}
+    reports = db.execute(select(
+        SnmpReport.device_id, SnmpReport.data["sys_object_id"].as_string(), SnmpReport.data["sys_descr"].as_string(),
+    ).where(SnmpReport.device_id.is_not(None)))
+    for device_id, sys_object_id, sys_descr in reports:
+        for rule in rules:
+            if rule.matches(sys_object_id, sys_descr):
+                found[rule.order].append(device_id)
+    return found
+
+
 # ---------------------------------------------------------------- applicazione e registrazione
 def apply_in_savepoint(db: Session, change: DiscoveryChange) -> str | None:
     """Applica una modifica; ritorna il messaggio d'errore oppure None se è andata."""

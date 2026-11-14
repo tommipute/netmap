@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, qs } from '../api'
 import { useAuth } from '../auth'
 import { DEVICE_KINDS, formatDateTime } from '../options'
@@ -46,6 +47,8 @@ const NOTES = {
   fdb_unmapped: ['warn', (n) => tn(n, '1 riga della tabella MAC indica una porta che lo switch non elenca: scartata.', '{n} righe della tabella MAC indicano una porta che lo switch non elenca: scartate.')],
   fdb_bad_index: ['warn', (n) => tn(n, '1 riga della tabella MAC non ha un MAC valido: scartata.', '{n} righe della tabella MAC non hanno un MAC valido: scartate.')],
   ports_ignored: ['info', (n) => tn(n, '1 porta ignorata da una regola SNMP.', '{n} porte ignorate da una regola SNMP.')],
+  ip_no_port: ['warn', (n) => tn(n, '1 indirizzo IP è su una porta che lo switch non elenca o non ha nome: scartato.', '{n} indirizzi IP sono su porte che lo switch non elenca o non hanno nome: scartati.')],
+  host_not_in_ips: ['warn', () => t('L\'indirizzo da cui è stato letto non è tra gli IP delle porte dello switch: il device resta senza IP di management (puoi indicarlo a mano).')],
   neighbor_no_local_port: ['warn', (n) => tn(n, '1 vicino LLDP/CDP è su una porta che NetMap non riconosce: non diventa un cavo.', '{n} vicini LLDP/CDP sono su una porta che NetMap non riconosce: non diventano cavi.')],
 }
 
@@ -77,7 +80,12 @@ export function SnmpReportBody({ data, compact = false, report = null, onChanged
           </div>
         )}
         {data.rules?.length > 0 && (
-          <div><dt>{t('Regole SNMP')}</dt><dd>{data.rules.join(', ')}</dd></div>
+          <div>
+            <dt>{t('Regole SNMP')}</dt>
+            <dd>
+              <RuleList rules={data.rules.map((name, i) => ({ name, id: data.rule_ids?.[i] ?? report?.rules_now?.find((r) => r.name === name)?.id }))} />
+            </dd>
+          </div>
         )}
         {data.sys_descr && (
           <div className="facts__wide"><dt>{t('Descrizione SNMP')}</dt><dd className="snmp-report__descr">{data.sys_descr}</dd></div>
@@ -170,6 +178,23 @@ function RuleHint({ data, onSaved }) {
   )
 }
 
+/** Nomi delle regole SNMP, per l'amministratore link che aprono la regola */
+function RuleList({ rules }) {
+  const { isAdmin } = useAuth()
+  return rules.map((rule, i) => (
+    <Fragment key={`${rule.id}-${rule.name}`}>
+      {i > 0 && ', '}
+      {isAdmin && rule.id ? <Link to={`/snmp-rules?edit=${rule.id}`}>{rule.name}</Link> : rule.name}
+    </Fragment>
+  ))
+}
+
+/** Testo tradotto con {list} = elenco delle regole come link */
+function withRules(text, rules) {
+  const [before, after] = text.split('\u0000')
+  return <>{before}<RuleList rules={rules} />{after}</>
+}
+
 /** Regole SNMP nuove, cambiate o spente dopo l'ultima lettura: valgono dalla prossima (il pulsante la fa subito). */
 function RulesChanged({ report, onRescan, rescanning }) {
   const now = report.rules_now || []
@@ -177,13 +202,12 @@ function RulesChanged({ report, onRescan, rescanning }) {
   const readAt = new Date(report.read_at)
   const changed = now.length !== used.length || now.some((r, i) => r.name !== used[i] || new Date(r.updated_at) > readAt)
   if (!changed) return null
-  const names = now.map((r) => r.name).join(', ')
   return (
     <div className="snmp-report__rule snmp-report__rule--pending">
       <span>
         {now.length
-          ? tn(now.length, 'Le regole SNMP sono cambiate dopo questa lettura: ora vale {list}. Conta dalla prossima lettura.',
-            'Le regole SNMP sono cambiate dopo questa lettura: ora valgono {list}. Contano dalla prossima lettura.', { list: names })
+          ? withRules(tn(now.length, 'Le regole SNMP sono cambiate dopo questa lettura: ora vale {list}. Conta dalla prossima lettura.',
+            'Le regole SNMP sono cambiate dopo questa lettura: ora valgono {list}. Contano dalla prossima lettura.', { list: '\u0000' }), now)
           : t('Le regole SNMP sono cambiate dopo questa lettura: ora non ne vale nessuna. Conta dalla prossima lettura.')}
       </span>
       {onRescan && (

@@ -5,6 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api import snmp_rules as snmp_rules_api
 from app.api.crud import apply_column_filters
 from app.database import get_db
 from app.discovery import runner, snmp_rules
@@ -72,6 +73,7 @@ def get_devices_export(
     device_type_id: int | None = None,
     status: str | None = None,
     reachable: bool | None = None,
+    snmp_rule: int | None = None,
     q: str | None = None,
     request: Request = None,
     db: Session = Depends(get_db),
@@ -81,6 +83,8 @@ def get_devices_export(
                                 custom_fields.column_expressions(db, Device, "devices"))
     if reachable is not None:
         only = only.where(Device.reachable.is_(reachable))
+    if snmp_rule is not None:
+        only = snmp_rules_api.filter_devices(db, only, snmp_rule)
     content, media_type, filename = export_devices(
         db,
         format=format,

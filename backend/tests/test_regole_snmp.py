@@ -288,3 +288,19 @@ def test_resoconto_con_il_profilo(client, setup, session_factory):
         execute_run(db, run["id"], collector=lambda hosts, creds: [_apparato_sconosciuto()])
         report = db.query(SnmpReport).one().data
     assert report["profile_id"] == 1 and report["profile"] == "Lab v2c"
+
+
+def test_resoconto_ip_scartati():
+    """Un IP su una porta che lo switch non elenca (senza nome) viene scartato: la scheda lo dice, come l'IP di
+    management mancante quando l'indirizzo letto non è tra quelli dello switch."""
+    from app.discovery.report import build_report
+    from app.discovery.snmp import IpData
+    from tests.snmp_devices import SW1, host_data
+
+    hd = host_data(SW1, "10.99.0.1")
+    port = hd.interfaces[0].if_index
+    hd.ips = [IpData(address="10.99.0.1/24", if_index=port)]
+    assert not {"ip_no_port", "host_not_in_ips"} & set(build_report(hd)["notes"])
+    hd.ips = [IpData(address="10.99.0.1/24", if_index=99999), IpData(address="10.64.0.3/17", if_index=port)]
+    notes = build_report(hd)["notes"]
+    assert notes["ip_no_port"] == 1 and notes["host_not_in_ips"] == 1

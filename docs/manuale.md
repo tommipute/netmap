@@ -427,10 +427,13 @@ capisce:
 - gli adattamenti alle stranezze dello switch, per esempio MAC scritti in modo insolito, MAC imparati su un
   aggregato, porte con lo stesso nome;
 - in giallo le righe che NetMap ha dovuto scartare: per esempio righe della tabella MAC su porte che lo switch non
-  elenca, o vicini LLDP su porte che non riconosce. Se ce ne sono molte, lo switch fa qualcosa che NetMap non
-  conosce ancora;
+  elenca, vicini LLDP su porte che non riconosce, o indirizzi IP su porte che lo switch non elenca o che non hanno
+  nome. Se ce ne sono molte, lo switch fa qualcosa che NetMap non conosce ancora. Sempre in giallo, se l'indirizzo
+  da cui è stato letto il device non è tra gli IP delle sue porte (per esempio perché passa da un NAT): il device
+  resta senza IP di management e puoi indicarlo a mano;
 - le tabelle che non si sono lette, con il motivo;
-- il tipo di apparato riconosciuto e le **regole SNMP** che sono servite per quel device (vedi sotto).
+- il tipo di apparato riconosciuto e le **regole SNMP** che sono servite per quel device (vedi sotto); per gli
+  amministratori il nome di una regola la apre.
 
 La sezione compare dalla prima scansione che legge il device; per un device nuovo, dopo averlo approvato.
 
@@ -492,6 +495,10 @@ In fondo al modulo, **Prova su un apparato** legge un indirizzo con il profilo S
 la regola com'è in quel momento nel modulo, **senza salvare niente**: modello, numero di serie, produttore, tipo,
 numero di porte, di MAC e di vicini LLDP prima e dopo, e l'elenco delle porte rinominate o ignorate. "Prima" conta le altre regole
 attive. Se la regola non vale per quell'apparato, la prova lo dice.
+
+Nell'elenco la colonna **Device** dice a quanti device vale ogni regola, secondo la loro ultima lettura (anche se la
+regola è spenta: così vedi chi toccherebbe prima di accenderla). Il numero apre l'elenco dei device filtrato su quella
+regola; per togliere il filtro scegli "Regola SNMP: tutti".
 
 Con i pulsanti in alto nell'elenco puoi **esportare** tutte le regole in un file JSON e **importarle** in un'altra
 installazione: le regole con lo stesso nome (maiuscole e minuscole non contano) si aggiornano, le altre si

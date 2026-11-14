@@ -182,6 +182,7 @@ def apply(data: Any, rules: list[Rule], values: dict[str, Any]) -> None:
     if rule := next((r for r in rules if r.kind), None):
         data.kind = rule.kind
     data.rules = [r.name for r in rules]  # per la scheda "Cosa ho letto"
+    data.rule_ids = [r.order for r in rules]
 
 
 def _fdb_ports(data: Any, rule: Rule | None) -> None:

@@ -252,6 +252,7 @@ class HostData:
     manufacturer: str | None = None
     kind: str | None = None
     rules: list[str] = field(default_factory=list, compare=False)
+    rule_ids: list[int] = field(default_factory=list, compare=False)  # stesse regole, per i link della scheda
     rule_values: dict[str, Any] = field(default_factory=dict, compare=False)
     # Righe della tabella MAC con una porta che non è una porta bridge (MAC, porta, VLAN) e porte bridge -> ifIndex:
     # una regola può dire come leggere quella porta (TP-Link JetStream: 1..N invece di 49153+)

@@ -89,6 +89,8 @@ export const resources = {
       { name: 'role_id', label: t('Ruolo'), ref: 'device-roles' },
       { name: 'status', label: t('Stato'), options: O.DEVICE_STATUS },
       { name: 'reachable', label: t('Stato live'), options: O.REACHABLE },
+      // Solo arrivando dal numero nell'elenco delle regole SNMP (sparisce quando lo si toglie)
+      { name: 'snmp_rule', label: t('Regola SNMP'), ref: 'snmp-rules', onlyIfSet: true },
     ],
     // Colonne: hidden = da scegliere in "Colonne della tabella"; filter/sortField per le colonne con render
     columns: [
@@ -971,6 +973,7 @@ resources['snmp-rules'] = {
     { name: 'builtin', label: t('Origine'), options: [{ value: 'false', label: t('Scritte qui') }, { value: 'true', label: t('Incluse in NetMap') }] },
   ],
   canDelete: (o) => !o.builtin,
+  listExtra: '/snmp-rules/usage',
   formNotice: (o) => o?.builtin && t('Regola inclusa in NetMap: puoi solo spegnerla. Gli aggiornamenti la tengono aggiornata; per cambiarla scrivine una tua per gli stessi apparati, che vale prima di questa.'),
   columns: [
     {
@@ -991,6 +994,16 @@ resources['snmp-rules'] = {
     {
       name: 'changes', label: t('Cambia'), filter: false, sortField: null,
       render: (o) => RULE_CHANGES.filter(([has]) => has(o)).map(([, label]) => label()).join(', ') || <span className="muted">{t('niente')}</span>,
+    },
+    {
+      name: 'devices', label: t('Device'), filter: false, sortField: null,
+      render: (o, view) => {
+        const n = view?.extra?.[o.id]
+        if (n === undefined) return null
+        return n
+          ? <Link to={`/devices?snmp_rule=${o.id}`} title={t('Device a cui vale, secondo la loro ultima lettura')}>{n}</Link>
+          : <span className="muted">0</span>
+      },
     },
     { name: 'description', label: t('Note'), hidden: true },
   ],

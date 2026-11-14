@@ -14,9 +14,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 - Pagina del device: **Rileggi ora** rilegge via SNMP solo quel device, con il job dell'ultima lettura, e dice
   com'è andata; le tabelle MAC e ARP restano alla scansione completa. La scheda "Cosa ho letto" avvisa quando le
   regole SNMP sono cambiate dopo la lettura e dice quali valgono adesso.
+- Nella scheda **Cosa ho letto via SNMP** i nomi delle regole aprono la regola (per gli amministratori). L'elenco
+  delle **Regole SNMP** ha la colonna **Device**: quanti device usano la regola, con il link all'elenco dei device
+  filtrato.
+- La scheda **Cosa ho letto via SNMP** avvisa quando un indirizzo IP sta su una porta che lo switch non elenca (o
+  senza nome) e viene scartato, e quando l'indirizzo da cui è stato letto il device non è tra i suoi IP, quindi il
+  device resta senza IP di management.
 
 ### Correzioni
 
+- Dopo **Rileggi ora** l'avviso diceva "1 modifiche applicate".
 - Una regola SNMP con delle porte da ignorare per ifType non si salvava più dopo la creazione: "Salva modifiche"
   non faceva niente.
 - Una regola SNMP corregge anche i modelli creati prima di lei: il produttore provvisorio ("Enterprise 52642")

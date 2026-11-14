@@ -107,9 +107,24 @@ export default function ResourcePage({ resourceKey }) {
   const columnQueryKey = useDebounced(JSON.stringify(filterParams(columns, columnFilters)))
   const columnQuery = useMemo(() => JSON.parse(columnQueryKey), [columnQueryKey])
 
-  const { data, error, loading, reload } = useApi(
+  const { data, error, loading, reload: reloadList } = useApi(
     `/${config.path}${qs({ limit, offset, q, ...filters, ...columnQuery, sort })}`,
   )
+  // Dati in più per le colonne (es. quanti device usano ogni regola SNMP), riletti insieme all'elenco
+  const { data: extra, reload: reloadExtra } = useApi(config.listExtra || null)
+  const reload = () => {
+    reloadList()
+    reloadExtra()
+  }
+  // ?edit=<id>: apre il modulo di quell'elemento (link da altre pagine, es. la regola SNMP dalla scheda del device)
+  const editId = params.get('edit')
+  useEffect(() => {
+    if (editId) api.get(`/${config.path}/${editId}`).then(setEditing).catch((err) => window.alert(err.message))
+  }, [editId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const closeForm = () => {
+    setEditing(null)
+    if (editId) setFilter('edit', '')
+  }
   const filtered = Boolean(q) || Object.values(filters).some((v) => v !== '' && v !== undefined) || columnQueryKey !== '{}'
 
   const setColumnFilter = (name, value) => {
@@ -131,7 +146,7 @@ export default function ResourcePage({ resourceKey }) {
   // Cambiando pagina, ricerca o filtri la selezione riparte da zero
   useEffect(() => setSelected(new Map()), [q, filters, offset, columnQueryKey, sort])
   const items = data?.items || []
-  const view = { tree: !sort }
+  const view = { tree: !sort, extra }
   const allSelected = items.length > 0 && items.every((item) => selected.has(item.id))
   const toggleItem = (item, on) =>
     setSelected((prev) => {
@@ -205,7 +220,7 @@ export default function ResourcePage({ resourceKey }) {
 
   const saved = (item) => {
     const wasNew = editing === 'new'
-    setEditing(null)
+    closeForm()
     reload()
     if (wasNew && config.detail) navigate(config.detail(item))
   }
@@ -251,7 +266,7 @@ export default function ResourcePage({ resourceKey }) {
             setOffset(0)
           }}
         />
-        {(config.filters || []).map((f) => (
+        {(config.filters || []).filter((f) => !f.onlyIfSet || filters[f.name]).map((f) => (
           <Filter
             key={f.name}
             filter={f}
@@ -416,7 +431,7 @@ export default function ResourcePage({ resourceKey }) {
       )}
 
       {editing && (
-        <ResourceForm resourceKey={resourceKey} item={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={saved} />
+        <ResourceForm resourceKey={resourceKey} item={editing === 'new' ? null : editing} onClose={closeForm} onSaved={saved} />
       )}
 
       {deleting && (

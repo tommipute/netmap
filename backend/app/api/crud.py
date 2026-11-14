@@ -136,6 +136,8 @@ def build_crud_router(
     sort_by: dict[str, Any] | None = None,  # campo da ordinare -> espressione (es. IP in ordine numerico)
     hook: Hook | None = None,
     delete_hook: Callable[[Session, Any, dict], None] | None = None,  # riceve anche i parametri della richiesta
+    # filtri che non sono colonne: nome -> (tipo, funzione(db, stmt, valore) che restituisce lo stmt filtrato)
+    extra_filters: dict[str, tuple[type, Callable[[Session, Any, Any], Any]]] | None = None,
     dependencies: list | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix=path, tags=[tag], dependencies=dependencies or [])
@@ -181,7 +183,11 @@ def build_crud_router(
         extra = custom_columns(db)
         stmt = apply_column_filters(model, search, select(model), request.query_params, extra)
         for name, value in kwargs.items():
-            if value is not None:
+            if value is None:
+                continue
+            if name in (extra_filters or {}):
+                stmt = extra_filters[name][1](db, stmt, value)
+            else:
                 stmt = stmt.where(columns[name] == value)
         if q and search:
             # Anche campi calcolati (column_property), es. l'IP di management del device
@@ -213,6 +219,8 @@ def build_crud_router(
         )
     for name in filters:
         py_type = columns[name].type.python_type
+        params.append(inspect.Parameter(name, kw, default=Query(None), annotation=Optional[py_type]))
+    for name, (py_type, _) in (extra_filters or {}).items():
         params.append(inspect.Parameter(name, kw, default=Query(None), annotation=Optional[py_type]))
     list_items.__signature__ = inspect.Signature(params)
     router.add_api_route(

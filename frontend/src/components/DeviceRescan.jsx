@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import { t } from '../i18n'
+import { t, tn } from '../i18n'
 
 const ACTIVE = ['queued', 'running']
 
@@ -57,7 +57,10 @@ export function RescanNotice({ run, onClose }) {
     tone = 'notice--warn'
     text = <>{t('L\'apparato non ha risposto: controlla che sia acceso e raggiungibile e il profilo SNMP.')} {log}</>
   } else {
-    text = t('Rilettura finita: {applied} modifiche applicate, {proposed} da approvare.', { applied: run.changes_applied, proposed: run.changes_proposed })
+    text = t('Rilettura finita: {applied}, {proposed}.', {
+      applied: tn(run.changes_applied, '1 modifica applicata', '{n} modifiche applicate'),
+      proposed: tn(run.changes_proposed, '1 da approvare', '{n} da approvare'),
+    })
   }
   return (
     <p className={`notice no-print rescan-notice ${tone}`}>

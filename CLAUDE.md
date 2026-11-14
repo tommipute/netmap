@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (176 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (178 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -349,6 +349,12 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   quello, salta `update_endpoints` (con uno switch solo gli uplink non si riconoscono) e `schedule_due_jobs` non lo
   conta. `GET /devices/{id}/snmp-report` aggiunge `rules_now` (regole attive che valgono adesso, con `updated_at`) e
   `host_run` (rilettura in coda o in corso); frontend `components/DeviceRescan.jsx` (`useRescan`, `RescanNotice`).
+  **Device di una regola**: `runner.rule_devices` (regola compilata contro sysObjectID e descrizione dell'ultimo
+  resoconto di ogni device, anche se spenta) → `GET /snmp-rules/usage` (`{id: numero}`, colonna "Device"
+  dell'elenco con `listExtra` di ResourcePage, `view.extra` nel `render`) e filtro `snmp_rule` dei device
+  (`extra_filters` di `build_crud_router`, anche nell'export; nel frontend filtro `onlyIfSet`, visibile solo se
+  attivo). Il resoconto ha anche `rule_ids`; i nomi nella scheda aprono `/snmp-rules?edit=<id>` (ResourcePage apre
+  il modulo di qualsiasi risorsa con `?edit=`). Note `ip_no_port` e `host_not_in_ips` in `build_report`.
 - `matching.py`: device = seriale → sysName senza dominio → IP registrato → MAC di una porta;
   porte con `norm_ifname` ("GigabitEthernet1/0/1" = "Gi1/0/1"); `ifType` → tipo (ethernet resta `copper`).
 - `planner.py`: regole. **VLAN**: quelle lette (Q-BRIDGE: nomi, PVID, bitmap egress/untagged; Cisco:

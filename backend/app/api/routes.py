@@ -70,6 +70,7 @@ _routers = [
          filters=("site_id", "location_id", "rack_id", "role_id", "device_type_id", "status", "source", "reachable"),
          search=("name", "serial", "asset_tag", "sys_name", "management_ip"), order_by=(Device.name,),
          sort_by={"management_ip": Device.management_ip_key}, hook=rules.device_hook,
+         extra_filters={"snmp_rule": (int, snmp_rules.filter_devices)},
          delete_hook=rules.device_delete_hook),
     dict(model=Interface, create_schema=d.InterfaceCreate, update_schema=d.InterfaceUpdate,
          read_schema=d.InterfaceRead, path="/interfaces", tag="Interfacce",
