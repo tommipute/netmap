@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.6.0] - 2026-11-15
+
+La **Location SNMP** dei device: il sysLocation scritto nella configurazione dello switch resta salvato come
+informazione, si aggiorna a ogni scansione e si cerca nell'elenco, senza cambiare la Posizione. Nessun cambiamento
+incompatibile: l'aggiornamento applica da solo la migration del database.
+
 ### Novità
 
 - **Location SNMP** del device: il luogo scritto nella configurazione dello switch (sysLocation) resta salvato e si
