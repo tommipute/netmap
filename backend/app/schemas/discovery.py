@@ -241,6 +241,7 @@ class SnmpReportData(BaseModel):
     sys_object_id: str | None = None
     manufacturer: str | None = None
     sys_descr: str | None = None
+    sys_location: str | None = None
     model: str | None = None
     model_source: str | None = Field(None, description="entity, sysdescr, chassis, rule")
     serial: str | None = None

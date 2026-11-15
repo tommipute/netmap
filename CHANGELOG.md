@@ -8,6 +8,13 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ### Novità
 
+- **Location SNMP** del device: il luogo scritto nella configurazione dello switch (sysLocation) resta salvato e si
+  vede nella pagina del device e nella scheda "Cosa ho letto via SNMP"; si aggiorna a ogni scansione, si cerca
+  nell'elenco dei device e ha una colonna. Non cambia la Posizione del device. Prima si vedeva solo nella proposta di
+  un device nuovo e poi si perdeva.
+
+### Novità
+
 - Aggiornamenti a mano: con Docker su Linux la **Cartella di NetMap** è già compilata, ricavata dai mount del
   container; resta modificabile.
 

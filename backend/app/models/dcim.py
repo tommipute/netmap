@@ -126,6 +126,7 @@ class Device(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     asset_tag: Mapped[str | None] = mapped_column(String(100), unique=True)
     sys_name: Mapped[str | None] = mapped_column(String(255))
     sys_descr: Mapped[str | None] = mapped_column(Text)
+    sys_location: Mapped[str | None] = mapped_column(String(255))  # sysLocation: testo libero, non la Posizione
     description: Mapped[str | None] = mapped_column(Text)
     # Stato live (fase 4): l'ultimo controllo del monitor (ping e SNMP sull'IP di management)
     reachable: Mapped[bool | None] = mapped_column(Boolean)          # vuoto = mai controllato

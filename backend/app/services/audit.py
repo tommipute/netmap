@@ -53,7 +53,7 @@ TRACKED: dict[type, str] = {
 
 # Campi che cambiano da soli o derivati: non sono modifiche di qualcuno
 IGNORED = {
-    "id", "created_at", "updated_at", "last_seen_at", "oper_status", "if_index", "sys_name", "sys_descr",
+    "id", "created_at", "updated_at", "last_seen_at", "oper_status", "if_index", "sys_name", "sys_descr", "sys_location",
     "reachable", "last_check_at", "reachable_changed_at", "rtt_ms", "snmp_profile_id", "token_version",
     "last_login_at", "host", "sort_key", "path", "source", "last_sent_at", "last_error",
     "last_copy_at", "last_error_at", "host_key", "full_name", "oper_changed_at", "cursor", "gaps", "last_used_at",

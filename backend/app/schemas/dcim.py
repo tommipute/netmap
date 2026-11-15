@@ -155,6 +155,7 @@ class DeviceBase(InputSchema):
     asset_tag: str | None = Field(None, max_length=100)
     sys_name: str | None = Field(None, max_length=255)
     sys_descr: str | None = None
+    sys_location: str | None = Field(None, max_length=255)
     description: str | None = None
     custom_fields: dict[str, Any] = Field(default_factory=dict)
     management_ip: str | None = Field(

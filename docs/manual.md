@@ -175,7 +175,10 @@ Click a device to open its page:
   type.
 - **Connected endpoints**: PCs, phones and printers seen behind that port (see
   [Where is it connected?](#13-where-is-it-connected)).
-- **Scan data** (in the device details): last time the scan saw it, sysName and SNMP description.
+- **Scan data** (in the device details): last time the scan saw it, sysName, SNMP description and **SNMP
+  location**, the place written in the switch configuration (sysLocation). The SNMP location is information only: it
+  does not change the device's **Location**, which you choose by hand or comes from the rack. It is updated by every
+  scan and can be searched in the device list (there is also a column, to show from "Table columns").
 - **Stack**: if the device is a switch stack, the individual switches are listed here (number, model, serial,
   rack unit). A stack is **one device** with one IP and ports Gi1/0/x, Gi2/0/x…; the scan finds the members by
   itself. Daisy-chained switches with their own IPs stay separate devices.
@@ -418,7 +421,7 @@ is missing (the model, the cables, the endpoints) to tell whether the switch doe
 understand it:
 
 - the model and where it comes from (ENTITY-MIB, SNMP description or chassis description), serial number,
-  manufacturer and sysObjectID, SNMP description;
+  manufacturer and sysObjectID, SNMP description, SNMP location;
 - how many rows it read for each table (ports, IPs, stack members, LLDP and CDP neighbours, VLANs, MAC table, ARP
   table) and from which MIB. "Nothing" means the switch gave no data: it may not have that table, have it empty or
   not give it with that profile (SNMP view);

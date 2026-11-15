@@ -300,6 +300,9 @@ export default function DevicePage() {
         <div><dt>{t('Origine dati')}</dt><dd><SourceIcon source={device.source} withLabel /></dd></div>
         {device.last_seen_at && <div><dt>{t('Ultima scansione')}</dt><dd>{formatDateTime(device.last_seen_at)}</dd></div>}
         {device.sys_name && device.sys_name !== device.name && <div><dt>{t('sysName')}</dt><dd><Mono>{device.sys_name}</Mono></dd></div>}
+        {device.sys_location && (
+          <div><dt title={t('Il sysLocation scritto nella configurazione dello switch')}>{t('Location SNMP')}</dt><dd>{device.sys_location}</dd></div>
+        )}
         {customEntries.map(([key, label, definition]) => (
           <div key={key}><dt>{label}</dt><dd><CustomValue definition={definition} value={device.custom_fields[key]} /></dd></div>
         ))}

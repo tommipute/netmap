@@ -925,6 +925,8 @@ const strings = {
   // nomi dei campi nello storico e nelle modifiche della scansione
   'Indirizzo scansionato': 'Scanned address',
   'Posizione SNMP': 'SNMP location',
+  'Location SNMP': 'SNMP location',
+  'Il sysLocation scritto nella configurazione dello switch': 'The sysLocation written in the switch configuration',
   'Tipo riconosciuto': 'Recognised type',
   'Descrizione': 'Description',
   'Modo': 'Mode',

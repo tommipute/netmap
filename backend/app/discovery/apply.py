@@ -122,6 +122,7 @@ def _create_device(db: Session, data: dict, change: DiscoveryChange) -> None:
         serial=data.get("serial"),
         sys_name=data.get("sys_name"),
         sys_descr=data.get("sys_descr"),
+        sys_location=data.get("sys_location"),
         snmp_profile_id=data.get("snmp_profile_id") if db.get(SnmpProfile, data.get("snmp_profile_id") or 0) else None,
         source=SNMP,
         last_seen_at=_now(),

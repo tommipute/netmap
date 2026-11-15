@@ -420,3 +420,22 @@ def test_device_di_una_regola(client, setup, session_factory):
     with session_factory() as db:
         snmp_rules.apply(hd, [snmp_rules.compile_rule(db.get(SnmpRule, rule["id"]))], {})
     assert build_report(hd)["rules"] == ["HP di prova"] and build_report(hd)["rule_ids"] == [rule["id"]]
+
+
+def test_location_snmp(client, setup, session_factory):
+    """Il sysLocation resta sul device come testo ("Location SNMP"), si aggiorna in silenzio e non tocca la Posizione."""
+    scan(client, session_factory, setup["job"]["id"], (SW2, SW2_HOST))
+    approve_all(client)
+    sw2 = device_named(client, "sw-sim-02")
+    assert sw2["sys_location"] == "Laboratorio" and sw2["location_id"] is None
+    moved = copy.deepcopy(SW2)
+    moved["system"]["location"] = "Magazzino, rack 3"
+    scan(client, session_factory, setup["job"]["id"], (moved, SW2_HOST))
+    assert pending(client) == []
+    sw2 = device_named(client, "sw-sim-02")
+    assert sw2["sys_location"] == "Magazzino, rack 3" and sw2["location_id"] is None
+    assert client.get("/api/devices?q=magazzino").json()["total"] == 1
+    report = client.get(f"/api/devices/{sw2['id']}/snmp-report").json()
+    assert report["data"]["sys_location"] == "Magazzino, rack 3"
+    history = client.get("/api/audit-log", params={"device_id": sw2["id"]}).json()["items"]
+    assert not any("sys_location" in str(h.get("changes")) for h in history)

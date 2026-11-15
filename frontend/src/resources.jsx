@@ -137,6 +137,7 @@ export const resources = {
       { name: 'serial', label: t('Seriale'), type: 'mono' },
       { name: 'asset_tag', label: t('Asset tag'), type: 'mono', hidden: true },
       { name: 'sys_name', label: t('sysName'), type: 'mono', hidden: true },
+      { name: 'sys_location', label: t('Location SNMP'), hidden: true },
       {
         name: 'last_seen_at',
         label: t('Ultima scansione'),

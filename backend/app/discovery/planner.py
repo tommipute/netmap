@@ -1,7 +1,7 @@
 """Confronta i dati letti via SNMP con il database e decide cosa proporre.
 
 Regole (docs/roadmap.md):
-- sempre automatici, senza modifica registrata: last_seen_at, oper_status, if_index, sys_name, sys_descr
+- sempre automatici, senza modifica registrata: last_seen_at, oper_status, if_index, sys_name, sys_descr, sys_location
 - automatici se attivati nel job: porte nuove su device esistenti, IP nuovi su porte note
 - automatici: campi di oggetti creati dalla scansione (source = snmp)
 - sempre da approvare: device nuovi, cavi nuovi o diversi, oggetti eliminati, campi di oggetti inseriti a mano
@@ -99,6 +99,7 @@ class Planner:
 
         device.sys_name = hd.sys_name or device.sys_name
         device.sys_descr = hd.sys_descr or device.sys_descr
+        device.sys_location = hd.sys_location or device.sys_location
         device.last_seen_at = self.now
         device.snmp_profile_id = hd.profile_id or device.snmp_profile_id
 
@@ -180,7 +181,7 @@ class Planner:
             "Stack": [None, f"{len(hd.members)} switch" if hd.members else None],
             "Porte": [None, len(hd.interfaces)],
             "IP": [None, ", ".join(ip["address"] for ip in ips) or None],
-            "Posizione SNMP": [None, hd.sys_location],
+            "Location SNMP": [None, hd.sys_location],
         }
         return Proposal(
             key=f"device:create:{(hd.serial or short_name(hd.sys_name) or hd.host).lower()}",
@@ -193,6 +194,7 @@ class Planner:
                 "serial": hd.serial,
                 "sys_name": hd.sys_name,
                 "sys_descr": hd.sys_descr,
+                "sys_location": hd.sys_location,
                 "snmp_profile_id": hd.profile_id,
                 # Ruolo e tipo solo nei dettagli: cambiano con il catalogo, e una proposta rifiutata con gli stessi
                 # dati non deve tornare

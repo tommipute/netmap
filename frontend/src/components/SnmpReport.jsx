@@ -79,6 +79,9 @@ export function SnmpReportBody({ data, compact = false, report = null, onChanged
             <dd>{kindLabel(data.kind)} {data.kind_reason && <span className="muted">({tServer(data.kind_reason)})</span>}</dd>
           </div>
         )}
+        {data.sys_location && (
+          <div><dt>{t('Location SNMP')}</dt><dd>{data.sys_location}</dd></div>
+        )}
         {data.rules?.length > 0 && (
           <div>
             <dt>{t('Regole SNMP')}</dt>

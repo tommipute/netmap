@@ -175,8 +175,11 @@ Cliccando un device si apre la sua scheda:
 - **Collega** (l'icona sulla riga di una porta libera): scegli il device e la porta dall'altra parte e il tipo di
   cavo.
 - **Endpoint collegati**: i PC, telefoni e stampanti visti dietro quella porta (vedi [Dov'è collegato?](#13-dovè-collegato)).
-- **Dati della scansione** (nei dati del device): ultima volta che la scansione l'ha visto, sysName e descrizione
-  SNMP.
+- **Dati della scansione** (nei dati del device): ultima volta che la scansione l'ha visto, sysName, descrizione
+  SNMP e **Location SNMP**, cioè il luogo scritto nella configurazione dello switch (sysLocation). La Location SNMP è
+  solo un'informazione: non cambia la **Posizione** del device, che si sceglie a mano o viene dal rack. Si aggiorna
+  da sola a ogni scansione e si può cercare nell'elenco dei device (c'è anche la colonna, da mostrare in "Colonne
+  della tabella").
 - **Stack**: se il device è uno stack di switch, qui ci sono i singoli switch (numero, modello, seriale, unità
   nel rack). Uno stack è **un solo device** con un IP e le porte Gi1/0/x, Gi2/0/x…; la scansione trova da sola i
   membri. Switch in cascata con IP propri restano device separati.
@@ -420,7 +423,7 @@ quando manca qualcosa (il modello, i cavi, gli endpoint) per capire se è lo swi
 capisce:
 
 - modello e da dove viene (ENTITY-MIB, descrizione SNMP o descrizione dello chassis), numero di serie, produttore
-  e sysObjectID, descrizione SNMP;
+  e sysObjectID, descrizione SNMP, Location SNMP;
 - quante righe ha letto per ogni tabella (porte, IP, membri dello stack, vicini LLDP e CDP, VLAN, tabella MAC,
   tabella ARP) e da quale MIB. "Niente" vuol dire che lo switch non ha dato dati: può non avere quella tabella,
   averla vuota o non darla con quel profilo (vista SNMP);

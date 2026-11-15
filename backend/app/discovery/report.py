@@ -33,6 +33,7 @@ def build_report(hd: HostData, renamed_ports: int = 0) -> dict:
         "sys_object_id": hd.sys_object_id,
         "manufacturer": manufacturer_of(hd),
         "sys_descr": hd.sys_descr,
+        "sys_location": hd.sys_location,
         "model": hd.model,
         "model_source": hd.model_source,
         "serial": hd.serial,

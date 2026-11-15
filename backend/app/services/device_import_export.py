@@ -98,6 +98,7 @@ def get_devices_data(
                 Device.serial.ilike(term),
                 Device.asset_tag.ilike(term),
                 Device.sys_name.ilike(term),
+                Device.sys_location.ilike(term),
                 Device.description.ilike(term),
                 search_clause(Device, term),
             )
@@ -162,6 +163,7 @@ def get_devices_data(
             "serial": d.serial or "",
             "asset_tag": d.asset_tag or "",
             "sys_name": d.sys_name or "",
+            "sys_location": d.sys_location or "",
             "ports_count": port_counts.get(d.id, 0),
             "description": d.description or "",
             "custom_fields": d.custom_fields or {},
