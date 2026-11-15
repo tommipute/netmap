@@ -9,9 +9,15 @@ L'app non vede l'host, quindi lo deduce da quello che c'è nel container:
   da GitHub (archive.txt: GitHub sostituisce il segnaposto negli archivi, `export-subst` in .gitattributes),
   git = tutto il resto (un clone del repository).
 Il sistema dell'host si vede dal kernel: Docker Desktop su Windows usa quello di WSL2, su Mac quello di LinuxKit.
+La cartella di NetMap sull'host si legge dai mount del container (/proc/self/mountinfo): ./updater-data del compose è
+montata su /updater-data, e il quarto campo è il suo percorso. È il percorso dentro il filesystem che la contiene, quindi
+giusto se la cartella sta sul filesystem principale (con /opt su una partizione a sé verrebbe /netmap): per questo la
+pagina lo propone soltanto, modificabile. Solo con Docker su Linux: con Docker Desktop è un percorso della sua macchina
+virtuale, non quello di Windows o del Mac
 """
 
 import platform
+import re
 from pathlib import Path
 
 from app.services import updater
@@ -20,6 +26,8 @@ STALE_DAYS = 7
 APP_DIR = Path(__file__).resolve().parents[1]  # cartella app/
 ARCHIVE_FILE = APP_DIR / "archive.txt"
 DEPLOY_DIR = APP_DIR.parent / "deploy"
+MOUNTINFO = Path("/proc/self/mountinfo")
+UPDATER_MOUNT = "/updater-data"
 
 
 def archive_info() -> dict | None:
@@ -43,6 +51,24 @@ def host_system() -> str:
     return "linux"
 
 
+def install_dir() -> str | None:
+    """Cartella di NetMap sull'host, dal mount di ./updater-data; None se non si capisce."""
+    if host_system() != "linux":
+        return None
+    try:
+        lines = MOUNTINFO.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        fields = line.split()
+        if len(fields) > 4 and fields[4] == UPDATER_MOUNT:
+            # mountinfo scrive spazi, tab e barre rovesciate in ottale (\040)
+            root = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), fields[3])
+            parent = root.removesuffix(UPDATER_MOUNT)
+            return parent if parent != root and parent else None
+    return None
+
+
 def source() -> str:
     if DEPLOY_DIR.is_dir():
         return "image"
@@ -62,4 +88,5 @@ def info() -> dict:
         "source": source(),
         "host": host_system(),
         "archive": archive_info(),
+        "dir": install_dir(),
     }

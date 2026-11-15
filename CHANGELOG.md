@@ -6,6 +6,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- Aggiornamenti a mano: con Docker su Linux la **Cartella di NetMap** è già compilata, ricavata dai mount del
+  container; resta modificabile.
+
 ## [1.5.0] - 2026-11-15
 
 Regole SNMP più comode da usare: si creano dalla scheda "Cosa ho letto via SNMP" del device, correggono anche i

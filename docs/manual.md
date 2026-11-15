@@ -700,7 +700,9 @@ themselves in (PowerShell on Windows, terminal elsewhere) and **Copy the command
 back up the database to `backups/manual-prima-aggiornamento.dump`, install the new version (`git pull`,
 `docker compose pull` with the images or, if you downloaded it as a zip, the zip of the latest stable version, which
 the commands download from GitHub by themselves and copy over the old files without touching `.env` and data) and
-restart NetMap; database migrations run by themselves. The folder you type is saved for your user.
+restart NetMap; database migrations run by themselves. With Docker on Linux the folder is already filled in: NetMap
+works it out from where `updater-data` is mounted; check it, and correct it if it is not the right one (for example
+if the folder is on a separate partition). The folder you type or correct is saved for your user.
 
 **Back up now** and restores on the Backup page need the script too: without it, back up with the commands in this
 section. If the script ran but has been silent for more than a week (folder copied from a server, stopped timer),

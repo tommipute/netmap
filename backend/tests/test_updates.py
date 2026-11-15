@@ -149,11 +149,14 @@ def test_tipo_di_installazione(client, updater_dir, tmp_path, monkeypatch):
     monkeypatch.setattr(install, "ARCHIVE_FILE", archive)
     monkeypatch.setattr(install, "DEPLOY_DIR", tmp_path / "manca")
     monkeypatch.setattr(install.platform, "release", lambda: "5.15.167.4-microsoft-standard-WSL2")
+    mountinfo = tmp_path / "mountinfo"
+    mountinfo.write_text("936 874 252:17 /srv/net\\040map/updater-data /updater-data rw,relatime - ext4 /dev/sda1 rw\n")
+    monkeypatch.setattr(install, "MOUNTINFO", mountinfo)
 
     # Script mai partito: installazione manuale da un clone, su Docker Desktop per Windows
     data = client.get("/api/updates").json()["install"]
     assert data == {"kind": "manual", "updater_mode": None, "stale_updater": False, "updater_last_run": None,
-                    "source": "git", "host": "windows", "archive": None}
+                    "source": "git", "host": "windows", "archive": None, "dir": None}
 
     # Lo script gira: server
     now = datetime.now(timezone.utc)
@@ -162,6 +165,7 @@ def test_tipo_di_installazione(client, updater_dir, tmp_path, monkeypatch):
     monkeypatch.setattr(install.platform, "release", lambda: "6.12.48+deb13-amd64")
     data = client.get("/api/updates").json()["install"]
     assert data["kind"] == "server" and data["updater_mode"] == "docker" and data["host"] == "linux"
+    assert data["dir"] == "/srv/net map"  # cartella dal mount di ./updater-data, solo su Linux
 
     # Fermo da più di una settimana (cartella copiata da un server, prove vecchie): manuale con avviso
     status["last_run"] = (now - timedelta(days=8)).isoformat()

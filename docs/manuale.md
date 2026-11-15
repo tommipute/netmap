@@ -709,7 +709,9 @@ sotto si completano da soli (per PowerShell su Windows, per il terminale altrove
 appunti. Fanno un backup del database in `backups/manual-prima-aggiornamento.dump`, poi installano la versione nuova
 (`git pull`, `docker compose pull` con le immagini oppure, se l'hai scaricato come zip, lo zip dell'ultima versione
 stabile, che i comandi scaricano da GitHub da soli e copiano sopra i file vecchi senza toccare `.env` e dati) e
-riavviano NetMap; le migration del database partono da sole. La cartella scritta resta salvata per il tuo utente.
+riavviano NetMap; le migration del database partono da sole. Con Docker su Linux la cartella è già scritta: NetMap
+la ricava da dove è montata `updater-data`; controllala, e correggila se non è quella giusta (per esempio se la
+cartella sta su una partizione a sé). La cartella scritta o corretta resta salvata per il tuo utente.
 
 Anche **Backup ora** e il ripristino nella pagina Backup servono allo script: senza, il backup si fa con i comandi di
 questa sezione. Se lo script ha girato ma tace da più di una settimana (cartella copiata da un server, timer fermo),

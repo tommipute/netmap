@@ -7,8 +7,9 @@ import { t } from '../i18n'
 
 /**
  * Installazioni senza lo script di aggiornamento (install.kind = manual, vedi services/install.py): da dove viene il
- * codice e i comandi da copiare per aggiornare, in PowerShell su Windows e in bash altrove. La cartella scritta qui
- * resta nel browser (e nelle preferenze dell'utente), così i comandi si copiano già pronti. Con lo zip i comandi
+ * codice e i comandi da copiare per aggiornare, in PowerShell su Windows e in bash altrove. La cartella parte da quella
+ * che il backend legge dai mount (install.dir, solo Docker su Linux); se l'utente la corregge, la sua resta nel browser
+ * (e nelle preferenze dell'utente), così i comandi si copiano già pronti. Con lo zip i comandi
  * scaricano da soli l'ultima versione stabile (API di GitHub, releases/latest: niente beta).
  */
 
@@ -91,7 +92,7 @@ function commandLines(install, dir) {
 
 export default function ManualUpdate({ install }) {
   const win = install.host === 'windows'
-  const [dir, setDir] = useState(() => readLocal(DIR_KEY) || '')
+  const [dir, setDir] = useState(() => readLocal(DIR_KEY) || install.dir || '')
   const [copied, setCopied] = useState(false)
   const text = commandLines(install, dir.trim())
 
@@ -125,7 +126,10 @@ export default function ManualUpdate({ install }) {
         <label className="field">
           <span className="field__label">{t('Cartella di NetMap')}</span>
           <input className="input" value={dir} onChange={save(DIR_KEY, setDir)} placeholder={win ? 'C:\\NetMap' : '/opt/netmap'} />
-          <span className="hint">{t('Quella con docker-compose.yml e il file .env.')}</span>
+          <span className="hint">
+            {t('Quella con docker-compose.yml e il file .env.')}
+            {install.dir && dir.trim() === install.dir && ` ${t("L'ha trovata NetMap: correggila se non è giusta.")}`}
+          </span>
         </label>
       </div>
       <div>

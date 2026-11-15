@@ -1093,6 +1093,7 @@ const strings = {
   'versioni di NetMap': 'NetMap releases',
   'Cartella di NetMap': 'NetMap folder',
   'Quella con docker-compose.yml e il file .env.': 'The one with docker-compose.yml and the .env file.',
+  "L'ha trovata NetMap: correggila se non è giusta.": 'NetMap found it: correct it if it is wrong.',
   'Comandi per PowerShell': 'PowerShell commands',
   'Comandi per il terminale': 'Terminal commands',
   'Copia i comandi': 'Copy the commands',
