@@ -6,6 +6,13 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.5.0] - 2026-11-15
+
+Regole SNMP più comode da usare: si creano dalla scheda "Cosa ho letto via SNMP" del device, correggono anche i
+device già documentati e si provano subito con **Rileggi ora**, che rilegge un solo device. Corregge il salvataggio
+delle regole con porte da ignorare per ifType, che nella 1.4.0 non funzionava. Nessun cambiamento incompatibile:
+l'aggiornamento applica da solo la migration del database.
+
 ### Novità
 
 - Scheda **Cosa ho letto via SNMP**: mostra anche la descrizione SNMP e, agli amministratori, cosa manca o non torna
