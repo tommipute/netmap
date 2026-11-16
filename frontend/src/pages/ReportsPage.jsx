@@ -354,6 +354,11 @@ function AvailabilityReport({ data }) {
 
 const BUILDERS = { 'port-usage': UsageReport, 'port-errors': ErrorsReport, 'free-ports': FreeReport, poe: PoeReport, availability: AvailabilityReport }
 
+/** Dati di un report: montato con key = report */
+function Fetch({ url, children }) {
+  return children(useApi(url))
+}
+
 export default function ReportsPage() {
   const [params, setParams] = useSearchParams()
   const report = REPORTS.some((r) => r.value === params.get('report')) ? params.get('report') : 'port-usage'
@@ -372,7 +377,7 @@ export default function ReportsPage() {
     poe: { site_id: siteId },
     availability: { range: availabilityRange, site_id: siteId },
   }[report]
-  const { data, error, loading } = useApi(`/reports/${report}${qs(query)}`)
+  const url = `/reports/${report}${qs(query)}`
 
   const set = (changes) => setParams((prev) => {
     const next = new URLSearchParams(prev)
@@ -383,7 +388,6 @@ export default function ReportsPage() {
     return next
   }, { replace: true })
 
-  const built = data && data.items ? BUILDERS[report]({ data, onOpen: (r) => setPort(r) }) : null
   const ranges = report === 'availability' ? AVAILABILITY_RANGES : PORT_RANGES
   const range = report === 'availability' ? availabilityRange : portRange
 
@@ -408,54 +412,64 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="toolbar">
-        {(report === 'port-usage' || report === 'port-errors' || report === 'availability') && (
-          <select className="input" aria-label={t('Periodo')} value={range} onChange={(e) => set({ range: e.target.value })}>
-            {ranges.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-        )}
-        {report === 'free-ports' && (
-          <select className="input" aria-label={t('Giù da almeno')} value={days} onChange={(e) => set({ days: e.target.value === '30' ? '' : e.target.value })}>
-            {FREE_DAYS.map((d) => <option key={d} value={d}>{t('Giù da almeno {n} giorni', { n: d })}</option>)}
-          </select>
-        )}
-        {sites && sites.total > 1 && (
-          <select className="input" aria-label={t('Sede')} value={siteId} onChange={(e) => set({ site_id: e.target.value })}>
-            <option value="">{t('Tutte le sedi')}</option>
-            {sites.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        )}
-        {report === 'port-usage' && (
-          <label className="check">
-            <input type="checkbox" checked={cabled} onChange={(e) => set({ cabled: e.target.checked ? '1' : '' })} />
-            {t('Solo porte con un cavo verso un altro device (uplink)')}
-          </label>
-        )}
-        {built && data.items.length > 0 && (
-          <IconButton icon="download" label={t('Scarica in CSV (si apre con Excel)')}
-            onClick={() => downloadCsv(`netmap-${report}`, built.columns, data.items)} />
-        )}
-      </div>
-
-      <ErrorBox error={error} />
-      {!data && loading && <Loading />}
-      {built && (
-        <>
-          <div className="problem-counts report-summary">
-            {built.summary.map((s) => (
-              <div key={s.label} className={`problem-count problem-count--static${s.tone ? ` problem-count--${s.tone}` : ''}`}>
-                <strong>{s.value}</strong>
-                <span>{s.label}</span>
-              </div>
-            ))}
+      {/* key: cambiando report si riparte da zero, senza disegnare i dati del report di prima con le colonne del nuovo */}
+      <Fetch key={report} url={url}>
+        {({ data, error, loading }) => {
+          const built = data && data.items ? BUILDERS[report]({ data, onOpen: (r) => setPort(r) }) : null
+          return (
+            <>
+          <div className="toolbar">
+            {(report === 'port-usage' || report === 'port-errors' || report === 'availability') && (
+              <select className="input" aria-label={t('Periodo')} value={range} onChange={(e) => set({ range: e.target.value })}>
+                {ranges.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            )}
+            {report === 'free-ports' && (
+              <select className="input" aria-label={t('Giù da almeno')} value={days} onChange={(e) => set({ days: e.target.value === '30' ? '' : e.target.value })}>
+                {FREE_DAYS.map((d) => <option key={d} value={d}>{t('Giù da almeno {n} giorni', { n: d })}</option>)}
+              </select>
+            )}
+            {sites && sites.total > 1 && (
+              <select className="input" aria-label={t('Sede')} value={siteId} onChange={(e) => set({ site_id: e.target.value })}>
+                <option value="">{t('Tutte le sedi')}</option>
+                {sites.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+            {report === 'port-usage' && (
+              <label className="check">
+                <input type="checkbox" checked={cabled} onChange={(e) => set({ cabled: e.target.checked ? '1' : '' })} />
+                {t('Solo porte con un cavo verso un altro device (uplink)')}
+              </label>
+            )}
+            {built && data.items.length > 0 && (
+              <IconButton icon="download" label={t('Scarica in CSV (si apre con Excel)')}
+                onClick={() => downloadCsv(`netmap-${report}`, built.columns, data.items)} />
+            )}
           </div>
-          {data.items.length === 0 ? (
-            <div className="empty"><p>{built.empty}</p></div>
-          ) : (
-            <div className="table-wrap">{built.table}</div>
+
+          <ErrorBox error={error} />
+          {!data && loading && <Loading />}
+          {built && (
+            <>
+              <div className="problem-counts report-summary">
+                {built.summary.map((s) => (
+                  <div key={s.label} className={`problem-count problem-count--static${s.tone ? ` problem-count--${s.tone}` : ''}`}>
+                    <strong>{s.value}</strong>
+                    <span>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+              {data.items.length === 0 ? (
+                <div className="empty"><p>{built.empty}</p></div>
+              ) : (
+                <div className="table-wrap">{built.table}</div>
+              )}
+            </>
           )}
-        </>
-      )}
+            </>
+          )
+        }}
+      </Fetch>
       {port && (
         <PortStatsDialog port={{ id: port.interface_id, name: port.interface_name, description: port.description }}
           device={port.device_name} onClose={() => setPort(null)} />
