@@ -23,6 +23,10 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   fare; si vedono anche nella scheda del device e in una scheda della Panoramica. Nelle porte i badge
   **err-disabled** e **bloccata da STP**.
 
+### Modifiche
+
+- Sugli schermi larghi le pagine usano più spazio: fino a 1680 px invece di 1280 (la Panoramica 1440).
+
 ### Correzioni
 
 - Pagina **Aggiornamenti** delle installazioni da zip di GitHub (per esempio Docker Desktop su Windows): come versione

@@ -207,7 +207,7 @@ a:hover { text-decoration: underline; }
   background: var(--surface); border-top: 1px solid var(--line); font-variant-numeric: tabular-nums;
 }
 
-.page { padding: 24px 32px 48px; max-width: 1280px; }
+.page { padding: 24px 32px 48px; max-width: 1680px; }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .page-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .page-intro { color: var(--muted); margin-top: 4px; max-width: 70ch; }
@@ -1191,7 +1191,6 @@ details.directory-test:not([open]) > summary, details.disclosure:not([open]) > s
 .nav-home { font-weight: 500; margin-bottom: 6px; }
 .nav-home > .icon { color: var(--accent); }
 a.topnav__group { text-decoration: none; }
-.dash { max-width: 1440px; }
 .dash-hello { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .dash-hello__date { color: var(--muted); font-size: 13px; margin-bottom: 2px; }
 .dash-hello__date::first-letter { text-transform: uppercase; }
