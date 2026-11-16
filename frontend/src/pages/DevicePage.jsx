@@ -14,6 +14,7 @@ import ResourceForm from '../components/ResourceForm'
 import SnmpReport from '../components/SnmpReport'
 import { DuplexTag, PortDot, PortErrors, PortFlags, PortPoe } from '../components/PortDetails'
 import { ProblemTable } from '../components/Problems'
+import PortStatsDialog, { PortRate } from '../components/PortStats'
 import { RescanNotice, useRescan } from '../components/DeviceRescan'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, formatDateTime, formatSpeed, labelOf } from '../options'
@@ -402,7 +403,7 @@ export default function DevicePage() {
                     </td>
                     <td>{labelOf(INTERFACE_TYPES, p.type)}</td>
                     <td><PortVlans port={p} /></td>
-                    <td className="nowrap">{formatSpeed(p.speed_mbps)}<DuplexTag port={p} /><PortErrors port={p} quiet /></td>
+                    <td className="nowrap">{formatSpeed(p.speed_mbps)}<DuplexTag port={p} /><PortErrors port={p} quiet /><PortRate port={p} /></td>
                     {hasPoe && <td><PortPoe port={p} /></td>}
                     <td>
                       {p.cable_id ? (
@@ -422,6 +423,10 @@ export default function DevicePage() {
                     </td>
                     <td><PortEndpoints port={p} /></td>
                     <td className="table__actions">
+                      {(p.admin_status || p.in_bps !== null) && (
+                        <IconButton icon="chart" label={t('Storico di {port}: traffico, errori, PoE', { port: p.name })} small className="btn--ghost"
+                          onClick={() => setDialog({ kind: 'stats', port: p })} />
+                      )}
                       {!canEdit ? null : p.cable_id ? (
                         <IconButton icon="unlink" label={`Scollega ${p.name}`} small className="btn--ghost"
                           onClick={() => run(t('Scollegare {port} da {remote}?', { port: p.name, remote: `${p.remote_device} ${p.remote_interface}` }), () => api.del(`/cables/${p.cable_id}`))} />
@@ -471,6 +476,7 @@ export default function DevicePage() {
         <ResourceForm resourceKey="stack-members" item={dialog.member} onClose={() => setDialog(null)} onSaved={refresh} />
       )}
       {dialog?.kind === 'editPort' && <EditPort portId={dialog.portId} onClose={() => setDialog(null)} onSaved={refresh} />}
+      {dialog?.kind === 'stats' && <PortStatsDialog port={dialog.port} device={device.name} onClose={() => setDialog(null)} />}
       {dialog?.kind === 'bulk' && <BulkPortsDialog deviceId={device.id} onClose={() => setDialog(null)} onDone={refresh} />}
       {dialog?.kind === 'cable' && (
         <CableDialog aDeviceId={device.id} aInterfaceId={dialog.portId} onClose={() => setDialog(null)} onCreated={refresh} />

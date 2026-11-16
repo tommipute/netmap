@@ -23,6 +23,7 @@ from app.config import settings
 from app.discovery import snmp
 from app.models import Device, Interface, IPAddress
 from app.models.enums import DeviceStatus
+from app.services import port_stats
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,10 @@ _NUMBERS = re.compile(r"\d+")
 
 SYS_UPTIME = "1.3.6.1.2.1.1.3.0"
 IF_LAST_CHANGE = "1.3.6.1.2.1.2.2.1.9"
+IF_HC_IN_OCTETS = "1.3.6.1.2.1.31.1.1.1.6"             # contatori del traffico a 64 bit (ifXTable)
+IF_HC_OUT_OCTETS = "1.3.6.1.2.1.31.1.1.1.10"
+IF_IN_OCTETS = "1.3.6.1.2.1.2.2.1.10"                   # a 32 bit, solo se mancano quelli a 64
+IF_OUT_OCTETS = "1.3.6.1.2.1.2.2.1.16"
 IF_IN_DISCARDS, IF_IN_ERRORS = "1.3.6.1.2.1.2.2.1.13", "1.3.6.1.2.1.2.2.1.14"
 IF_OUT_DISCARDS, IF_OUT_ERRORS = "1.3.6.1.2.1.2.2.1.19", "1.3.6.1.2.1.2.2.1.20"
 DOT3_DUPLEX = "1.3.6.1.2.1.10.7.2.1.19"                # dot3StatsDuplexStatus, indice = ifIndex
@@ -78,6 +83,7 @@ class PortDetail:
     last_change: datetime | None = None  # dallo switch: ifLastChange rispetto a sysUpTime
     errors: tuple[int | None, int | None, int | None, int | None] | None = None  # errori in/out, scarti in/out
     last_change_ticks: int | None = None  # ifLastChange così com'è
+    octets: tuple[int | None, int | None, int] | None = None  # byte in, out e giro del contatore (2**64 o 2**32)
 
 
 @dataclass
@@ -169,6 +175,9 @@ async def read_details(session) -> Details:
     last_change = _by_index(await session.walk(IF_LAST_CHANGE))
     counters = [_by_index(await session.walk(oid)) for oid in (IF_IN_ERRORS, IF_OUT_ERRORS, IF_IN_DISCARDS, IF_OUT_DISCARDS)]
     duplex = _by_index(await session.walk(DOT3_DUPLEX))
+    octets = (_by_index(await session.walk(IF_HC_IN_OCTETS)), _by_index(await session.walk(IF_HC_OUT_OCTETS)), 2 ** 64)
+    if not octets[0] and not octets[1]:
+        octets = (_by_index(await session.walk(IF_IN_OCTETS)), _by_index(await session.walk(IF_OUT_OCTETS)), 2 ** 32)
     details = Details()
     for if_index in set(admin) | set(duplex) | set(counters[0]):
         port = PortDetail(admin_status=ADMIN_STATUS.get(admin.get(if_index)), duplex=DUPLEX.get(duplex.get(if_index)))
@@ -177,6 +186,8 @@ async def read_details(session) -> Details:
         if isinstance(uptime, int) and ticks and 0 < ticks <= uptime:
             port.last_change = now - timedelta(seconds=(uptime - ticks) / 100)
             port.last_change_ticks = ticks
+        if if_index in octets[0] or if_index in octets[1]:
+            port.octets = (octets[0].get(if_index), octets[1].get(if_index), octets[2])
         values = tuple(c.get(if_index) for c in counters)
         if any(v is not None for v in values):
             port.errors = values
@@ -329,11 +340,19 @@ def count_flaps(iface: Interface, now: datetime, changes: int = 1) -> None:
 def save_details(db: Session, device: Device, details: Details, now: datetime) -> None:
     interfaces = list(db.scalars(select(Interface).where(Interface.device_id == device.id, Interface.if_index.is_not(None))))
     read_before = device.ports_polled_at is not None
+    # secondi dalla lettura prima: senza, o dopo una pausa lunga, i contatori servono solo da punto di partenza
+    seconds = round((now - _aware(device.ports_polled_at)).total_seconds()) if read_before else 0
+    sampling = 0 < seconds <= port_stats.MAX_GAP.total_seconds()
+    samples = []
     poe_map = poe_port_map(details.poe, [(i.if_index, i.name) for i in interfaces], details.poe_if_index)
     poe_by_index = {if_index: details.poe[key] for key, if_index in poe_map.items()}
     for iface in interfaces:
         port = details.ports.get(iface.if_index)
+        sample = None
         if port is not None:
+            sample = port_stats.make_sample(iface, seconds, port.octets, port.errors) if sampling else None
+            iface.in_bps, iface.out_bps = (sample.in_bps, sample.out_bps) if sample else (None, None)
+            iface.in_octets, iface.out_octets = port.octets[:2] if port.octets else (None, None)
             iface.admin_status, iface.duplex = port.admin_status, port.duplex
             changed = _aware(iface.oper_changed_at)
             # lo switch sa da quando la porta è così anche se NetMap l'ha vista dopo (prima scansione, monitor spento)
@@ -358,10 +377,14 @@ def save_details(db: Session, device: Device, details: Details, now: datetime) -
         iface.poe_status = poe.status if poe else None
         iface.poe_class = poe.power_class if poe else None
         iface.poe_power_mw = poe.power_mw if poe else None
+        if sample is not None:
+            sample.poe_mw = iface.poe_power_mw
+            samples.append(sample)
         iface.err_disabled = details.err_disabled.get(iface.if_index)
         iface.stp_state = details.stp_ports.get(iface.if_index)
     device.poe_budget_w, device.poe_used_w = details.poe_budget_w, details.poe_used_w
     _save_stp(device, details, now)
+    port_stats.record(db, samples, now)
     device.ports_polled_at = now
 
 
@@ -377,6 +400,17 @@ def _save_stp(device: Device, details: Details, now: datetime) -> None:
         if delta >= STP_STORM_CHANGES and delta / hours >= STP_STORM_PER_HOUR:
             device.stp_storm_at = now
     device.stp_top_changes, device.stp_changed_at = current, details.stp_changed_at
+
+
+_pruned_at: datetime | None = None
+
+
+def _prune_stats(db: Session, now: datetime) -> None:
+    """Storico delle porte: le righe vecchie si tolgono al massimo una volta all'ora."""
+    global _pruned_at
+    if _pruned_at is None or now - _pruned_at > timedelta(hours=1):
+        port_stats.prune(db, now)
+        _pruned_at = now
 
 
 def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prober | None = None) -> dict:
@@ -405,6 +439,7 @@ def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prob
                     iface.oper_status = status
         if result.details is not None:
             save_details(db, device, result.details, now)
+            _prune_stats(db, now)
         up, down = up + result.reachable, down + (not result.reachable)
     db.commit()
     return {"checked": up + down, "up": up, "down": down}

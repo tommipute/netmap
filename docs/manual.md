@@ -568,8 +568,34 @@ On the device page these details are in the port table (the PoE column appears o
 
 The Duplex and Configuration (enabled or shut down) columns can be shown from "Table columns".
 
-How often they are read is set with `MONITOR_DETAIL_INTERVAL_SECONDS` in `.env` (default 300; 0 = never). For now
-you see the current value: history and graphs will come later.
+How often they are read is set with `MONITOR_DETAIL_INTERVAL_SECONDS` in `.env` (default 300; 0 = never).
+
+### Port history and graphs
+
+At every detail read the monitor also reads the bytes that went through the port (ifHCInOctets / ifHCOutOctets, or
+the 32-bit counters of older switches) and saves how much changed since the previous read: inbound and outbound
+traffic, errors and discarded packets, time with the port up and PoE watts. In the port table, under the speed,
+there is the traffic of the last 5 minutes (↓ inbound, ↑ outbound); the chart button at the end of the row opens
+the port history. Everyone can see it, read-only users included.
+
+In the history you choose the period:
+
+| Period | One point every |
+|---|---|
+| 1 day, 2 days | 5 minutes |
+| 7 days, 30 days | hour |
+| 1 year | day |
+
+At the top there are the current traffic (with the percentage of the port speed), the bytes received and sent in
+the period, the peak and the errors. Below: the traffic graph (average of each point; hovering also shows the
+peaks), the **Port up** strip (green up, yellow up for part of the time, red down), errors and discards as bars and
+the PoE watts if the port powers something.
+
+5-minute points are kept for 2 days, hourly points for 30 days and daily points for a year; days follow the
+server's local time. The first point arrives after two reads (at the first one there is no starting value yet). If
+the monitor stops for more than 30 minutes, or the switch reboots and the counters start again from zero, that
+stretch stays empty instead of showing a peak that never happened. In the database the history takes about 300 kB
+per port (300 MB per thousand ports).
 
 ### Detected problems
 

@@ -213,6 +213,10 @@ class Interface(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     flaps: Mapped[int | None] = mapped_column(Integer)            # cambi di stato da flaps_since (finestra di 24 ore)
     flaps_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_change_ticks: Mapped[int | None] = mapped_column(BigInteger)  # ifLastChange all'ultima lettura
+    in_octets: Mapped[int | None] = mapped_column(BigInteger)     # contatori del traffico all'ultima lettura
+    out_octets: Mapped[int | None] = mapped_column(BigInteger)
+    in_bps: Mapped[int | None] = mapped_column(BigInteger)        # traffico medio tra le ultime due letture
+    out_bps: Mapped[int | None] = mapped_column(BigInteger)
     # Dalla scansione: quanti MAC di questa porta compaiono anche su porte di accesso di un altro switch
     shared_macs: Mapped[int | None] = mapped_column(Integer)
     shared_device_id: Mapped[int | None] = mapped_column(Integer)  # quello switch (senza FK: è solo un indizio)

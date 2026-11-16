@@ -575,7 +575,33 @@ più comuni:
 Le colonne Duplex e Configurazione (accesa o spenta) si mostrano da "Colonne della tabella".
 
 Ogni quanto leggerli si sceglie con `MONITOR_DETAIL_INTERVAL_SECONDS` nel `.env` (predefinito 300; 0 = mai).
-Per ora si vede il valore di adesso: lo storico e i grafici arriveranno dopo.
+
+### Storico e grafici delle porte
+
+A ogni lettura dei dettagli il monitor legge anche i byte passati dalla porta (ifHCInOctets / ifHCOutOctets, oppure
+i contatori a 32 bit degli switch vecchi) e salva quanto è cambiato dalla lettura prima: traffico in entrata e in
+uscita, errori e pacchetti scartati, tempo con la porta su e watt PoE. Nella tabella delle porte, sotto la
+velocità, c'è il traffico degli ultimi 5 minuti (↓ in entrata, ↑ in uscita); il pulsante con il grafico, in fondo
+alla riga, apre lo storico della porta. Lo vedono tutti, anche chi ha il ruolo di sola lettura.
+
+Nello storico si sceglie il periodo:
+
+| Periodo | Un punto ogni |
+|---|---|
+| 1 giorno, 2 giorni | 5 minuti |
+| 7 giorni, 30 giorni | ora |
+| 1 anno | giorno |
+
+In alto ci sono il traffico di adesso (con la percentuale della velocità della porta), i byte ricevuti e inviati
+nel periodo, il picco e gli errori. Sotto: il grafico del traffico (media di ogni punto; passando il mouse si
+vedono anche i picchi), la striscia **Porta su** (verde su, giallo su per una parte del tempo, rosso giù), gli
+errori e scarti a barre e i watt PoE se la porta alimenta qualcosa.
+
+I punti da 5 minuti restano 2 giorni, quelli da un'ora 30 giorni e quelli da un giorno un anno; i giorni seguono
+l'ora locale del server. Il primo punto arriva dopo due letture (alla prima non c'è ancora un valore da cui
+partire). Se il monitor resta fermo più di 30 minuti, o lo switch si riavvia e i contatori ripartono da zero, quel
+pezzo resta vuoto invece di mostrare un picco che non c'è stato. Nel database lo storico occupa circa 300 kB per
+porta (300 MB ogni mille porte).
 
 ### Problemi rilevati
 

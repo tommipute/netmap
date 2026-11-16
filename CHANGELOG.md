@@ -22,10 +22,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   quasi esaurito, errori in aumento, half duplex, tanti MAC su una porta di accesso. Per ognuno cosa succede e cosa
   fare; si vedono anche nella scheda del device e in una scheda della Panoramica. Nelle porte i badge
   **err-disabled** e **bloccata da STP**.
+- **Storico e grafici delle porte** (`GET /api/interfaces/{id}/stats`): a ogni lettura dei dettagli il monitor
+  salva traffico in entrata e in uscita (contatori a 64 bit, o a 32 bit sugli switch vecchi), errori e scarti,
+  tempo su e watt PoE. Il pulsante con il grafico nella tabella delle porte apre lo storico: 1 o 2 giorni con un
+  punto ogni 5 minuti, 7 o 30 giorni con un punto all'ora, un anno con un punto al giorno, con picchi, byte del
+  periodo e la striscia del tempo su. Sotto la velocità della porta c'è il traffico degli ultimi 5 minuti. Il
+  laboratorio simula il traffico sugli uplink e su qualche porta di accesso.
 
 ### Modifiche
 
-- Sugli schermi larghi le pagine usano più spazio: fino a 1680 px invece di 1280 (la Panoramica 1440).
+- Sugli schermi larghi le pagine usano più spazio: fino a 1680 px invece di 1280 (anche la Panoramica).
 
 ### Correzioni
 

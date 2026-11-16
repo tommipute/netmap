@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (189 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (194 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -235,6 +235,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `POST /api/discovery-changes/approve` · `/reject` con `{ids}` | applica (ognuna in un SAVEPOINT) / rifiuta |
 | `GET /api/endpoints?q=&device_id=&interface_id=` | "dov'è collegato": MAC/IP/DNS → switch, porta, VLAN, luogo |
 | `GET /api/problems?severity=&kind=&site_id=&device_id=` | problemi rilevati: `{total, counts, items}` (counts prima del filtro di priorità) |
+| `GET /api/interfaces/{id}/stats?range=1d\|2d\|7d\|30d\|1y` | storico di una porta: punti (bit/s medi e picchi, errori, scarti, frazione su, watt PoE), totali del periodo e traffico di adesso |
 | `GET /api/status/summary` · `POST /api/devices/{id}/check` | riepilogo su/giù · controllo immediato di un device |
 | `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
@@ -438,7 +439,18 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   ifIndex = porta con un solo gruppo. Watt e classe solo se la porta sta alimentando. Filtri extra dell'elenco
   interfacce: `down_days`, `errors_days` (`monitor.filter_*`). Nel lab: uptime 100 giorni, Gi1/0/3 del core giù da 40
   giorni, porta 24 di p1 half duplex con errori che salgono (snmprec `65:numeric` con `initial=…,rate=…`), PoE Cisco
-  sul core e HP su p2. Storico e grafici (passo 2: 5 min per 2 giorni, ora per 30, giorno per un anno) ancora da fare.
+  sul core e HP su p2.
+- **Storico delle porte** (16/11/2026, `services/port_stats.py`, tabella `port_stats`, `GET
+  /api/interfaces/{id}/stats?range=1d|2d|7d|30d|1y`, `components/PortStats.jsx`, `tests/test_storico_porte.py`):
+  `save_details` fa un `Sample` per porta con la differenza dai contatori salvati in `Interface` (`in_octets`/
+  `out_octets`, errori; ifHCIn/OutOctets o i 32 bit con il giro) prima di sovrascriverli, e `record` lo somma a tre
+  righe (PK interface_id + period `5m`/`1h`/`1d` + `at` = inizio dell'intervallo; il giorno è in ora locale del
+  server): somme di secondi, byte, errori, up_seconds, mW×s, più i picchi. `prune` (al massimo una volta all'ora da
+  `check_devices`) tiene 5m 2 giorni, 1h 30, 1d 366. Niente campione alla prima lettura, dopo più di `MAX_GAP` (30
+  min) o con i contatori ripartiti. `Interface.in_bps`/`out_bps` = ultimo campione (vista Port, tabella porte).
+  `record` fa flush: la sessione non ha autoflush. Nel lab `device["traffic"] = {ifIndex: (byte/s in, out)}` (con
+  `traffic_32bit` solo ifIn/OutOctets) scrive contatori snmpsim `70:numeric` cumulativi con un'onda (`function=sin`,
+  `deviation` di snmpsim si rompe con Python 3.12); `FakeSession` dei test legge `initial=`.
 - **Problemi rilevati** (16/11/2026, `services/problems.py`, `GET /api/problems?severity=&kind=&site_id=&device_id=`,
   `tests/test_problemi.py`): calcolati a ogni richiesta, nessuna tabella; il frontend scrive il testo da `kind` +
   `values` (components/Problems.jsx). Priorità: critical (loop, stp_storm), high (err_disabled, duplex_mismatch,

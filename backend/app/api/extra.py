@@ -9,7 +9,7 @@ from app.api import snmp_rules as snmp_rules_api
 from app.api.crud import apply_column_filters
 from app.database import get_db
 from app.discovery import runner, snmp_rules
-from app.models import Device, DiscoveryRun, MapBackground, NetworkMap, Prefix, Rack, SnmpReport
+from app.models import Device, DiscoveryRun, Interface, MapBackground, NetworkMap, Prefix, Rack, SnmpReport
 from app.models.enums import RunStatus
 from app.schemas.common import Page
 from app.schemas.discovery import SnmpReportRead
@@ -23,6 +23,7 @@ from app.schemas.views import (
     Neighbor,
     Port,
     PrefixUtilization,
+    PortStats,
     ProblemList,
     RackElevation,
     SearchResult,
@@ -30,7 +31,7 @@ from app.schemas.views import (
     Topology,
     XlsxConverted,
 )
-from app.services import custom_fields, images
+from app.services import custom_fields, images, port_stats
 from app.services.device_import_export import (
     export_devices,
     generate_device_csv_template,
@@ -325,6 +326,19 @@ def get_problems(
     db: Session = Depends(get_db),
 ):
     return problem_list(db, severity, kind, site_id, device_id)
+
+
+@router.get("/interfaces/{interface_id}/stats", response_model=PortStats, tags=["Stato live"],
+            summary="Storico della porta: traffico, errori, tempo su e PoE")
+def get_interface_stats(
+    interface_id: int,
+    range: str = Query("1d", pattern="^(1d|2d|7d|30d|1y)$",
+                       description="1d e 2d: punti da 5 minuti; 7d e 30d: da un'ora; 1y: da un giorno"),
+    db: Session = Depends(get_db),
+):
+    iface = _get_or_404(db, Interface, interface_id)
+    data = port_stats.series(db, interface_id, range)
+    return {**data, "speed_mbps": iface.speed_mbps, "in_bps": iface.in_bps, "out_bps": iface.out_bps}
 
 
 @router.post("/devices/{device_id}/check", response_model=CheckResult, tags=["Stato live"],

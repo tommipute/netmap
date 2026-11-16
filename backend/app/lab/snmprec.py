@@ -6,6 +6,7 @@ LLDP, CDP, tabelle MAC (BRIDGE / Q-BRIDGE), VLAN e ARP; per il monitor anche con
 import ipaddress
 
 INT, STR, HEX, OID, IPADDR, COUNTER, GAUGE, TICKS = "2", "4", "4x", "6", "64", "65", "66", "67"
+COUNTER64 = "70"
 
 
 def mac_hex(mac: str) -> str:
@@ -71,6 +72,13 @@ def snmprec(device: dict) -> str:
                 add(f"1.3.6.1.2.1.2.2.1.{column}.{idx}", f"{COUNTER}:numeric", ",".join(f"{k}={v}" for k, v in value.items()))
             else:
                 add(f"1.3.6.1.2.1.2.2.1.{column}.{idx}", COUNTER, value)
+    # Traffico: ifIndex -> (byte/s in, byte/s out). Contatori che salgono con un'onda di circa 3 ore e mezza
+    # (±60% a ogni lettura da 5 minuti); con "traffic_32bit" solo ifIn/OutOctets a 32 bit, che fanno il giro
+    hc = not device.get("traffic_32bit")
+    for idx, rates in device.get("traffic", {}).items():
+        for column, rate in zip((6, 10) if hc else (10, 16), rates):
+            oid = f"1.3.6.1.2.1.31.1.1.1.{column}.{idx}" if hc else f"1.3.6.1.2.1.2.2.1.{column}.{idx}"
+            add(oid, f"{COUNTER64 if hc else COUNTER}:numeric", _wave(rate, wrap=not hc))
     for idx, duplex in device.get("duplex", {}).items():  # 2 = half, 3 = full
         add(f"1.3.6.1.2.1.10.7.2.1.19.{idx}", INT, duplex)
     poe = device.get("poe")
@@ -209,3 +217,14 @@ def snmprec_files(device: dict, community: str) -> dict[str, str]:
             files[f"{community}@{vid}.snmprec"] = data
             files[f"vlan-{vid}.snmprec"] = data
     return files
+
+
+def _wave(rate: float, wrap: bool) -> str:
+    """Variazione "numeric" di snmpsim per un contatore di byte: a ogni lettura sale di rate × secondi passati
+    (offset) più un'onda (sin del tempo × scale), così il grafico sale e scende."""
+    speed = 0.0005  # radianti al secondo: un giro ogni 3,5 ore circa
+    settings = {"cumulative": 1, "function": "sin", "rate": speed, "scale": round(rate * 300 * 0.6),
+                "offset": round(rate / speed), "initial": round(rate * 1000)}
+    if wrap:
+        settings["wrap"] = 1
+    return ",".join(f"{k}={v}" for k, v in settings.items())

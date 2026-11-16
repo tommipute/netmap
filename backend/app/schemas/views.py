@@ -107,6 +107,8 @@ class Port(BaseModel):
     poe_power_mw: int | None = None
     err_disabled: str | None = None
     stp_state: str | None = None
+    in_bps: int | None = None  # traffico degli ultimi 5 minuti (bit/s)
+    out_bps: int | None = None
     mode: str | None
     speed_mbps: int | None
     mac_address: str | None
@@ -219,6 +221,36 @@ class ProblemList(BaseModel):
     total: int
     counts: dict[str, int]
     items: list[ProblemRead]
+
+
+class PortStatPoint(BaseModel):
+    at: datetime
+    in_bps: int | None = None
+    out_bps: int | None = None
+    in_peak_bps: int | None = None
+    out_peak_bps: int | None = None
+    errors: int = 0
+    discards: int = 0
+    up: float | None = Field(None, description="Frazione del tempo con la porta su (0-1)")
+    poe_w: float | None = None
+
+
+class PortStats(BaseModel):
+    range: str
+    period: str = Field(description="5m / 1h / 1d: di quanto è ogni punto")
+    step: int = Field(description="Secondi di ogni punto")
+    start: datetime
+    end: datetime
+    speed_mbps: int | None = None
+    in_bps: int | None = Field(None, description="Traffico in entrata adesso (ultimi 5 minuti)")
+    out_bps: int | None = None
+    # Totali del periodo mostrato
+    in_octets: int | None = Field(None, description="Byte ricevuti")
+    out_octets: int | None = Field(None, description="Byte inviati")
+    errors: int = 0
+    discards: int = 0
+    up: float | None = Field(None, description="Frazione del tempo con la porta su (0-1)")
+    points: list[PortStatPoint]
 
 
 class CheckResult(BaseModel):

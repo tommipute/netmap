@@ -1435,3 +1435,42 @@ html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-
   .map-toolbar__actions .map-search { width: auto; flex: 1 1 100%; }
   .react-flow__minimap { display: none; }
 }
+
+/* Storico di una porta (components/PortStats.jsx) */
+.port-stats-wrap { padding: 14px 20px 20px; gap: 14px; }
+.port-stats__sub { margin: 0; }
+.port-stats { display: flex; flex-direction: column; gap: 16px; }
+.port-stats__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.port-stats__now { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 18px; margin: 0; }
+.port-stats__now dt { font-size: 12px; color: var(--muted); }
+.port-stats__now dd { margin: 2px 0 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.port-stats__now dd .muted { font-weight: 400; margin-left: 4px; }
+.port-stats .empty, .port-stats > p { margin: 0; }
+.port-chart { position: relative; }
+.port-chart__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 4px; }
+.port-chart__head h3 { margin: 0; font-size: 14px; }
+.port-chart__legend { display: flex; gap: 14px; font-size: 12px; }
+.port-chart__key { display: inline-flex; align-items: center; gap: 6px; }
+.port-chart__legend .port-chart__key::before, .port-chart__tip .port-chart__key::before {
+  content: ''; width: 10px; height: 10px; border-radius: 2px; background: var(--tone);
+}
+.port-chart__svg { display: block; overflow: visible; }
+.port-chart__grid { stroke: var(--line); stroke-width: 1; }
+.port-chart__axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.port-chart__area { fill: var(--tone); fill-opacity: 0.22; stroke: var(--tone); stroke-width: 1.5; stroke-linejoin: round; }
+.port-chart__line { fill: none; stroke: var(--tone); stroke-width: 1.8; stroke-linejoin: round; }
+.port-chart__cursor { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.port-chart__tip {
+  position: absolute; top: 28px; z-index: 2; min-width: 180px; pointer-events: none;
+  padding: 8px 10px; font-size: 12px; line-height: 1.5; font-variant-numeric: tabular-nums;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--shadow-pop);
+}
+.tone-in { --tone: var(--accent); }
+.tone-out { --tone: var(--import); }
+.tone-bad { --tone: var(--danger); fill: var(--danger); }
+.tone-poe { --tone: var(--warn); }
+.port-strip--up { fill: var(--ok); }
+.port-strip--partial { fill: var(--warn); }
+.port-strip--down { fill: var(--danger); }
+.port-strip--hover { fill-opacity: 0.6; }
+.port-rate { font-size: 11px; font-variant-numeric: tabular-nums; }

@@ -1,7 +1,7 @@
-"""Fase 4: endpoint visti nelle tabelle MAC degli switch ("dov'è collegato questo PC?")."""
+"""Fase 4: endpoint visti nelle tabelle MAC degli switch ("dov'è collegato questo PC?") e storico delle porte."""
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -31,3 +31,26 @@ class Endpoint(Base):
 
     interface: Mapped[Interface | None] = relationship(foreign_keys=[interface_id], lazy="joined")
     previous_interface: Mapped[Interface | None] = relationship(foreign_keys=[previous_interface_id], lazy="joined")
+
+
+class PortStat(Base):
+    """Storico di una porta per intervallo: 5 minuti (2 giorni), ora (30 giorni), giorno (un anno).
+
+    Somme, non medie: un campione nuovo nello stesso intervallo si aggiunge (services/port_stats.py).
+    """
+
+    __tablename__ = "port_stats"
+    __table_args__ = (Index("ix_port_stats_period_at", "period", "at"),)
+
+    interface_id: Mapped[int] = mapped_column(ForeignKey("interfaces.id", ondelete="CASCADE"), primary_key=True)
+    period: Mapped[str] = mapped_column(String(2), primary_key=True)     # 5m, 1h, 1d
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)  # inizio dell'intervallo
+    seconds: Mapped[int] = mapped_column(Integer, default=0)             # secondi coperti dai campioni
+    in_octets: Mapped[int | None] = mapped_column(BigInteger)            # byte (NULL = lo switch non li dà)
+    out_octets: Mapped[int | None] = mapped_column(BigInteger)
+    in_peak_bps: Mapped[int | None] = mapped_column(BigInteger)          # il campione da 5 minuti più alto
+    out_peak_bps: Mapped[int | None] = mapped_column(BigInteger)
+    errors: Mapped[int] = mapped_column(BigInteger, default=0)           # errori in + out
+    discards: Mapped[int] = mapped_column(BigInteger, default=0)         # scarti in + out
+    up_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    poe_mws: Mapped[int | None] = mapped_column(BigInteger)              # mW × secondi: media = poe_mws / seconds

@@ -18,6 +18,8 @@ class FakeSession:
         self.data = {}
         for line in text.splitlines():
             oid, kind, value = line.split("|", 2)
+            if kind.endswith(":numeric"):  # contatore che varia (traffico del laboratorio): il valore di partenza
+                kind, value = kind.split(":")[0], dict(s.split("=") for s in value.split(","))["initial"]
             self.data[tuple(int(p) for p in oid.split("."))] = (
                 bytes.fromhex(value) if kind == "4x" else value.encode() if kind == "4"
                 else value if kind in ("6", "64") else int(value))

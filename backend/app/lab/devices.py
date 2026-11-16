@@ -254,6 +254,14 @@ P3["stp"] = {"changes": {"initial": 200, "rate": 0.03}, "since": 1500, "ports": 
 P3["err_disabled"] = {3: 2}
 P3["port_counters"] = {3: (UPTIME - 2 * 3600 * 100, 0, 0, 0, 0)}
 P3["duplex"] = {1: 3, 2: 3, 4: 3, 25: 2}
+# Traffico (byte al secondo, in e out) sugli uplink e su qualche porta di accesso; il piano 3 ha solo i contatori a
+# 32 bit (switch vecchio)
+CORE["traffic"] = {1: (15_000_000, 4_000_000), 9: (3_000_000, 12_000_000), 10: (2_000_000, 8_000_000),
+                   11: (300_000, 1_000_000)}
+P1["traffic"] = {49: (12_000_000, 3_000_000), 1: (2_000_000, 400_000), 24: (50_000, 5_000)}
+P2["traffic"] = {49: (8_000_000, 2_000_000), 1: (10_000, 10_000)}
+P3["traffic"] = {25: (1_000_000, 300_000), 1: (600_000, 150_000)}
+P3["traffic_32bit"] = True
 CORE["stp"] = {"changes": 14, "since": 30 * 86400 * 100, "ports": {1: 5, 2: 5, 9: 5, 10: 5, 11: 5}}
 
 # nome del container (servizio "lab-…") -> (IP, dati)
