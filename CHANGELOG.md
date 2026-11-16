@@ -6,6 +6,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Correzioni
+
+- Pagina **Aggiornamenti** delle installazioni da zip di GitHub (per esempio Docker Desktop su Windows): come versione
+  installata mostrava solo il commit, ora mostra il numero di versione e accanto il commit.
+
 ## [1.6.0] - 2026-11-15
 
 La **Location SNMP** dei device: il sysLocation scritto nella configurazione dello switch resta salvato come

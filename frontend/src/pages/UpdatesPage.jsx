@@ -31,11 +31,11 @@ const OUTCOMES = {
   rolled_back: { label: t('Rollback eseguito'), tone: 'warn' },
 }
 
-function Version({ info }) {
+function Version({ info, fallback }) {
   if (!info?.commit) return <span className="muted">—</span>
   return (
     <>
-      <strong>{info.version || info.short}</strong> <code title={info.commit}>{info.short}</code>
+      <strong>{info.version || fallback || info.short}</strong> <code title={info.commit}>{info.short}</code>
       {info.tag && <span className="tag">{info.tag}</span>}
       <span className="hint update-version__meta">
         {info.date && formatDateTime(info.date)}{info.subject && ` · ${info.subject}`}
@@ -296,10 +296,11 @@ export default function UpdatesPage() {
           <div>
             <dt>{t('Versione installata')}</dt>
             <dd>
-              {/* Clone git senza updater: nessun commit noto, il numero è quello dell'ultima release nel codice */}
+              {/* Senza updater il numero è quello dell'ultima release nel codice: in un clone git non c'è nemmeno il
+                  commit, in uno zip di GitHub (archive.txt) sì */}
               {manual && !data.running?.commit
                 ? <><strong>{VERSION}</strong> <span className="hint">{t('o una modifica successiva')}</span></>
-                : <Version info={(!manual && status?.installed) || data.running} />}
+                : <Version info={(!manual && status?.installed) || data.running} fallback={manual ? VERSION : undefined} />}
             </dd>
           </div>
           <div><dt>{t('Installazione')}</dt><dd><InstallLabel install={install} /></dd></div>
