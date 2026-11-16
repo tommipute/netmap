@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     monitor_interval_seconds: int = 60
     monitor_concurrency: int = 50
     monitor_timeout: float = 1.0
+    monitor_detail_interval_seconds: int = 300  # dettagli delle porte (errori, duplex, PoE); 0 = mai
     # Login (fase 4): chiave per firmare i token (vuota = ricavata dalla chiave dei segreti), durata della sessione
     auth_enabled: bool = True
     auth_secret: str = ""

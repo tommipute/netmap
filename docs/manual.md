@@ -166,7 +166,8 @@ creates one ("mgmt") if there is none.
 Click a device to open its page:
 
 - **Ports** (management ports first, then in natural order: Gi1/0/2 before Gi1/0/10), with operational status,
-  VLANs, IPs, cable and what is on the other side. Each port has a name, type (copper, fibre, wireless, virtual,
+  VLANs, IPs, cable and what is on the other side. With the monitor on, there are also duplex, errors, PoE and since when the
+  port has been up or down (see [Port details](#port-details)). Each port has a name, type (copper, fibre, wireless, virtual,
   LAG), speed, VLAN mode (access with one untagged VLAN, trunk with tagged VLANs), MAC, MTU, the LAG it belongs to,
   enabled yes/no, management only yes/no.
 - **Add ports in bulk**: write a range in square brackets: `Gi1/0/[1-48]` creates 48 ports, `[1-52]` creates ports
@@ -541,6 +542,36 @@ the previous port and when it moved.
 Every minute NetMap checks the **active devices with a management IP**: a device responds if it answers ping or
 SNMP. The status shows in the dots at the top, in the device list (**Live status** column and filter), on the device
 page and in maps. On the device page, **Check now** runs the check immediately.
+
+### Port details
+
+Every 5 minutes the monitor also reads port details via SNMP, for devices with an SNMP profile:
+
+- **since when** the port has been up or down: the time comes from the switch (ifLastChange), so a port down for
+  40 days shows as down for 40 days even if NetMap was installed yesterday;
+- **shut down**: the port is disabled in the switch configuration (shutdown), not just unplugged;
+- **duplex**: shown only when it is **half duplex**, which usually means a failed autonegotiation;
+- **errors** and discarded packets, inbound and outbound: the **errors rising** badge appears when they grew in the
+  last 24 hours (hover it for the counters and the time of the last increase). A counter that starts again from
+  zero (switch rebooted) does not count as an increase;
+- **PoE**: per port, whether it is powering something (watts and class), waiting (ready, but nothing connected asks
+  for power) or in **fault**; per switch, the watts used out of the total available, with **almost at the limit**
+  above 80%. It works with the standard POWER-ETHERNET-MIB and with the Cisco and HP extensions for per-port watts.
+
+On the device page these details are in the port table (the PoE column appears only if the switch has PoE). The
+**Network → Interfaces** list has Status, Errors and PoE columns and filters for the most common checks:
+
+- **Down for more than 7 / 30 / 90 days**: free ports to reclaim;
+- **Errors in the last 24 hours / in the last 7 days**;
+- **Duplex** half;
+- **PoE**: powering, waiting, fault.
+
+The Duplex and Configuration (enabled or shut down) columns can be shown from "Table columns".
+
+How often they are read is set with `MONITOR_DETAIL_INTERVAL_SECONDS` in `.env` (default 300; 0 = never). For now
+you see the current value: history and graphs will come later.
+
+### Alerts
 
 **Alerts** (Alerts and integrations → Alerts) sends a message when a device has not responded for a number of minutes and,
 if you want, when it responds again. Channels:

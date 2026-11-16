@@ -12,6 +12,7 @@ import { OBJECT_TYPES as HISTORY_TYPES } from './components/HistoryList'
 import { CUSTOM_FIELD_TYPES, CustomFieldsEditor, ObjectTypesPicker } from './components/CustomFields'
 import { Badge, CellLink, LiveStatus, Mono, SourceIcon } from './components/Bits'
 import RefLabel from './components/RefLabel'
+import { DuplexTag, PortErrors, PortPoe, PortState } from './components/PortDetails'
 import * as O from './options'
 import { emailError, targetError, targetsSummary } from './targets'
 import { LANGUAGES, t, tc, tServer } from './i18n'
@@ -182,14 +183,28 @@ export const resources = {
     filters: [
       { name: 'device_id', label: t('Device'), ref: 'devices' },
       { name: 'type', label: t('Tipo'), options: O.INTERFACE_TYPES },
+      // Dettagli letti dal monitor: porte libere da tempo, errori, half duplex, PoE
+      { name: 'oper_status', label: t('Stato'), options: O.OPER_STATUS },
+      { name: 'down_days', label: t('Giù'), options: O.DOWN_DAYS },
+      { name: 'errors_days', label: t('Errori'), options: O.ERRORS_DAYS },
+      { name: 'duplex', label: t('Duplex'), options: O.DUPLEX },
+      { name: 'poe_status', label: t('PoE'), options: O.POE_STATUS },
     ],
     columns: [
       sourceColumn,
       { name: 'device_id', label: t('Device'), render: (o) => <CellLink to={`/devices/${o.device_id}`}>{o.device_name}</CellLink> },
       { name: 'name', label: t('Porta'), type: 'mono' },
+      {
+        name: 'oper_status', label: t('Stato'), render: (o) => <PortState port={o} />,
+        filter: { kind: 'options', options: O.OPER_STATUS, emptyLabel: t('Non controllato') }, sortField: 'oper_changed_at',
+      },
       { name: 'type', label: t('Tipo'), type: 'select', options: O.INTERFACE_TYPES },
       { name: 'mode', label: t('VLAN'), type: 'select', options: O.INTERFACE_MODES },
-      { name: 'speed_mbps', label: t('Velocità'), render: (o) => O.formatSpeed(o.speed_mbps) },
+      { name: 'speed_mbps', label: t('Velocità'), render: (o) => <span className="nowrap">{O.formatSpeed(o.speed_mbps)}<DuplexTag port={o} /></span> },
+      { name: 'duplex', label: t('Duplex'), type: 'select', options: O.DUPLEX, hidden: true },
+      { name: 'admin_status', label: t('Configurazione'), type: 'select', options: O.ADMIN_STATUS, hidden: true },
+      { name: 'errors_at', label: t('Errori'), render: (o) => <PortErrors port={o} />, filter: false, sortField: 'errors_at' },
+      { name: 'poe_status', label: t('PoE'), render: (o) => <PortPoe port={o} />, filter: { kind: 'options', options: O.POE_STATUS }, sortField: 'poe_power_mw' },
       { name: 'mac_address', label: t('MAC'), type: 'mono' },
       { name: 'enabled', label: t('Abilitata'), type: 'bool' },
     ],

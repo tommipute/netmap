@@ -12,6 +12,7 @@ import { IconButton, IconLink, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import SnmpReport from '../components/SnmpReport'
+import { AdminDownTag, DuplexTag, PortDot, PortErrors, PortPoe } from '../components/PortDetails'
 import { RescanNotice, useRescan } from '../components/DeviceRescan'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, formatDateTime, formatSpeed, labelOf } from '../options'
@@ -220,6 +221,7 @@ export default function DevicePage() {
 
   const primary = ports?.flatMap((p) => p.ips.map((ip) => ({ ...ip, port: p.name }))).find((ip) => ip.is_primary)
   const connected = ports?.filter((p) => p.cable_id).length ?? 0
+  const hasPoe = ports?.some((p) => p.poe_status)
   // Prima i campi definiti (con etichetta e formato), poi quelli liberi
   const customEntries = [
     ...customDefinitions.filter((d) => !isBlank(device.custom_fields?.[d.name])).map((d) => [d.name, d.label, d]),
@@ -295,6 +297,17 @@ export default function DevicePage() {
             )}
           </dd>
         </div>
+        {device.poe_budget_w > 0 && (
+          <div>
+            <dt title={t('Potenza PoE usata dai dispositivi alimentati, su quella disponibile nello switch')}>{t('PoE')}</dt>
+            <dd>
+              {t('{used} W usati su {budget} W', { used: device.poe_used_w ?? '—', budget: device.poe_budget_w })}
+              {device.poe_used_w !== null && device.poe_used_w >= device.poe_budget_w * 0.8 && (
+                <span className="badge badge--warn port-flag">{t('quasi al limite')}</span>
+              )}
+            </dd>
+          </div>
+        )}
         <div><dt>{t('Numero di serie')}</dt><dd><Mono>{device.serial}</Mono></dd></div>
         <div><dt>{t('Asset tag')}</dt><dd><Mono>{device.asset_tag}</Mono></dd></div>
         <div><dt>{t('Origine dati')}</dt><dd><SourceIcon source={device.source} withLabel /></dd></div>
@@ -348,6 +361,7 @@ export default function DevicePage() {
                   <th>{t('Tipo')}</th>
                   <th>{t('VLAN')}</th>
                   <th>{t('Velocità')}</th>
+                  {hasPoe && <th>{t('PoE')}</th>}
                   <th>{t('Collegata a')}</th>
                   <th>{t('IP')}</th>
                   <th title={t('MAC visti su questa porta nelle tabelle dello switch')}>{t('Endpoint')}</th>
@@ -358,17 +372,16 @@ export default function DevicePage() {
                 {ports.map((p) => (
                   <tr key={p.id} className={p.enabled ? '' : 'is-disabled'}>
                     <td className="nowrap">
-                      {p.oper_status && (
-                        <span className={`oper-dot oper-dot--${p.oper_status === 'up' ? 'up' : 'down'}`}
-                          title={p.oper_status === 'up' ? t("Stato all'ultimo controllo: su") : t("Stato all'ultimo controllo: giù")} />
-                      )}
+                      <PortDot port={p} />
                       <Mono>{p.name}</Mono>
                       {p.source !== 'manual' && <SourceIcon source={p.source} />}
                       {!p.enabled && <span className="tag">{t('disabilitata')}</span>}
+                      <AdminDownTag port={p} />
                     </td>
                     <td>{labelOf(INTERFACE_TYPES, p.type)}</td>
                     <td><PortVlans port={p} /></td>
-                    <td>{formatSpeed(p.speed_mbps)}</td>
+                    <td className="nowrap">{formatSpeed(p.speed_mbps)}<DuplexTag port={p} /><PortErrors port={p} quiet /></td>
+                    {hasPoe && <td><PortPoe port={p} /></td>}
                     <td>
                       {p.cable_id ? (
                         <>

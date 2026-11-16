@@ -92,7 +92,19 @@ class Port(BaseModel):
     enabled: bool
     mgmt_only: bool
     source: str = "manual"  # a mano / snmp / programma da cui è stata importata
-    oper_status: str | None = None  # up/down dall'ultima scansione
+    oper_status: str | None = None  # up/down dall'ultimo controllo del monitor (o dalla scansione)
+    oper_changed_at: datetime | None = None
+    # Dettagli letti dal monitor (vedi Interface)
+    admin_status: str | None = None
+    duplex: str | None = None
+    in_errors: int | None = None
+    out_errors: int | None = None
+    in_discards: int | None = None
+    out_discards: int | None = None
+    errors_at: datetime | None = None
+    poe_status: str | None = None
+    poe_class: int | None = None
+    poe_power_mw: int | None = None
     mode: str | None
     speed_mbps: int | None
     mac_address: str | None

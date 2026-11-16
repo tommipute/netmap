@@ -167,7 +167,8 @@ management del device, o ne crea una ("mgmt") se manca.
 Cliccando un device si apre la sua scheda:
 
 - **Porte** (prima quelle di management, poi in ordine naturale: Gi1/0/2 prima di Gi1/0/10), con stato
-  operativo, VLAN, IP, cavo e cosa c'è dall'altra parte. Ogni porta ha nome, tipo (rame, fibra, wireless,
+  operativo, VLAN, IP, cavo e cosa c'è dall'altra parte. Con il monitor acceso ci sono anche duplex, errori, PoE e da quando
+  la porta è su o giù (vedi [Dettagli delle porte](#dettagli-delle-porte)). Ogni porta ha nome, tipo (rame, fibra, wireless,
   virtuale, LAG), velocità, modalità VLAN (access con una VLAN untagged, trunk con le VLAN tagged), MAC, MTU, LAG di
   cui fa parte, abilitata sì/no, solo management sì/no.
 - **Aggiungi porte in blocco**: scrivi un intervallo tra parentesi quadre: `Gi1/0/[1-48]` crea 48 porte,
@@ -546,6 +547,37 @@ Se un PC cambia porta, NetMap si ricorda la porta precedente e quando si è spos
 Ogni minuto NetMap controlla i device **attivi con un IP di management**: uno risponde se risponde al ping o
 all'SNMP. Lo stato si vede nei pallini in alto, nell'elenco dei device (colonna e filtro "Stato live"), nella
 scheda e in mappa. Nella scheda, **Controlla ora** rifà il controllo subito.
+
+### Dettagli delle porte
+
+Ogni 5 minuti il monitor legge via SNMP anche i dettagli delle porte dei device che hanno un profilo SNMP:
+
+- **da quando** la porta è su o giù: il tempo viene dallo switch (ifLastChange), quindi una porta giù da 40 giorni
+  risulta giù da 40 giorni anche se NetMap è installato da ieri;
+- **spenta**: la porta è disattivata nella configurazione dello switch (shutdown), non solo senza cavo;
+- **duplex**: compare solo quando è **half duplex**, che di solito vuol dire un'autonegoziazione andata male;
+- **errori** e pacchetti scartati, in entrata e in uscita: il badge **errori in aumento** compare se sono cresciuti
+  nelle ultime 24 ore (passa il mouse per i contatori e l'ora dell'ultimo aumento). Un contatore che riparte da zero
+  (switch riavviato) non conta come aumento;
+- **PoE**: per porta se alimenta qualcosa (watt e classe), se è in attesa (pronta, ma non c'è niente collegato che
+  chieda corrente) o in **guasto**; per lo switch i watt usati sul totale disponibile, con **quasi al limite**
+  oltre l'80%. Funziona con lo standard POWER-ETHERNET-MIB e con le estensioni di Cisco e HP per i watt per porta.
+
+Nella scheda del device questi dati sono nella tabella delle porte (la colonna PoE compare solo se lo switch ce
+l'ha). Nell'elenco **Rete → Interfacce** ci sono le colonne Stato, Errori e PoE e i filtri per i controlli
+più comuni:
+
+- **Giù da più di 7 / 30 / 90 giorni**: porte libere da recuperare;
+- **Errori nelle ultime 24 ore / negli ultimi 7 giorni**;
+- **Duplex** half;
+- **PoE**: alimenta, in attesa, guasto.
+
+Le colonne Duplex e Configurazione (accesa o spenta) si mostrano da "Colonne della tabella".
+
+Ogni quanto leggerli si sceglie con `MONITOR_DETAIL_INTERVAL_SECONDS` nel `.env` (predefinito 300; 0 = mai).
+Per ora si vede il valore di adesso: lo storico e i grafici arriveranno dopo.
+
+### Avvisi
 
 **Avvisi** (Avvisi e integrazioni → Avvisi) manda un messaggio quando un device non risponde da un certo numero di
 minuti, e (se vuoi) quando torna a rispondere. Canali:

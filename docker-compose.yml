@@ -106,6 +106,7 @@ services:
       SECRETS_KEY: ${SECRETS_KEY:-}
       TZ: ${TZ:-Europe/Rome}
       MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}   # 0 = monitor spento
+      MONITOR_DETAIL_INTERVAL_SECONDS: ${MONITOR_DETAIL_INTERVAL_SECONDS:-300}   # dettagli delle porte; 0 = mai
       WATCHFILES_FORCE_POLLING: ${FILE_POLLING:-true}
     depends_on:
       db:

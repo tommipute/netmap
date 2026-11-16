@@ -215,6 +215,25 @@ P3 = {
     "arp": [],
 }
 
+# Dettagli delle porte per il monitor: accesi da 100 giorni (centesimi di secondo)
+UPTIME = 100 * 86400 * 100
+for _device in (CORE, P1, P2, P3):
+    _device["system"]["uptime"] = UPTIME
+# Core: Gi1/0/3 giù da 40 giorni, PoE Cisco senza niente collegato
+CORE["port_counters"] = {3: (UPTIME - 40 * 86400 * 100, 0, 0, 0, 0)}
+CORE["duplex"] = {i: 3 for i in (1, 2, 9, 10, 11)}
+CORE["poe"] = {"vendor": "cisco", "groups": {1: (740, 0), 2: (740, 0)},
+               "ports": {(1, i): (2, None, 0, i) for i in (1, 2, 3)}}
+# Piano 1: la stampante sulla 24 è a 100 Mbit in half duplex e gli errori salgono (cavo rovinato)
+P1["interfaces"][24] = (*P1["interfaces"][24][:4], 100, *P1["interfaces"][24][5:])
+P1["duplex"] = {**{i: 3 for i in (1, 2, 49)}, 24: 2}
+P1["port_counters"] = {24: (UPTIME - 3 * 3600 * 100, {"initial": 1520, "rate": 0.01}, 0, 12, 0),
+                       5: (UPTIME - 12 * 86400 * 100, 0, 0, 0, 0)}
+# Piano 2: PoE HP, il telefono sulla 1 consuma 4,3 W; la 3 ha un guasto
+P2["duplex"] = {i: 3 for i in (1, 2, 49)}
+P2["poe"] = {"vendor": "hp", "groups": {1: (370, 4)},
+             "ports": {(1, i): (3, 2, 4300, None) if i == 1 else (4 if i == 3 else 2, None, 0, None) for i in range(1, 25)}}
+
 # nome del container (servizio "lab-…") -> (IP, dati)
 LAB_DEVICES = {
     "fw-lab-01": (FW_IP, FW),

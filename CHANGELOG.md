@@ -6,6 +6,15 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- **Dettagli delle porte** letti dal monitor ogni 5 minuti (`MONITOR_DETAIL_INTERVAL_SECONDS`, 0 = mai) sui device con
+  un profilo SNMP: da quando la porta è su o giù (dal tempo dello switch), porta spenta nella configurazione, half
+  duplex, errori e pacchetti scartati con il badge **errori in aumento**, PoE per porta (watt, classe, in attesa,
+  guasto) e per switch (watt usati sul totale, "quasi al limite" oltre l'80%; standard più estensioni Cisco e HP).
+  Si vedono nella scheda del device e nell'elenco delle interfacce, con i filtri **Giù da più di N giorni**,
+  **Errori** recenti, **Duplex** e **PoE**.
+
 ### Correzioni
 
 - Pagina **Aggiornamenti** delle installazioni da zip di GitHub (per esempio Docker Desktop su Windows): come versione

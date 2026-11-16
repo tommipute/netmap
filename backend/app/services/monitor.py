@@ -3,6 +3,10 @@
 Per ogni device attivo con un IP di management: ping ICMP e, se il device ha un profilo SNMP (lo salva la
 scansione), lettura di ifOperStatus per aggiornare lo stato delle porte. Basta una delle due risposte
 per considerarlo raggiungibile (alcuni apparati non rispondono al ping).
+
+Ogni MONITOR_DETAIL_INTERVAL_SECONDS legge anche i dettagli delle porte: stato amministrativo, da quando sono
+su o giù (ifLastChange), contatori di errori e scarti, duplex (EtherLike-MIB) e PoE (POWER-ETHERNET-MIB, più il
+consumo per porta dalle MIB di Cisco e HP). Le porte PoE hanno un loro indice (gruppo, porta): vedi poe_port_map.
 """
 import asyncio
 import logging
@@ -10,7 +14,7 @@ import re
 import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,6 +29,25 @@ logger = logging.getLogger(__name__)
 # Device da non controllare: pianificati o dismessi non devono comparire "giù"
 SKIPPED_STATUS = {DeviceStatus.PLANNED.value, DeviceStatus.DECOMMISSIONED.value}
 _RTT = re.compile(r"time[=<]([\d.]+)\s*ms")
+_NUMBERS = re.compile(r"\d+")
+
+SYS_UPTIME = "1.3.6.1.2.1.1.3.0"
+IF_LAST_CHANGE = "1.3.6.1.2.1.2.2.1.9"
+IF_IN_DISCARDS, IF_IN_ERRORS = "1.3.6.1.2.1.2.2.1.13", "1.3.6.1.2.1.2.2.1.14"
+IF_OUT_DISCARDS, IF_OUT_ERRORS = "1.3.6.1.2.1.2.2.1.19", "1.3.6.1.2.1.2.2.1.20"
+DOT3_DUPLEX = "1.3.6.1.2.1.10.7.2.1.19"                # dot3StatsDuplexStatus, indice = ifIndex
+PETH_PORT_DETECTION = "1.3.6.1.2.1.105.1.1.1.6"        # pethPsePortDetectionStatus, indice = gruppo.porta
+PETH_PORT_CLASS = "1.3.6.1.2.1.105.1.1.1.10"           # pethPsePortPowerClassifications
+PETH_MAIN_POWER = "1.3.6.1.2.1.105.1.3.1.1.2"          # pethMainPsePower (W), indice = gruppo
+PETH_MAIN_CONSUMPTION = "1.3.6.1.2.1.105.1.3.1.1.4"    # pethMainPseConsumptionPower (W)
+CISCO_POE_POWER = "1.3.6.1.4.1.9.9.402.1.2.1.9"        # cpeExtPsePortPwrConsumption (mW)
+CISCO_POE_ENTITY = "1.3.6.1.4.1.9.9.402.1.2.1.11"      # cpeExtPsePortEntPhyIndex
+HP_POE_POWER = "1.3.6.1.4.1.11.2.14.11.1.9.1.1.1.3"    # hpicfPoePethPsePortPower (mW)
+IF_INDEX = "1.3.6.1.2.1.2.2.1.1"
+ENT_ALIAS_MAPPING = "1.3.6.1.2.1.47.1.3.2.1.2"         # entAliasMappingIdentifier: entità -> OID con l'ifIndex
+ADMIN_STATUS = {1: "up", 2: "down", 3: "testing"}
+DUPLEX = {2: "half", 3: "full"}
+POE_STATUS = {1: "disabled", 2: "searching", 3: "delivering", 4: "fault", 5: "test", 6: "fault"}
 
 
 @dataclass
@@ -32,6 +55,31 @@ class Target:
     device_id: int
     host: str
     credentials: snmp.Credentials | None = None
+    details: bool = False  # leggere anche i dettagli delle porte
+
+
+@dataclass
+class PortDetail:
+    admin_status: str | None = None
+    duplex: str | None = None
+    last_change: datetime | None = None  # dallo switch: ifLastChange rispetto a sysUpTime
+    errors: tuple[int | None, int | None, int | None, int | None] | None = None  # errori in/out, scarti in/out
+
+
+@dataclass
+class PoePort:
+    status: str | None = None
+    power_class: int | None = None
+    power_mw: int | None = None
+
+
+@dataclass
+class Details:
+    ports: dict[int, PortDetail] = field(default_factory=dict)          # ifIndex -> dettagli
+    poe: dict[tuple[int, int], PoePort] = field(default_factory=dict)   # (gruppo, porta) -> PoE
+    poe_if_index: dict[tuple[int, int], int] = field(default_factory=dict)  # dalla ENTITY-MIB (Cisco)
+    poe_budget_w: int | None = None
+    poe_used_w: int | None = None
 
 
 @dataclass
@@ -39,6 +87,7 @@ class Probe:
     reachable: bool
     rtt_ms: float | None = None
     oper_status: dict[int, str] = field(default_factory=dict)  # ifIndex -> up/down
+    details: Details | None = None  # solo quando è il momento (vedi Target.details)
 
 
 Prober = Callable[[list[Target]], dict[int, Probe]]
@@ -76,15 +125,96 @@ async def _tcp_probe(host: str, timeout: float) -> float | None:
     return None
 
 
-async def _snmp_status(engine: snmp.SnmpEngine, target: Target) -> dict[int, str] | None:
+async def _snmp_status(engine: snmp.SnmpEngine, target: Target) -> tuple[dict[int, str], Details | None] | None:
     creds = target.credentials
     transport = await snmp.UdpTransportTarget.create((target.host, creds.port), timeout=creds.timeout, retries=creds.retries)
     session = snmp._Session(engine, target.host, creds, transport)
     if await session.get(snmp.SYS_NAME) is None:
         return None
     statuses = await session.walk(snmp.IF_OPER_STATUS)
-    return {index[0]: snmp.OPER_STATUS.get(value, "unknown") for index, value in statuses.items()
+    oper = {index[0]: snmp.OPER_STATUS.get(value, "unknown") for index, value in statuses.items()
             if len(index) == 1 and isinstance(value, int)}
+    return oper, (await read_details(session) if target.details else None)
+
+
+def _by_index(column: dict[tuple[int, ...], object], size: int = 1) -> dict:
+    """Valori interi di una colonna, per indice di `size` numeri (1 = ifIndex, 2 = gruppo.porta PoE)."""
+    key = (lambda i: i[0]) if size == 1 else (lambda i: i)
+    return {key(index): value for index, value in column.items() if len(index) == size and isinstance(value, int)}
+
+
+async def read_details(session) -> Details:
+    """Dettagli delle porte e PoE. `session` ha get(oid) e walk(oid) come snmp._Session."""
+    now = datetime.now(timezone.utc)
+    uptime = ((await session.get(SYS_UPTIME)) or {}).get(SYS_UPTIME)
+    admin = _by_index(await session.walk(snmp.IF_ADMIN_STATUS))
+    last_change = _by_index(await session.walk(IF_LAST_CHANGE))
+    counters = [_by_index(await session.walk(oid)) for oid in (IF_IN_ERRORS, IF_OUT_ERRORS, IF_IN_DISCARDS, IF_OUT_DISCARDS)]
+    duplex = _by_index(await session.walk(DOT3_DUPLEX))
+    details = Details()
+    for if_index in set(admin) | set(duplex) | set(counters[0]):
+        port = PortDetail(admin_status=ADMIN_STATUS.get(admin.get(if_index)), duplex=DUPLEX.get(duplex.get(if_index)))
+        ticks = last_change.get(if_index)
+        # 0 = prima dell'avvio dell'agente: non dice niente (e certi apparati lo danno sempre)
+        if isinstance(uptime, int) and ticks and 0 < ticks <= uptime:
+            port.last_change = now - timedelta(seconds=(uptime - ticks) / 100)
+        values = tuple(c.get(if_index) for c in counters)
+        if any(v is not None for v in values):
+            port.errors = values
+        details.ports[if_index] = port
+
+    detection = _by_index(await session.walk(PETH_PORT_DETECTION), 2)
+    if detection:
+        classes = _by_index(await session.walk(PETH_PORT_CLASS), 2)
+        power = _by_index(await session.walk(CISCO_POE_POWER), 2) or _by_index(await session.walk(HP_POE_POWER), 2)
+        for key, value in detection.items():
+            status = POE_STATUS.get(value)
+            details.poe[key] = PoePort(
+                status=status,
+                power_class=classes[key] - 1 if status == "delivering" and classes.get(key, 0) >= 1 else None,
+                power_mw=power.get(key) if status == "delivering" else None,
+            )
+        entities = _by_index(await session.walk(CISCO_POE_ENTITY), 2)
+        if entities:
+            aliases = await session.walk(ENT_ALIAS_MAPPING)
+            by_entity = {index[0]: value for index, value in aliases.items() if isinstance(value, str)}
+            for key, entity in entities.items():
+                target = by_entity.get(entity, "")
+                if target.startswith(IF_INDEX + "."):
+                    details.poe_if_index[key] = int(target.rsplit(".", 1)[1])
+    budget = _by_index(await session.walk(PETH_MAIN_POWER))
+    used = _by_index(await session.walk(PETH_MAIN_CONSUMPTION))
+    if budget:
+        details.poe_budget_w = sum(budget.values())
+        consumed = sum(used.values()) if used else None
+        # qualche switch (Netgear) dà il consumo in mW invece che in W
+        if consumed is not None and consumed > details.poe_budget_w >= consumed / 1000:
+            consumed = round(consumed / 1000)
+        details.poe_used_w = consumed
+    return details
+
+
+def poe_port_map(poe_ports, interfaces: list[tuple[int, str]], known: dict[tuple[int, int], int]) -> dict[tuple[int, int], int]:
+    """(gruppo, porta) PoE -> ifIndex. Prima quello che dice lo switch (ENTITY-MIB, Cisco), poi il nome della porta:
+    gruppo = primo numero e porta = ultimo (Gi1/0/5, 1/1/5; preferiti quelli con gli zeri in mezzo, così Gi1/0/1 vince
+    su Te1/1/1), o solo il numero con un gruppo (HP: "5"); infine l'ifIndex uguale al numero della porta."""
+    numbers = {if_index: [int(n) for n in _NUMBERS.findall(name)] for if_index, name in interfaces}
+    groups = {group for group, _ in poe_ports}
+    result = {}
+    for key in poe_ports:
+        if key in known:
+            result[key] = known[key]
+            continue
+        group, port = key
+        candidates = [i for i, n in numbers.items()
+                      if (len(n) >= 2 and n[0] == group and n[-1] == port) or (n == [port] and len(groups) == 1)]
+        if len(candidates) > 1:
+            candidates = [i for i in candidates if all(x == 0 for x in numbers[i][1:-1])]
+        if len(candidates) == 1:
+            result[key] = candidates[0]
+        elif not candidates and port in numbers and len(groups) == 1:
+            result[key] = port
+    return result
 
 
 async def probe_all_async(targets: list[Target], concurrency: int, timeout: float) -> dict[int, Probe]:
@@ -94,14 +224,15 @@ async def probe_all_async(targets: list[Target], concurrency: int, timeout: floa
     async def one(target: Target) -> tuple[int, Probe]:
         async with semaphore:
             rtt = await ping(target.host, timeout)
-            statuses = None
+            answer = None
             if target.credentials is not None:
                 try:
-                    statuses = await _snmp_status(engine, target)
+                    answer = await _snmp_status(engine, target)
                 except Exception as exc:  # un device problematico non deve fermare gli altri
                     logger.debug("%s: SNMP non riuscito (%s)", target.host, exc)
-            return target.device_id, Probe(reachable=rtt is not None or statuses is not None, rtt_ms=rtt,
-                                           oper_status=statuses or {})
+            statuses, details = answer or ({}, None)
+            return target.device_id, Probe(reachable=rtt is not None or answer is not None, rtt_ms=rtt,
+                                           oper_status=statuses, details=details)
 
     try:
         results = await asyncio.gather(*(one(t) for t in targets))
@@ -137,8 +268,48 @@ def _targets(db: Session, device_ids: list[int] | None) -> list[Target]:
                 creds = found[0] if found else None
             except Exception as exc:  # segreto non decifrabile: resta il ping
                 logger.warning("%s: profilo SNMP non utilizzabile (%s)", device.name, exc)
-        targets.append(Target(device_id=device.id, host=host, credentials=creds))
+        targets.append(Target(device_id=device.id, host=host, credentials=creds, details=creds is not None and _details_due(device)))
     return targets
+
+
+def _aware(moment: datetime | None) -> datetime | None:
+    return moment.replace(tzinfo=timezone.utc) if moment is not None and moment.tzinfo is None else moment
+
+
+def _details_due(device: Device) -> bool:
+    interval = settings.monitor_detail_interval_seconds
+    if interval <= 0:
+        return False
+    last = _aware(device.ports_polled_at)
+    # un po' di margine: il controllo dopo l'intervallo può arrivare qualche secondo prima
+    return last is None or (datetime.now(timezone.utc) - last).total_seconds() >= interval - 30
+
+
+def save_details(db: Session, device: Device, details: Details, now: datetime) -> None:
+    interfaces = list(db.scalars(select(Interface).where(Interface.device_id == device.id, Interface.if_index.is_not(None))))
+    poe_map = poe_port_map(details.poe, [(i.if_index, i.name) for i in interfaces], details.poe_if_index)
+    poe_by_index = {if_index: details.poe[key] for key, if_index in poe_map.items()}
+    for iface in interfaces:
+        port = details.ports.get(iface.if_index)
+        if port is not None:
+            iface.admin_status, iface.duplex = port.admin_status, port.duplex
+            changed = _aware(iface.oper_changed_at)
+            # lo switch sa da quando la porta è così anche se NetMap l'ha vista dopo (prima scansione, monitor spento)
+            if port.last_change is not None and (changed is None or port.last_change < changed):
+                iface.oper_changed_at = port.last_change
+            if port.errors is not None:
+                in_err, out_err = port.errors[0], port.errors[1]
+                grew = (in_err or 0) > (iface.in_errors or 0) or (out_err or 0) > (iface.out_errors or 0)
+                # la prima lettura non dice se gli errori sono recenti; un contatore che scende = switch riavviato
+                if grew and (iface.in_errors is not None or iface.out_errors is not None):
+                    iface.errors_at = now
+                iface.in_errors, iface.out_errors, iface.in_discards, iface.out_discards = port.errors
+        poe = poe_by_index.get(iface.if_index)
+        iface.poe_status = poe.status if poe else None
+        iface.poe_class = poe.power_class if poe else None
+        iface.poe_power_mw = poe.power_mw if poe else None
+    device.poe_budget_w, device.poe_used_w = details.poe_budget_w, details.poe_used_w
+    device.ports_polled_at = now
 
 
 def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prober | None = None) -> dict:
@@ -162,9 +333,23 @@ def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prob
             for iface in db.scalars(select(Interface).where(Interface.device_id == device.id, Interface.if_index.is_not(None))):
                 if iface.if_index in result.oper_status:
                     iface.oper_status = result.oper_status[iface.if_index]
+        if result.details is not None:
+            save_details(db, device, result.details, now)
         up, down = up + result.reachable, down + (not result.reachable)
     db.commit()
     return {"checked": up + down, "up": up, "down": down}
+
+
+# ---------------------------------------------------------------- filtri dell'elenco delle porte
+def filter_down_days(db: Session, stmt, days: int):
+    """Porte non su da almeno `days` giorni: quelle libere davvero."""
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    return stmt.where(Interface.oper_status.is_not(None), Interface.oper_status != "up", Interface.oper_changed_at <= since)
+
+
+def filter_errors_days(db: Session, stmt, days: int):
+    """Porte i cui contatori di errori sono saliti negli ultimi `days` giorni."""
+    return stmt.where(Interface.errors_at >= datetime.now(timezone.utc) - timedelta(days=days))
 
 
 def status_summary(db: Session) -> dict:

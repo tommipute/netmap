@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (179 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (185 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -61,7 +61,7 @@ docker compose build api worker                     # dopo aver cambiato require
 | web (Vite + React) | http://localhost:5174 | proxy verso l'API per `/api`, `/docs`, `/openapi.json` |
 | api (FastAPI) | http://localhost:8001/docs | reload automatico, codice montato da `./backend` |
 | worker | — | esegue scansioni, copie dei backup e import (NetBox e altri programmi) in coda (un thread ciascuno); `watchfiles` lo riavvia quando cambia il codice |
-| monitor | — | stato live: ping + SNMP ifOperStatus ogni `MONITOR_INTERVAL_SECONDS` (0 = spento) |
+| monitor | — | stato live: ping + SNMP ifOperStatus ogni `MONITOR_INTERVAL_SECONDS` (0 = spento); dettagli delle porte ogni `MONITOR_DETAIL_INTERVAL_SECONDS` (300, 0 = mai) |
 | db (Postgres 16) | localhost:5433 | |
 
 Porte scelte apposta per non scontrarsi con l'app inventory: **non cambiarle**.
@@ -425,6 +425,19 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
 - **Stato live** (`services/monitor.py`, `monitor.py`): device attivi con IP primario; raggiungibile se risponde
   al ping o all'SNMP. Colonne `reachable` (NULL = mai controllato), `last_check_at`, `reachable_changed_at`, `rtt_ms`;
   `oper_status` delle porte da ifOperStatus (abbinate per `if_index`).
+- **Dettagli delle porte** (16/11/2026, `monitor.read_details`/`save_details`, `tests/test_porte_dettagli.py`): sui
+  device con profilo SNMP, quando `Device.ports_polled_at` è più vecchio di `MONITOR_DETAIL_INTERVAL_SECONDS`, lo
+  stesso giro legge ifAdminStatus, ifLastChange (con sysUpTime: `oper_changed_at` va indietro alla data dello switch
+  se NetMap l'ha vista dopo; 0 o > uptime = ignorato), dot3StatsDuplexStatus, ifIn/OutErrors e Discards (`errors_at` =
+  quando gli errori sono saliti, non se il contatore riparte) e PoE. PoE: POWER-ETHERNET-MIB (indice gruppo.porta,
+  watt del gruppo in `poe_budget_w`/`poe_used_w` sommati; consumo > budget e /1000 ≤ budget = Netgear in mW), watt
+  per porta da Cisco `cpeExtPsePortPwrConsumption` (porta → ifIndex via `cpeExtPsePortEntPhyIndex` +
+  entAliasMappingIdentifier) e HP `hpicfPoePethPsePortPower`; senza ENTITY `poe_port_map` abbina per nome (primo
+  numero = gruppo, ultimo = porta; con più candidati vince il nome con gli zeri in mezzo, Gi1/0/1 su Te1/1/1) o
+  ifIndex = porta con un solo gruppo. Watt e classe solo se la porta sta alimentando. Filtri extra dell'elenco
+  interfacce: `down_days`, `errors_days` (`monitor.filter_*`). Nel lab: uptime 100 giorni, Gi1/0/3 del core giù da 40
+  giorni, porta 24 di p1 half duplex con errori che salgono (snmprec `65:numeric` con `initial=…,rate=…`), PoE Cisco
+  sul core e HP su p2. Storico e grafici (passo 2: 5 min per 2 giorni, ora per 30, giorno per un anno) ancora da fare.
 - **Endpoint** (`services/endpoints.py`, tabella `endpoints`): dopo ogni scansione unisce tabelle MAC
   (BRIDGE/Q-BRIDGE), PVID/nomi VLAN e ARP; scarta gli uplink; tiene porta precedente e data dello spostamento.
   Cisco senza Q-BRIDGE (`snmp.py`, `_cisco_vlan_fdb`): con la community normale la BRIDGE-MIB ha solo la VLAN 1, le

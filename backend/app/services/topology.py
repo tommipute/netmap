@@ -31,6 +31,9 @@ from app.models.enums import NON_CABLEABLE_TYPES
 
 DEFAULT_COLOR = "#888780"
 DEFAULT_LEVEL = 2
+# Dettagli delle porte letti dal monitor (services/monitor.py), passati così come sono
+MONITOR_FIELDS = ("oper_changed_at", "admin_status", "duplex", "in_errors", "out_errors", "in_discards", "out_discards",
+                  "errors_at", "poe_status", "poe_class", "poe_power_mw")
 
 
 def natural_key(text: str) -> list:
@@ -335,6 +338,7 @@ def device_ports(db: Session, device_id: int) -> list[dict]:
             "mgmt_only": iface.mgmt_only,
             "source": iface.source,
             "oper_status": iface.oper_status,
+            **{field: getattr(iface, field) for field in MONITOR_FIELDS},
             "mode": iface.mode,
             "speed_mbps": iface.speed_mbps,
             "mac_address": iface.mac_address,

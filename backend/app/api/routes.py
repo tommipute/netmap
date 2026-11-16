@@ -40,7 +40,7 @@ from app.schemas import dcim as d
 from app.schemas import discovery as sd
 from app.schemas import ipam as i
 from app.schemas import maps as m
-from app.services import rules
+from app.services import monitor, rules
 
 api_router = APIRouter(prefix="/api")
 # Tutto quello che non è login richiede un utente; per scrivere serve il ruolo editor o admin
@@ -74,7 +74,9 @@ _routers = [
          delete_hook=rules.device_delete_hook),
     dict(model=Interface, create_schema=d.InterfaceCreate, update_schema=d.InterfaceUpdate,
          read_schema=d.InterfaceRead, path="/interfaces", tag="Interfacce",
-         filters=("device_id", "type", "mode", "enabled", "untagged_vlan_id", "source"),
+         filters=("device_id", "type", "mode", "enabled", "untagged_vlan_id", "source", "oper_status", "admin_status",
+                  "duplex", "poe_status"),
+         extra_filters={"down_days": (int, monitor.filter_down_days), "errors_days": (int, monitor.filter_errors_days)},
          search=("name", "mac_address", "description"), order_by=(Interface.device_id, Interface.name),
          hook=rules.interface_hook),
     dict(model=StackMember, create_schema=d.StackMemberCreate, update_schema=d.StackMemberUpdate,

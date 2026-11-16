@@ -1,11 +1,11 @@
 """File dati per snmpsim (formato .snmprec) a partire dalla descrizione di un device.
 
 La descrizione è un dict (vedi app/lab/devices.py e tests/snmp_devices.py): sistema, interfacce, IP, ENTITY-MIB,
-LLDP, CDP, tabelle MAC (BRIDGE / Q-BRIDGE), VLAN e ARP. Serve ai test d'integrazione e alla rete di laboratorio.
+LLDP, CDP, tabelle MAC (BRIDGE / Q-BRIDGE), VLAN e ARP; per il monitor anche contatori, duplex e PoE. Serve ai test d'integrazione e alla rete di laboratorio.
 """
 import ipaddress
 
-INT, STR, HEX, OID, IPADDR, GAUGE = "2", "4", "4x", "6", "64", "66"
+INT, STR, HEX, OID, IPADDR, COUNTER, GAUGE, TICKS = "2", "4", "4x", "6", "64", "65", "66", "67"
 
 
 def mac_hex(mac: str) -> str:
@@ -58,6 +58,39 @@ def snmprec(device: dict) -> str:
         add(f"1.3.6.1.2.1.31.1.1.1.1.{idx}", STR, name)
         add(f"1.3.6.1.2.1.31.1.1.1.15.{idx}", GAUGE, mbps or 0)
         add(f"1.3.6.1.2.1.31.1.1.1.18.{idx}", STR, alias)
+
+    # Facoltativi, per i dettagli delle porte del monitor
+    if "uptime" in system:
+        add("1.3.6.1.2.1.1.3.0", TICKS, system["uptime"])
+    # ifIndex: (ifLastChange, errori in, errori out, scarti in, scarti out); un contatore come dict cresce nel tempo
+    # (variazione "numeric" di snmpsim, es. {"initial": 1500, "rate": 0.01} = un errore ogni 100 secondi)
+    for idx, (last_change, *counters) in device.get("port_counters", {}).items():
+        add(f"1.3.6.1.2.1.2.2.1.9.{idx}", TICKS, last_change)
+        for column, value in zip((14, 20, 13, 19), counters):
+            if isinstance(value, dict):
+                add(f"1.3.6.1.2.1.2.2.1.{column}.{idx}", f"{COUNTER}:numeric", ",".join(f"{k}={v}" for k, v in value.items()))
+            else:
+                add(f"1.3.6.1.2.1.2.2.1.{column}.{idx}", COUNTER, value)
+    for idx, duplex in device.get("duplex", {}).items():  # 2 = half, 3 = full
+        add(f"1.3.6.1.2.1.10.7.2.1.19.{idx}", INT, duplex)
+    poe = device.get("poe")
+    if poe:
+        for group, (budget_w, used_w) in poe["groups"].items():
+            add(f"1.3.6.1.2.1.105.1.3.1.1.2.{group}", GAUGE, budget_w)
+            add(f"1.3.6.1.2.1.105.1.3.1.1.3.{group}", INT, 1)
+            add(f"1.3.6.1.2.1.105.1.3.1.1.4.{group}", GAUGE, used_w)
+        # (gruppo, porta): (rilevamento: 2 cerca, 3 alimenta, 4 guasto; classe 0-4 o None; mW; ifIndex per Cisco)
+        for (group, port), (detection, power_class, mw, if_index) in poe["ports"].items():
+            index = f"{group}.{port}"
+            add(f"1.3.6.1.2.1.105.1.1.1.6.{index}", INT, detection)
+            add(f"1.3.6.1.2.1.105.1.1.1.10.{index}", INT, 1 if power_class is None else power_class + 1)
+            if poe["vendor"] == "cisco":  # CISCO-POWER-ETHERNET-EXT-MIB e la porta via ENTITY-MIB
+                entity = 5000 + group * 100 + port
+                add(f"1.3.6.1.4.1.9.9.402.1.2.1.9.{index}", GAUGE, mw)
+                add(f"1.3.6.1.4.1.9.9.402.1.2.1.11.{index}", INT, entity)
+                add(f"1.3.6.1.2.1.47.1.3.2.1.2.{entity}.0", OID, f"1.3.6.1.2.1.2.2.1.1.{if_index}")
+            elif poe["vendor"] == "hp":  # HP-ICF-POE-MIB, stesso indice
+                add(f"1.3.6.1.4.1.11.2.14.11.1.9.1.1.1.3.{index}", INT, mw)
 
     for address, if_index, mask in device["ipv4"]:
         add(f"1.3.6.1.2.1.4.20.1.1.{address}", IPADDR, address)

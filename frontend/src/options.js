@@ -180,6 +180,42 @@ export function formatDuration(start, end) {
   return seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`
 }
 
+// ---------- Dettagli delle porte, letti dal monitor ----------
+export const OPER_STATUS = [
+  { value: 'up', label: t('Su') },
+  { value: 'down', label: t('Giù') },
+]
+export const ADMIN_STATUS = [
+  { value: 'up', label: t('Accesa') },
+  { value: 'down', label: t('Spenta') },
+]
+export const DUPLEX = [
+  { value: 'full', label: t('Full duplex') },
+  { value: 'half', label: t('Half duplex') },
+]
+export const POE_STATUS = [
+  { value: 'delivering', label: t('Alimenta') },
+  { value: 'searching', label: t('In attesa') },
+  { value: 'disabled', label: t('Spento') },
+  { value: 'fault', label: t('Guasto') },
+  { value: 'test', label: t('In prova') },
+]
+export const DOWN_DAYS = [7, 30, 90].map((n) => ({ value: String(n), label: t('Giù da più di {n} giorni', { n }) }))
+export const ERRORS_DAYS = [
+  { value: '1', label: t('Errori nelle ultime 24 ore') },
+  { value: '7', label: t('Errori negli ultimi 7 giorni') },
+]
+
+/** Milliwatt -> "4,3 W" */
+export function formatPower(mw) {
+  return `${(mw / 1000).toLocaleString(LOCALE, { maximumFractionDigits: 1 })} W`
+}
+
+/** Gli errori della porta sono saliti negli ultimi `days` giorni */
+export function recentErrors(port, days = 1) {
+  return !!port.errors_at && Date.now() - new Date(port.errors_at) < days * 86400000
+}
+
 // ---------- Stato live (fase 4) ----------
 export const REACHABLE = [
   { value: 'true', label: t('Risponde') },

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -133,6 +134,10 @@ class Device(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     last_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reachable_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rtt_ms: Mapped[float | None] = mapped_column(Float)
+    # Dettagli delle porte, letti dal monitor ogni MONITOR_DETAIL_INTERVAL_SECONDS: quando e il PoE dello switch
+    ports_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    poe_budget_w: Mapped[int | None] = mapped_column(Integer)   # pethMainPsePower, somma dei gruppi (membri dello stack)
+    poe_used_w: Mapped[int | None] = mapped_column(Integer)     # pethMainPseConsumptionPower
     # Profilo SNMP che ha risposto all'ultima scansione: il monitor lo usa per leggere lo stato delle porte
     snmp_profile_id: Mapped[int | None] = mapped_column(ForeignKey("snmp_profiles.id", ondelete="SET NULL"))
 
@@ -188,6 +193,17 @@ class Interface(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     if_index: Mapped[int | None] = mapped_column(Integer)         # ifIndex SNMP
     oper_status: Mapped[str | None] = mapped_column(String(10))   # up/down dall'ultimo poll
     oper_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # da quando: per gli avvisi
+    # Dettagli letti dal monitor (vedi services/monitor.py), mai modificati a mano
+    admin_status: Mapped[str | None] = mapped_column(String(10))  # up / down = spenta nella configurazione
+    duplex: Mapped[str | None] = mapped_column(String(4))         # full / half (EtherLike-MIB)
+    in_errors: Mapped[int | None] = mapped_column(BigInteger)     # contatori ifInErrors / ifOutErrors
+    out_errors: Mapped[int | None] = mapped_column(BigInteger)
+    in_discards: Mapped[int | None] = mapped_column(BigInteger)
+    out_discards: Mapped[int | None] = mapped_column(BigInteger)
+    errors_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # ultima volta che gli errori sono saliti
+    poe_status: Mapped[str | None] = mapped_column(String(10))    # delivering / searching / disabled / fault / test
+    poe_class: Mapped[int | None] = mapped_column(Integer)        # classe 0-8 del dispositivo alimentato
+    poe_power_mw: Mapped[int | None] = mapped_column(Integer)     # consumo, solo con le MIB di Cisco e HP
     description: Mapped[str | None] = mapped_column(Text)
 
     device: Mapped["Device"] = relationship(lazy="joined")

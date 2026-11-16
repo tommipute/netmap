@@ -178,6 +178,9 @@ class DeviceRead(DeviceCreate, DiscoveryRead, ReadSchema):
     last_check_at: datetime | None = None
     reachable_changed_at: datetime | None = None
     rtt_ms: float | None = None
+    ports_polled_at: datetime | None = None
+    poe_budget_w: int | None = None
+    poe_used_w: int | None = None
     snmp_profile_id: int | None = None
 
 
@@ -210,6 +213,18 @@ class InterfaceRead(InterfaceCreate, DiscoveryRead, ReadSchema):
     device_management_ip: str | None = None  # per bloccare nel modulo un secondo IP di management
     if_index: int | None = None
     oper_status: str | None = None
+    oper_changed_at: datetime | None = None
+    # Dettagli letti dal monitor
+    admin_status: str | None = None
+    duplex: str | None = None
+    in_errors: int | None = None
+    out_errors: int | None = None
+    in_discards: int | None = None
+    out_discards: int | None = None
+    errors_at: datetime | None = None
+    poe_status: str | None = None
+    poe_class: int | None = None
+    poe_power_mw: int | None = None
 
 
 # ---------- Membri di uno stack ----------
