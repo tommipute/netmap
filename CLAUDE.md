@@ -462,7 +462,7 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   (basePort → ifIndex), Cisco cErrDisableIfStatusCause → `err_disabled`, `flaps`/`flaps_since` (+1 per ogni cambio
   visto, +2 se ifLastChange cambia con lo stato uguale: serve anche `last_change_ticks` diverso, perché con sysUpTime
   fermo l'orario calcolato avanza da solo). Dalla scansione (`endpoints._shared_macs`): porta con ≥3 MAC anche su
-  porte non uplink di un altro switch → `shared_macs`/`shared_device_id`; loop se tra i due c'è un percorso di cavi,
+  porte non uplink di un altro switch → `shared_macs`/`shared_device_id`/`shared_mac_list` (primi 20, in `values.mac_list`); loop se tra i due c'è un percorso di cavi,
   altrimenti undocumented_link. VLAN nativa: un trunk letto via SNMP senza untagged vale VLAN 1 (la scansione non
   salva la 1). Nel lab: hub su p1:20 e p2:20 (loop), LAPTOP con l'IP di PC4, p3 Gi1/0/3 err-disabled bpduGuard,
   Gi1/0/4 bloccata, STP che sale, 25 half contro il core full, PVID 99 sull'uplink di p2, 8 MAC su p2:10.

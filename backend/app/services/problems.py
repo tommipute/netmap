@@ -143,9 +143,11 @@ def _shared_problems(interfaces: list[Interface], devices: dict[int, Device], gr
         iface, other_iface = ports[main], ports.get(other)
         # i due switch sono già collegati da cavi documentati: questo è un secondo percorso
         kind = "loop" if _path(graph, first, second) else "undocumented_link"
+        mac_list = sorted({mac for port in ports.values() for mac in port.shared_mac_list or []})
         problems.append(Problem(
             kind, devices[main], iface, devices[other], other_iface,
-            seen_at=_aware(iface.shared_at), values={"macs": max(p.shared_macs for p in ports.values())},
+            seen_at=_aware(iface.shared_at),
+            values={"macs": max(len(mac_list), *(p.shared_macs for p in ports.values())), "mac_list": mac_list},
         ))
     return problems
 

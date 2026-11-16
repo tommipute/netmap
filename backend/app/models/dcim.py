@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
-from app.models.base import Base, CustomFieldsMixin, DiscoveryMixin, TimestampMixin
+from app.models.base import Base, CustomFieldsMixin, DiscoveryMixin, JSONType, TimestampMixin
 from app.models.enums import CableStatus, DeviceStatus, InterfaceType
 
 if TYPE_CHECKING:
@@ -220,6 +220,7 @@ class Interface(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     # Dalla scansione: quanti MAC di questa porta compaiono anche su porte di accesso di un altro switch
     shared_macs: Mapped[int | None] = mapped_column(Integer)
     shared_device_id: Mapped[int | None] = mapped_column(Integer)  # quello switch (senza FK: è solo un indizio)
+    shared_mac_list: Mapped[list | None] = mapped_column(JSONType)  # quei MAC (i primi SHARED_LIST_MAX)
     shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     description: Mapped[str | None] = mapped_column(Text)
 

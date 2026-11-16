@@ -28,7 +28,7 @@ function explain(p) {
   switch (p.kind) {
     case 'loop':
       return [
-        t('Le due porte vedono gli stessi {n} MAC e i due switch sono già collegati da un cavo documentato: c\'è un secondo percorso (hub, switch non gestito o cavo in più).', { n: v.macs }),
+        t('Le due porte vedono {n} MAC che sono anche sulle porte dell\'altro switch, e i due switch sono già collegati da un cavo documentato: c\'è un secondo percorso (hub, switch non gestito o cavo in più).', { n: v.macs }),
         t('Cerca cosa è collegato a quelle porte e toglilo. Con STP attivo una delle due dovrebbe risultare bloccata.'),
       ]
     case 'undocumented_link':
@@ -131,6 +131,22 @@ function Where({ p, deviceId }) {
   )
 }
 
+/** MAC visti da tutte e due le porte: ognuno apre "Dov'è collegato?", che dice dove sta davvero */
+function SharedMacs({ p }) {
+  const macs = p.values?.mac_list || []
+  if (!macs.length) return null
+  const more = (p.values.macs || 0) - macs.length
+  return (
+    <div className="problems__macs">
+      <span className="hint">{t('MAC in comune:')}</span>
+      {macs.map((mac) => (
+        <Link key={mac} className="mono" to={`/where?q=${encodeURIComponent(mac)}`} title={t('Dov\'è collegato davvero')}>{mac}</Link>
+      ))}
+      {more > 0 && <span className="hint">{t('e altri {n}', { n: more })}</span>}
+    </div>
+  )
+}
+
 /** Silenziato da chi, quando, fino a quando e perché */
 function SilenceNote({ silence }) {
   return (
@@ -227,6 +243,8 @@ export function ProblemTable({ items, deviceId, onChanged, silenced = false }) {
                   <div>{detail}</div>
                   {hint && <div className="hint">{hint}</div>}
                   {p.kind === 'duplicate_ip' && <Link className="hint" to={`/where?q=${encodeURIComponent(p.values.ip)}`}>{t('Cerca l\'IP')}</Link>}
+                  {(p.kind === 'loop' || p.kind === 'undocumented_link') && <SharedMacs p={p} />}
+                  {p.kind === 'many_macs' && <Link className="hint" to={`/where?interface_id=${p.interface_id}`}>{t('Vedi i MAC della porta')}</Link>}
                   {p.silenced && <SilenceNote silence={p.silenced} />}
                 </td>
                 <td><Where p={p} deviceId={deviceId} /></td>

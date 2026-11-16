@@ -122,6 +122,7 @@ def update_endpoints(db: Session, results: list[HostData], now: datetime) -> int
 
 
 SHARED_MIN_MACS = 3  # sotto questo numero può essere un PC spostato durante la scansione
+SHARED_LIST_MAX = 20  # MAC salvati sulla porta, da mostrare nel problema
 
 
 def _shared_macs(scanned, sightings: list[_Sighting], now: datetime) -> None:
@@ -135,18 +136,19 @@ def _shared_macs(scanned, sightings: list[_Sighting], now: datetime) -> None:
         if not hd.fdb:
             continue
         for iface in ports.values():
-            iface.shared_macs = iface.shared_device_id = iface.shared_at = None
-    others: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))  # porta -> altro switch -> MAC
+            iface.shared_macs = iface.shared_device_id = iface.shared_mac_list = iface.shared_at = None
+    others: dict[int, dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))  # porta -> altro switch -> MAC
     interfaces: dict[int, Interface] = {}
     for s in sightings:
         interfaces[s.iface.id] = s.iface
         for device_id in devices_by_mac[s.mac] - {s.iface.device_id}:
-            others[s.iface.id][device_id] += 1
-    for iface_id, counts in others.items():
-        device_id, count = max(counts.items(), key=lambda item: (item[1], -item[0]))
-        if count >= SHARED_MIN_MACS:
+            others[s.iface.id][device_id].add(s.mac)
+    for iface_id, by_device in others.items():
+        device_id, macs = max(by_device.items(), key=lambda item: (len(item[1]), -item[0]))
+        if len(macs) >= SHARED_MIN_MACS:
             iface = interfaces[iface_id]
-            iface.shared_macs, iface.shared_device_id, iface.shared_at = count, device_id, now
+            iface.shared_macs, iface.shared_device_id, iface.shared_at = len(macs), device_id, now
+            iface.shared_mac_list = sorted(macs)[:SHARED_LIST_MAX]
 
 
 # ---------------------------------------------------------------- lettura

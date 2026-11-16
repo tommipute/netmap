@@ -614,7 +614,7 @@ Ogni problema ha una **priorità**:
 
 | Priorità | Problema | Quando compare |
 |---|---|---|
-| **Critica** | Loop tra due switch | due porte di switch diversi vedono gli stessi MAC (almeno 3) e i due switch sono già collegati da un cavo documentato: c'è un secondo percorso, per esempio un hub o uno switch non gestito attaccato a tutti e due |
+| **Critica** | Loop tra due switch | due porte di switch diversi vedono MAC (almeno 3) che stanno anche sulle porte di accesso dell'altro switch, e i due switch sono già collegati da un cavo documentato: c'è un secondo percorso, per esempio un hub o uno switch non gestito attaccato a tutti e due |
 | **Critica** | Topologia STP instabile | il contatore dei cambi di topologia STP sale di almeno 5 tra due letture e di almeno 30 all'ora (scende ad **alta** se non succede più da un'ora, e sparisce dopo 24 ore) |
 | **Alta** | Porta spenta dallo switch | porta err-disabled, con la causa (BPDU guard, port security, UDLD…); per ora solo Cisco |
 | **Alta** | Duplex diversi ai due capi | un capo del cavo in half duplex e l'altro in full |
@@ -631,7 +631,10 @@ Ogni problema ha una **priorità**:
 | **Bassa** | Tanti MAC su una porta di accesso | almeno 8 MAC dietro una porta negli ultimi 7 giorni: uno switch non gestito, un access point, un server con macchine virtuali |
 
 Per ogni problema la pagina dice cosa succede e cosa fare, dove (device e porta, con l'altro capo del cavo) e da
-quando. I pulsanti con i conteggi filtrano per priorità; si filtra anche per tipo e per sede. Gli stessi problemi
+quando. Per il loop e il collegamento non documentato elenca anche i **MAC in comune**: ognuno apre "Dov'è
+collegato?", che dice su quale porta sta davvero quel PC (su quelle del problema non compare, perché lì arriva solo
+attraverso il secondo percorso). Per **Tanti MAC su una porta di accesso** il link **Vedi i MAC della porta** li
+elenca. I pulsanti con i conteggi filtrano per priorità; si filtra anche per tipo e per sede. Gli stessi problemi
 sono nella scheda del device, sopra le porte, e la **Panoramica** ha una scheda con i conteggi e i primi cinque.
 
 Da sapere:

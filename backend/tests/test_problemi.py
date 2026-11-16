@@ -168,7 +168,7 @@ def test_hub_tra_due_switch(client, setup, session_factory):
     scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
     found = {p["kind"]: p for p in problems(client)["items"]}
     link = found["undocumented_link"]
-    assert link["severity"] == "medium" and link["values"] == {"macs": 3} and link["seen_at"]
+    assert link["severity"] == "medium" and link["values"] == {"macs": 3, "mac_list": HUB} and link["seen_at"]
     assert {(link["device_name"], link["interface_name"]), (link["other_device_name"], link["other_interface_name"])} == {
         ("sw-sim-01", "Gi1/0/2"), ("sw-sim-02", "2")}
     assert found["duplicate_ip"]["values"]["macs"] == sorted([PC_A_MAC, HUB[0]])
@@ -178,6 +178,7 @@ def test_hub_tra_due_switch(client, setup, session_factory):
     scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
     found = {p["kind"]: p for p in problems(client)["items"]}
     assert found["loop"]["severity"] == "critical" and "undocumented_link" not in found
+    assert found["loop"]["values"]["mac_list"] == HUB
 
     # Hub tolto: alla scansione dopo il problema sparisce
     scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))

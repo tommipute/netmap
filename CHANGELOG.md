@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Modifiche
+
+- Problemi rilevati: il loop e il collegamento non documentato tra due switch elencano i **MAC in comune**, ognuno
+  con il link a "Dov'è collegato?" (che dice su quale porta sta davvero); "Tanti MAC su una porta di accesso" ha
+  il link **Vedi i MAC della porta**. Il numero dei MAC del loop conta quelli di tutte e due le porte.
+
 ## [1.7.0] - 2026-11-16
 
 Il monitor guarda dentro le porte: da quando sono giù, duplex, errori, PoE e lo **storico del traffico** con i

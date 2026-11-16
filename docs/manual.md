@@ -608,7 +608,7 @@ Each problem has a **priority**:
 
 | Priority | Problem | When it shows up |
 |---|---|---|
-| **Critical** | Loop between two switches | two ports on different switches see the same MACs (at least 3) and the two switches are already connected by a documented cable: there is a second path, for example a hub or an unmanaged switch plugged into both |
+| **Critical** | Loop between two switches | two ports on different switches see MACs (at least 3) that are also on the access ports of the other switch, and the two switches are already connected by a documented cable: there is a second path, for example a hub or an unmanaged switch plugged into both |
 | **Critical** | Unstable STP topology | the STP topology change counter goes up by at least 5 between two reads and at least 30 per hour (drops to **high** when it has stopped for an hour, and disappears after 24 hours) |
 | **High** | Port shut down by the switch | err-disabled port, with the cause (BPDU guard, port security, UDLD…); Cisco only for now |
 | **High** | Duplex mismatch | one end of the cable in half duplex and the other in full |
@@ -625,7 +625,10 @@ Each problem has a **priority**:
 | **Low** | Many MACs on an access port | at least 8 MACs behind a port in the last 7 days: an unmanaged switch, an access point, a server with virtual machines |
 
 For each problem the page says what is happening and what to do, where (device and port, with the other end of the
-cable) and since when. The buttons with the counts filter by priority; you can also filter by type and by site.
+cable) and since when. For a loop or an undocumented link it also lists the **Shared MACs**: each one opens
+"Where is it connected?", which tells on which port that PC really is (it does not show up on the ports of the
+problem, because it only reaches them through the second path). For **Many MACs on an access port** the **See the
+MACs on the port** link lists them. The buttons with the counts filter by priority; you can also filter by type and by site.
 The same problems are on the device page, above the ports, and the **Overview** has a card with the counts and the
 first five.
 
