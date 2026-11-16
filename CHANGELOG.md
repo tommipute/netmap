@@ -6,6 +6,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.7.0] - 2026-11-16
+
+Il monitor guarda dentro le porte: da quando sono giù, duplex, errori, PoE e lo **storico del traffico** con i
+grafici. Dai dati nascono i **Problemi rilevati** (loop, hub tra switch, STP, err-disable, capi dei cavi diversi, IP
+doppi, PoE), che si possono silenziare, e i **Report** (porte più cariche, errori, porte libere, PoE, disponibilità
+dei device) da scaricare in CSV. Nessun cambiamento incompatibile: l'aggiornamento applica da solo le migration del
+database. Lo storico occupa circa 300 kB per porta letta via SNMP.
+
 ### Novità
 
 - **Dettagli delle porte** letti dal monitor ogni 5 minuti (`MONITOR_DETAIL_INTERVAL_SECONDS`, 0 = mai) sui device con
