@@ -23,7 +23,7 @@ from app.config import settings
 from app.discovery import snmp
 from app.models import Device, Interface, IPAddress
 from app.models.enums import DeviceStatus
-from app.services import port_stats
+from app.services import device_stats, port_stats
 
 logger = logging.getLogger(__name__)
 
@@ -406,10 +406,11 @@ _pruned_at: datetime | None = None
 
 
 def _prune_stats(db: Session, now: datetime) -> None:
-    """Storico delle porte: le righe vecchie si tolgono al massimo una volta all'ora."""
+    """Storico delle porte e disponibilità dei device: le righe vecchie si tolgono al massimo una volta all'ora."""
     global _pruned_at
     if _pruned_at is None or now - _pruned_at > timedelta(hours=1):
         port_stats.prune(db, now)
+        device_stats.prune(db, now)
         _pruned_at = now
 
 
@@ -419,6 +420,7 @@ def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prob
     results = (prober or probe_all)(targets) if targets else {}
     now = datetime.now(timezone.utc)
     up = down = 0
+    checked = []
     for target in targets:
         result = results.get(target.device_id)
         if result is None:
@@ -439,8 +441,10 @@ def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prob
                     iface.oper_status = status
         if result.details is not None:
             save_details(db, device, result.details, now)
-            _prune_stats(db, now)
         up, down = up + result.reachable, down + (not result.reachable)
+        checked.append((device.id, result.reachable, result.rtt_ms))
+    device_stats.record(db, checked, now)
+    _prune_stats(db, now)
     db.commit()
     return {"checked": up + down, "up": up, "down": down}
 

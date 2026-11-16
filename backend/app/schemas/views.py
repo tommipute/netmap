@@ -197,7 +197,22 @@ class StatusSummary(BaseModel):
     interval_seconds: int
 
 
+class ProblemSilenceInfo(BaseModel):
+    id: int
+    note: str | None = None
+    until: datetime | None = Field(None, description="Vuoto = per sempre")
+    created_by: str | None = None
+    created_at: datetime | None = None
+
+
+class ProblemSilenceCreate(BaseModel):
+    key: str = Field(max_length=200, description="`key` del problema")
+    note: str | None = Field(None, max_length=1000)
+    days: int | None = Field(None, ge=1, le=3650, description="Per quanti giorni; vuoto = per sempre")
+
+
 class ProblemRead(BaseModel):
+    key: str = Field("", description="Identifica il problema per silenziarlo")
     kind: str = Field(description="loop, stp_storm, err_disabled, duplex_mismatch, native_vlan_mismatch, duplicate_ip, "
                       "flapping, poe_fault, poe_budget, errors_rising, half_duplex, speed_mismatch, undocumented_link, "
                       "stp_blocked, many_macs")
@@ -215,12 +230,14 @@ class ProblemRead(BaseModel):
     since: datetime | None = None
     seen_at: datetime | None = None
     values: dict = {}
+    silenced: ProblemSilenceInfo | None = None
 
 
 class ProblemList(BaseModel):
     total: int
     counts: dict[str, int]
     items: list[ProblemRead]
+    silenced: list[ProblemRead] = Field([], description="Problemi silenziati: non contano nei totali")
 
 
 class PortStatPoint(BaseModel):

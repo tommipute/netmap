@@ -13,7 +13,7 @@ import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import SnmpReport from '../components/SnmpReport'
 import { DuplexTag, PortDot, PortErrors, PortFlags, PortPoe } from '../components/PortDetails'
-import { ProblemTable } from '../components/Problems'
+import { ProblemTable, SilencedProblems } from '../components/Problems'
 import PortStatsDialog, { PortRate } from '../components/PortStats'
 import { RescanNotice, useRescan } from '../components/DeviceRescan'
 import { invalidate, useApi } from '../hooks'
@@ -164,8 +164,8 @@ function DeviceHistory({ deviceId }) {
 
 /** Problemi rilevati che riguardano il device (anche come altro capo di un cavo) */
 function DeviceProblems({ deviceId }) {
-  const { data } = useApi(`/problems?device_id=${deviceId}`)
-  if (!data || data.total === 0) return null
+  const { data, reload } = useApi(`/problems?device_id=${deviceId}`)
+  if (!data || (data.total === 0 && !data.silenced?.length)) return null
   return (
     <section className="section no-print">
       <header className="section__head">
@@ -176,7 +176,8 @@ function DeviceProblems({ deviceId }) {
           <Link className="btn btn--sm btn--ghost" to="/problems">{t('Tutti i problemi')}</Link>
         </div>
       </header>
-      <ProblemTable items={data.items} deviceId={deviceId} />
+      {data.total > 0 && <ProblemTable items={data.items} deviceId={deviceId} onChanged={reload} />}
+      <SilencedProblems items={data.silenced} deviceId={deviceId} onChanged={reload} />
     </section>
   )
 }

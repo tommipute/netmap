@@ -28,7 +28,7 @@ from app.models.imports import ImportRun
 from app.models.integrations import ApiToken, Webhook
 from app.models.ipam import VLAN, VRF, IPAddress, Prefix
 from app.models.maps import MapBackground, MapCableRoute, MapNode, NetworkMap
-from app.models.monitoring import Endpoint, PortStat
+from app.models.monitoring import DeviceStat, Endpoint, PortStat, ProblemSilence
 
 
 class in_subquery(FunctionElement):
@@ -89,6 +89,8 @@ __all__ = [
     "DiscoveryRun",
     "Endpoint",
     "PortStat",
+    "DeviceStat",
+    "ProblemSilence",
     "ImportRun",
     "Interface",
     "IPAddress",

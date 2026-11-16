@@ -1474,3 +1474,29 @@ html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-
 .port-strip--down { fill: var(--danger); }
 .port-strip--hover { fill-opacity: 0.6; }
 .port-rate { font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* Report (pages/ReportsPage.jsx) */
+.report-tabs { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; margin-bottom: 14px; }
+.report-summary { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.problem-count--static { cursor: default; }
+.problem-count--ok { border-left-color: var(--ok); }
+.report .num { text-align: right; font-variant-numeric: tabular-nums; }
+.report .link-button { padding: 0; font-size: inherit; }
+.report__row--bad { background: var(--danger-soft); }
+.report__group th { background: var(--bg); font-weight: 600; text-align: left; }
+.report__names { font-family: var(--mono); font-size: 12px; max-width: 420px; }
+.usage { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.usage__bar { width: 90px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.usage__bar > span { display: block; height: 100%; min-width: 2px; background: var(--ok); }
+.usage--warn .usage__bar > span { background: var(--warn); }
+.usage--danger .usage__bar > span { background: var(--danger); }
+.usage__value { font-variant-numeric: tabular-nums; font-size: 13px; }
+.tone-text--ok { color: var(--ok); }
+.tone-text--warn { color: var(--warn); }
+.tone-text--danger { color: var(--danger); }
+.problems__end { line-height: 1.6; }
+.problems--silenced tbody td { color: var(--muted); }
+.problems--silenced tbody td .badge, .problems--silenced tbody td a { opacity: 0.65; }
+.problems__silence { margin-top: 4px; font-style: italic; }
+.problems__silenced-box { margin-top: 18px; }
+.problems__silenced-box > summary { cursor: pointer; color: var(--muted); font-weight: 500; margin-bottom: 10px; }

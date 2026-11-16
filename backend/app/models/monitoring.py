@@ -1,7 +1,7 @@
 """Fase 4: endpoint visti nelle tabelle MAC degli switch ("dov'è collegato questo PC?") e storico delle porte."""
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -54,3 +54,36 @@ class PortStat(Base):
     discards: Mapped[int] = mapped_column(BigInteger, default=0)         # scarti in + out
     up_seconds: Mapped[int] = mapped_column(Integer, default=0)
     poe_mws: Mapped[int | None] = mapped_column(BigInteger)              # mW × secondi: media = poe_mws / seconds
+
+
+class DeviceStat(Base):
+    """Disponibilità di un device per ora (30 giorni) e per giorno (un anno): controlli del monitor riusciti sul totale
+    e somma dei tempi di risposta (services/device_stats.py)."""
+
+    __tablename__ = "device_stats"
+    __table_args__ = (Index("ix_device_stats_period_at", "period", "at"),)
+
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), primary_key=True)
+    period: Mapped[str] = mapped_column(String(2), primary_key=True)     # 1h, 1d
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)  # inizio dell'intervallo
+    checks: Mapped[int] = mapped_column(Integer, default=0)
+    up_checks: Mapped[int] = mapped_column(Integer, default=0)
+    rtt_sum_ms: Mapped[float | None] = mapped_column(Float)              # media = rtt_sum_ms / rtt_count
+    rtt_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProblemSilence(Base):
+    """Un problema rilevato silenziato da qualcuno: non conta più e si vede a parte, in grigio (services/problems.py).
+    `key` identifica il problema (tipo, device, porta; per gli IP doppi anche l'IP); `until` vuoto = per sempre."""
+
+    __tablename__ = "problem_silences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(200), unique=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    interface_id: Mapped[int | None] = mapped_column(ForeignKey("interfaces.id", ondelete="CASCADE"))
+    note: Mapped[str | None] = mapped_column(Text)
+    until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str | None] = mapped_column(String(150))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

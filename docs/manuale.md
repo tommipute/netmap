@@ -608,7 +608,7 @@ porta (300 MB ogni mille porte).
 **Rete → Problemi rilevati** mette insieme le cose che non vanno, trovate con quello che NetMap legge già: i
 dettagli delle porte (ogni 5 minuti), lo stato STP e le porte err-disabled, le tabelle MAC e ARP delle scansioni e
 i due capi dei cavi documentati. Non serve configurare niente e non c'è niente da chiudere: un problema resta
-finché la causa c'è, poi sparisce da solo.
+finché la causa c'è, poi sparisce da solo. Quelli voluti si possono **silenziare** (più sotto).
 
 Ogni problema ha una **priorità**:
 
@@ -642,6 +642,40 @@ Da sapere:
   volta;
 - il loop protect degli switch HP/Aruba e un MAC che salta da una porta all'altra tra due scansioni non si vedono
   ancora.
+
+**Silenziare un problema.** Alcuni problemi sono voluti: un collegamento di riserva bloccato da STP, un access point
+con tanti MAC, uno switch vecchio in half duplex che verrà sostituito. Il pulsante con la campanella barrata, in
+fondo alla riga (solo chi può modificare), chiede **Per quanto** (1 giorno, 7 giorni, 30 giorni o per
+sempre) e **Perché**, facoltativo. Un problema silenziato non conta più nei totali, nella Panoramica e nella scheda
+del device: resta in fondo alla pagina, nel riquadro **N problemi silenziati** chiuso, in grigio, con chi l'ha
+silenziato, quando, fino a quando e perché. La campanella in quel riquadro lo **riattiva** subito; alla scadenza
+torna da solo tra gli altri. Se nel frattempo la causa sparisce e poi ritorna, resta silenziato finché dura il
+silenzio. Il silenzio vale per quel problema su quella porta (o su quel device): lo stesso tipo di problema su
+un'altra porta si vede normalmente.
+
+### Report
+
+**Rete → Report** riassume lo storico del monitor in cinque tabelle. Ognuna si filtra per sede e si scarica con il
+pulsante in alto a destra in **CSV** (separato da punto e virgola, si apre con Excel); il nome della porta apre il
+suo storico con i grafici.
+
+- **Porte più cariche** (ultimo giorno, 7 giorni o 30 giorni): per ogni porta con traffico la media, il **95°
+  percentile** e il picco in entrata e in uscita, e l'uso sulla velocità della porta, dalla più carica. Il 95°
+  percentile è il valore sotto cui la porta resta il 95% del tempo: ignora i picchi brevi e dice quanto la porta è
+  davvero carica. Sopra l'80% la porta è **satura** (in rosso). Con **Solo porte con un cavo verso un altro device**
+  restano gli uplink.
+- **Errori**: porte con errori o pacchetti scartati nel periodo, dalla peggiore, con il duplex e l'ultima volta che
+  sono saliti.
+- **Porte libere**: per ogni switch letto dal monitor le porte, quante su e quante giù, e quali sono giù da almeno
+  N giorni (30 di partenza, si cambia in alto): sono quelle che si possono riusare. Contano solo le porte vere (non
+  VLAN, loopback, port-channel né porte di management).
+- **PoE**: per ogni switch PoE i watt usati su quelli disponibili e quante porte alimentano qualcosa, sono in attesa
+  o in guasto.
+- **Disponibilità** (7 giorni, 30 giorni o un anno): per ogni device controllato dal monitor la percentuale dei
+  controlli riusciti, quanti sono falliti, il tempo di risposta medio e lo stato di adesso, dal peggiore. Sotto il
+  99,9% la percentuale è in giallo, sotto il 99% in rosso. Il monitor conta i controlli dalla 1.7.0: prima non ci
+  sono dati, e la colonna dice da quando parte il conto. I conteggi per ora restano 30 giorni, quelli per giorno
+  un anno.
 
 ### Avvisi
 

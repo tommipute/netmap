@@ -602,7 +602,7 @@ per port (300 MB per thousand ports).
 **Network → Detected problems** collects what is wrong, found from what NetMap already reads: port details (every 5
 minutes), STP state and err-disabled ports, the MAC and ARP tables from the scans and both ends of the documented
 cables. There is nothing to configure and nothing to close: a problem stays as long as its cause is there, then
-it disappears by itself.
+it disappears by itself. Intended ones can be **silenced** (below).
 
 Each problem has a **priority**:
 
@@ -635,6 +635,38 @@ Good to know:
   scan, the others every 5 minutes by the monitor;
 - a port that goes down and up between two checks is still seen, because the switch says when it last changed;
 - HP/Aruba loop protect and a MAC jumping from one port to another between two scans are not detected yet.
+
+**Silencing a problem.** Some problems are intended: a backup link blocked by STP, an access point with many MACs,
+an old half-duplex switch that will be replaced. The button with the crossed-out bell, at the end of the row (only
+for users who can edit), asks **For how long** (1 day, 7 days, 30 days or forever) and **Why**, optional. A
+silenced problem no longer counts in the totals, on the Overview and on the device page: it stays at the bottom of
+the page, in the collapsed **N silenced problems** box, greyed out, with who silenced it, when, until when and why.
+The bell in that box **unsilences** it right away; when the silence expires it comes back by itself. If the cause
+goes away in the meantime and then returns, it stays silenced while the silence lasts. The silence applies to that
+problem on that port (or that device): the same kind of problem on another port is shown as usual.
+
+### Reports
+
+**Network → Reports** sums up the monitor history in five tables. Each one can be filtered by site and downloaded
+as **CSV** with the button at the top right (semicolon-separated, opens in Excel); the port name opens its history
+with the graphs.
+
+- **Busiest ports** (last day, 7 days or 30 days): for each port with traffic the average, the **95th percentile**
+  and the peak inbound and outbound, and the usage of the port speed, busiest first. The 95th percentile is the
+  value the port stays below 95% of the time: it ignores short peaks and tells how loaded the port really is. Above
+  80% the port is **saturated** (in red). With **Only ports with a cable to another device** only the uplinks are
+  left.
+- **Errors**: ports with errors or discarded packets in the period, worst first, with the duplex and the last time
+  they went up.
+- **Free ports**: for each switch read by the monitor the ports, how many are up and down, and which ones have been
+  down for at least N days (30 to start with, changed at the top): those can be reused. Only real ports count (not
+  VLANs, loopbacks, port-channels or management ports).
+- **PoE**: for each PoE switch the watts used out of those available and how many ports are delivering power,
+  searching or faulty.
+- **Availability** (7 days, 30 days or one year): for each device checked by the monitor the percentage of
+  successful checks, how many failed, the average response time and the current state, worst first. Below 99.9%
+  the percentage is yellow, below 99% red. The monitor counts checks since 1.7.0: there is no data before that,
+  and the column says when the count starts. Hourly counts are kept 30 days, daily ones one year.
 
 ### Alerts
 

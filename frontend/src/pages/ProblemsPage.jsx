@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { qs } from '../api'
 import { ErrorBox, Loading } from '../components/Bits'
 import { PageIcon } from '../components/Icon'
-import { ProblemTable } from '../components/Problems'
+import { ProblemTable, SilencedProblems } from '../components/Problems'
 import { useApi } from '../hooks'
 import { PROBLEM_KINDS, SEVERITIES } from '../options'
 import { t, tn } from '../i18n'
@@ -12,7 +12,7 @@ export default function ProblemsPage() {
   const severity = params.get('severity') || ''
   const kind = params.get('kind') || ''
   const siteId = params.get('site_id') || ''
-  const { data, error, loading } = useApi(`/problems${qs({ severity, kind, site_id: siteId })}`)
+  const { data, error, loading, reload } = useApi(`/problems${qs({ severity, kind, site_id: siteId })}`)
   const sites = useApi('/sites?limit=500').data
 
   const set = (name, value) => setParams((prev) => {
@@ -71,12 +71,14 @@ export default function ProblemsPage() {
           <p>
             {severity || kind || siteId
               ? t('Nessun problema con questi filtri.')
+              : data.silenced?.length ? t('Nessun problema da sistemare: quelli rimasti sono silenziati.')
               : t('Nessun problema rilevato. Servono il monitor acceso e un profilo SNMP sui device; le tabelle MAC arrivano dalle')}{' '}
-            {!(severity || kind || siteId) && <Link to="/discovery-jobs">{t('Scansioni')}</Link>}
+            {!(severity || kind || siteId || data.silenced?.length) && <Link to="/discovery-jobs">{t('Scansioni')}</Link>}
           </p>
         </div>
       )}
-      {data && data.total > 0 && <ProblemTable items={data.items} />}
+      {data && data.total > 0 && <ProblemTable items={data.items} onChanged={reload} />}
+      {data && <SilencedProblems items={data.silenced} onChanged={reload} />}
     </div>
   )
 }

@@ -6,10 +6,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api import snmp_rules as snmp_rules_api
+from app.api.auth import current_user
 from app.api.crud import apply_column_filters
 from app.database import get_db
 from app.discovery import runner, snmp_rules
-from app.models import Device, DiscoveryRun, Interface, MapBackground, NetworkMap, Prefix, Rack, SnmpReport
+from app.models import (
+    Device, DiscoveryRun, Interface, MapBackground, NetworkMap, Prefix, ProblemSilence, Rack, SnmpReport, User,
+)
 from app.models.enums import RunStatus
 from app.schemas.common import Page
 from app.schemas.discovery import SnmpReportRead
@@ -25,6 +28,8 @@ from app.schemas.views import (
     PrefixUtilization,
     PortStats,
     ProblemList,
+    ProblemSilenceCreate,
+    ProblemSilenceInfo,
     RackElevation,
     SearchResult,
     StatusSummary,
@@ -41,7 +46,7 @@ from app.services.device_import_export import (
 from app.services.endpoints import endpoint_query, endpoint_rows
 from app.services.ipam import available_ips, prefix_ip_addresses, prefix_utilization
 from app.services.monitor import check_devices, status_summary
-from app.services.problems import problem_list
+from app.services.problems import problem_list, silence_problem
 from app.services.topology import (
     build_topology,
     device_neighbors,
@@ -326,6 +331,25 @@ def get_problems(
     db: Session = Depends(get_db),
 ):
     return problem_list(db, severity, kind, site_id, device_id)
+
+
+@router.post("/problems/silences", response_model=ProblemSilenceInfo, status_code=201, tags=["Problemi rilevati"],
+             summary="Silenzia un problema: non conta più e si vede a parte (editor e admin)")
+def create_problem_silence(body: ProblemSilenceCreate, db: Session = Depends(get_db),
+                           user: User | None = Depends(current_user)):
+    try:
+        silence = silence_problem(db, body.key, body.note, body.days, user.username if user else None)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {"id": silence.id, "note": silence.note, "until": silence.until, "created_by": silence.created_by,
+            "created_at": silence.created_at}
+
+
+@router.delete("/problems/silences/{silence_id}", status_code=204, tags=["Problemi rilevati"],
+               summary="Riattiva un problema silenziato (editor e admin)")
+def delete_problem_silence(silence_id: int, db: Session = Depends(get_db)):
+    db.delete(_get_or_404(db, ProblemSilence, silence_id))
+    db.commit()
 
 
 @router.get("/interfaces/{interface_id}/stats", response_model=PortStats, tags=["Stato live"],

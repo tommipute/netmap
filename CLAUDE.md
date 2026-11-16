@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (194 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (198 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -236,6 +236,8 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/endpoints?q=&device_id=&interface_id=` | "dov'è collegato": MAC/IP/DNS → switch, porta, VLAN, luogo |
 | `GET /api/problems?severity=&kind=&site_id=&device_id=` | problemi rilevati: `{total, counts, items}` (counts prima del filtro di priorità) |
 | `GET /api/interfaces/{id}/stats?range=1d\|2d\|7d\|30d\|1y` | storico di una porta: punti (bit/s medi e picchi, errori, scarti, frazione su, watt PoE), totali del periodo e traffico di adesso |
+| `GET /api/reports/port-usage\|port-errors?range=1d\|7d\|30d` · `/free-ports?days=` · `/poe` · `/availability?range=7d\|30d\|1y` | report (tutti con `site_id`; port-usage anche `cabled`) |
+| `POST /api/problems/silences` · `DELETE /api/problems/silences/{id}` | silenzia / riattiva un problema rilevato |
 | `GET /api/status/summary` · `POST /api/devices/{id}/check` | riepilogo su/giù · controllo immediato di un device |
 | `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
@@ -464,6 +466,18 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   altrimenti undocumented_link. VLAN nativa: un trunk letto via SNMP senza untagged vale VLAN 1 (la scansione non
   salva la 1). Nel lab: hub su p1:20 e p2:20 (loop), LAPTOP con l'IP di PC4, p3 Gi1/0/3 err-disabled bpduGuard,
   Gi1/0/4 bloccata, STP che sale, 25 half contro il core full, PVID 99 sull'uplink di p2, 8 MAC su p2:10.
+- **Problemi silenziati** (16/11/2026, tabella `problem_silences`, `POST /api/problems/silences` `{key, note, days}`
+  (null = per sempre; di nuovo sulla stessa chiave = aggiorna), `DELETE /api/problems/silences/{id}`): chiave
+  `problems.problem_key` = `kind:device_id:interface_id` (+ `:ip` per duplicate_ip). `problem_list` mette i
+  silenziati in `silenced` (fuori da total e counts, quindi anche da Panoramica e scheda del device); quelli scaduti
+  si ignorano e si cancellano al silenzio successivo. Frontend `SilenceDialog`/`SilencedProblems` in Problems.jsx.
+- **Report** (16/11/2026, `services/reports.py`, `api/reports.py`, `GET /api/reports/port-usage|port-errors|
+  free-ports|poe|availability`, `pages/ReportsPage.jsx` su `/reports?report=`, `tests/test_report.py`): calcolati a
+  ogni richiesta da `port_stats`, `device_stats` e dalle porte. 95° percentile "nearest rank" sui punti dello storico
+  (5 minuti per 1 giorno, ore per 7 e 30), satura da 0,8 della velocità; porte libere = solo fisiche, non mgmt, giù
+  da `days`. Disponibilità: `services/device_stats.py`, tabella `device_stats` (PK device + period `1h`/`1d` + at:
+  checks, up_checks, somma e numero dei tempi di risposta) scritta da `check_devices` a ogni giro, `prune` insieme a
+  quello delle porte (ore 30 giorni, giorni 366). CSV dal browser con `;`, BOM e decimali con la virgola in italiano.
 - **Endpoint** (`services/endpoints.py`, tabella `endpoints`): dopo ogni scansione unisce tabelle MAC
   (BRIDGE/Q-BRIDGE), PVID/nomi VLAN e ARP; scarta gli uplink; tiene porta precedente e data dello spostamento.
   Cisco senza Q-BRIDGE (`snmp.py`, `_cisco_vlan_fdb`): con la community normale la BRIDGE-MIB ha solo la VLAN 1, le

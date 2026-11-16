@@ -1,8 +1,20 @@
 // Problemi rilevati (services/problems.py): testi, priorità e tabella, per la pagina e per la scheda del device
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '../api'
+import { useAuth } from '../auth'
 import { Mono } from './Bits'
+import { IconButton } from './Icon'
+import Modal from './Modal'
 import { errDisableCause, formatDateTime, formatSince, formatSpeed, labelOf, PROBLEM_KINDS, SEVERITIES } from '../options'
-import { t } from '../i18n'
+import { t, tn } from '../i18n'
+
+const SILENCE_DAYS = [
+  { value: '1', label: t('1 giorno') },
+  { value: '7', label: t('7 giorni') },
+  { value: '30', label: t('30 giorni') },
+  { value: '', label: t('Per sempre') },
+]
 
 export function SeverityBadge({ severity }) {
   const level = SEVERITIES.find((s) => s.value === severity)
@@ -108,46 +120,145 @@ function Where({ p, deviceId }) {
   const device = (id, name) => (id === deviceId ? <strong>{name}</strong> : <Link to={`/devices/${id}`}>{name}</Link>)
   return (
     <>
-      <div className="nowrap">{device(p.device_id, p.device_name)} {p.interface_name && <Mono>{p.interface_name}</Mono>}</div>
+      <div className="nowrap problems__end">{device(p.device_id, p.device_name)} {p.interface_name && <Mono>{p.interface_name}</Mono>}</div>
       {p.other_device_id && (
-        <div className="nowrap hint">↔ {device(p.other_device_id, p.other_device_name)} {p.other_interface_name && <Mono>{p.other_interface_name}</Mono>}</div>
+        <div className="nowrap problems__end">
+          <span className="muted" aria-label={t('altro capo')}>↔ </span>
+          {device(p.other_device_id, p.other_device_name)} {p.other_interface_name && <Mono>{p.other_interface_name}</Mono>}
+        </div>
       )}
     </>
   )
 }
 
-/** Tabella dei problemi; deviceId = scheda di quel device (il suo nome non è un link) */
-export function ProblemTable({ items, deviceId }) {
+/** Silenziato da chi, quando, fino a quando e perché */
+function SilenceNote({ silence }) {
+  return (
+    <div className="hint problems__silence">
+      {silence.until
+        ? t('Silenziato da {who} il {when}, fino al {until}', { who: silence.created_by || '—', when: formatDateTime(silence.created_at, { exact: true }), until: formatDateTime(silence.until, { exact: true }) })
+        : t('Silenziato da {who} il {when}, per sempre', { who: silence.created_by || '—', when: formatDateTime(silence.created_at, { exact: true }) })}
+      {silence.note && <>: «{silence.note}»</>}
+    </div>
+  )
+}
+
+/** Finestra per silenziare un problema: per quanto e perché */
+function SilenceDialog({ problem, onClose, onDone }) {
+  const [days, setDays] = useState('7')
+  const [note, setNote] = useState('')
+  const [error, setError] = useState(null)
+  const submit = async (e) => {
+    e.preventDefault()
+    try {
+      await api.post('/problems/silences', { key: problem.key, note, days: days ? Number(days) : null })
+      onDone()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+  const where = `${problem.device_name}${problem.interface_name ? ` ${problem.interface_name}` : ''}`
+  return (
+    <Modal title={t('Silenzia il problema')} onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <p>
+          <strong>{labelOf(PROBLEM_KINDS, problem.kind)}</strong> · {where}
+        </p>
+        <p className="hint">{t('Il problema non conta più nei totali, nella Panoramica e nella scheda del device: resta in fondo alla pagina dei problemi, in grigio, e si può riattivare. Se sparisce e poi torna resta silenziato finché dura il silenzio.')}</p>
+        <div className="form__grid">
+          <label className="field">
+            <span className="field__label">{t('Per quanto')}</span>
+            <select className="input" value={days} onChange={(e) => setDays(e.target.value)}>
+              {SILENCE_DAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+          </label>
+          <label className="field field--wide">
+            <span className="field__label">{t('Perché (facoltativo)')}</span>
+            <input className="input" value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)}
+              placeholder={t('es. collegamento di riserva voluto, switch da sostituire')} />
+          </label>
+        </div>
+        {error && <p className="form__error" role="alert">{error}</p>}
+        <div className="modal__footer">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('Annulla')}</button>
+          <button type="submit" className="btn btn--primary">{t('Silenzia')}</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/**
+ * Tabella dei problemi; deviceId = scheda di quel device (il suo nome non è un link).
+ * Con onChanged chi può modificare silenzia i problemi (e riattiva quelli silenziati: silenced).
+ */
+export function ProblemTable({ items, deviceId, onChanged, silenced = false }) {
+  const { canEdit } = useAuth()
+  const [silencing, setSilencing] = useState(null)
+  const actions = canEdit && !!onChanged
+  const restore = async (p) => {
+    try {
+      await api.del(`/problems/silences/${p.silenced.id}`)
+      onChanged()
+    } catch (err) {
+      window.alert(err.message)
+    }
+  }
   return (
     <div className="table-wrap">
-      <table className="table table--dense problems">
+      <table className={`table table--dense problems${silenced ? ' problems--silenced' : ''}`}>
         <thead>
           <tr>
             <th>{t('Priorità')}</th>
             <th>{t('Problema')}</th>
             <th>{t('Dove')}</th>
             <th>{t('Quando')}</th>
+            {actions && <th className="table__actions"><span className="sr-only">{t('Azioni')}</span></th>}
           </tr>
         </thead>
         <tbody>
           {items.map((p) => {
             const [detail, hint] = explain(p)
             return (
-              <tr key={`${p.kind}-${p.device_id}-${p.interface_id}-${p.other_interface_id}`}>
+              <tr key={p.key || `${p.kind}-${p.device_id}-${p.interface_id}-${p.other_interface_id}`}>
                 <td><SeverityBadge severity={p.severity} /></td>
                 <td>
                   <div className="problems__title">{labelOf(PROBLEM_KINDS, p.kind)}</div>
                   <div>{detail}</div>
                   {hint && <div className="hint">{hint}</div>}
                   {p.kind === 'duplicate_ip' && <Link className="hint" to={`/where?q=${encodeURIComponent(p.values.ip)}`}>{t('Cerca l\'IP')}</Link>}
+                  {p.silenced && <SilenceNote silence={p.silenced} />}
                 </td>
                 <td><Where p={p} deviceId={deviceId} /></td>
                 <td className="nowrap"><When p={p} /></td>
+                {actions && (
+                  <td className="table__actions">
+                    {p.silenced ? (
+                      <IconButton icon="bell" label={t('Riattiva il problema')} small className="btn--ghost" onClick={() => restore(p)} />
+                    ) : (
+                      <IconButton icon="bellOff" label={t('Silenzia il problema')} small className="btn--ghost" onClick={() => setSilencing(p)} />
+                    )}
+                  </td>
+                )}
               </tr>
             )
           })}
         </tbody>
       </table>
+      {silencing && (
+        <SilenceDialog problem={silencing} onClose={() => setSilencing(null)} onDone={() => { setSilencing(null); onChanged() }} />
+      )}
     </div>
+  )
+}
+
+/** Problemi silenziati, chiusi in fondo alla pagina */
+export function SilencedProblems({ items, deviceId, onChanged }) {
+  if (!items?.length) return null
+  return (
+    <details className="problems__silenced-box">
+      <summary>{tn(items.length, '1 problema silenziato', '{n} problemi silenziati')}</summary>
+      <ProblemTable items={items} deviceId={deviceId} onChanged={onChanged} silenced />
+    </details>
   )
 }

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 
 from app.api import (
-    alerts, auth, backups, directory, discovery, extra, history, integrations, mail, netbox, snmp_rules, system,
+    alerts, auth, backups, directory, discovery, extra, history, integrations, mail, netbox, reports, snmp_rules,
+    system,
 )
 from app.api.auth import require_admin, require_admin_to_write, require_user
 from app.api.crud import build_crud_router
@@ -141,6 +142,7 @@ _routers = [
 ]
 
 protected.include_router(extra.router)
+protected.include_router(reports.router)
 protected.include_router(discovery.router)
 protected.include_router(snmp_rules.router)
 protected.include_router(history.router)

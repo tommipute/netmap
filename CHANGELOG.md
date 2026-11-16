@@ -28,10 +28,19 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   punto ogni 5 minuti, 7 o 30 giorni con un punto all'ora, un anno con un punto al giorno, con picchi, byte del
   periodo e la striscia del tempo su. Sotto la velocità della porta c'è il traffico degli ultimi 5 minuti. Il
   laboratorio simula il traffico sugli uplink e su qualche porta di accesso.
+- **Report** (Rete → Report, `GET /api/reports/*`): porte più cariche con il 95° percentile e le porte sature (dall'80%
+  della velocità, anche solo gli uplink), porte con errori o scarti, porte libere (giù da almeno N giorni) per
+  switch, uso del PoE e **disponibilità dei device** (percentuale dei controlli riusciti e tempo di risposta medio su
+  7 giorni, 30 giorni o un anno: il monitor la conta da questa versione). Filtro per sede e download in CSV per
+  Excel.
+- **Problemi silenziati**: un problema voluto si silenzia per 1, 7 o 30 giorni o per sempre, con il motivo. Non
+  conta più nei totali, nella Panoramica e nella scheda del device e resta in grigio in fondo alla pagina, dove si
+  riattiva.
 
 ### Modifiche
 
 - Sugli schermi larghi le pagine usano più spazio: fino a 1680 px invece di 1280 (anche la Panoramica).
+- Problemi rilevati: nella colonna **Dove** l'altro capo del cavo ha la stessa misura del primo, con ↔ davanti.
 
 ### Correzioni
 

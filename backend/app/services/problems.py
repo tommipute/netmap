@@ -6,6 +6,7 @@ Si calcolano a ogni richiesta, niente tabella. Priorità:
 - medium: degrada o va sistemato con calma (errori, half duplex, velocità diverse, collegamento non documentato…);
 - low: da sapere (tanti MAC su una porta di accesso).
 I testi li scrive il frontend dal tipo (`kind`) e dai valori (`values`).
+Un problema si può silenziare (per sempre o per un po'): resta nell'elenco a parte e non conta più.
 """
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -14,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import VLAN, Cable, Device, Endpoint, Interface, Site
+from app.models import VLAN, Cable, Device, Endpoint, Interface, ProblemSilence, Site
 from app.models.enums import Source
 from app.services.monitor import SKIPPED_STATUS, _aware
 from app.services.topology import natural_key
@@ -231,10 +232,54 @@ def find_problems(db: Session, now: datetime | None = None) -> list[Problem]:
     return problems
 
 
-def _row(problem: Problem, sites: dict[int, str]) -> dict:
+def problem_key(kind: str, device_id: int, interface_id: int | None, ip: str | None = None) -> str:
+    """Cosa identifica un problema per silenziarlo: tipo, device, porta e, per gli IP doppi, l'IP."""
+    return f"{kind}:{device_id}:{interface_id or ''}" + (f":{ip}" if kind == "duplicate_ip" and ip else "")
+
+
+def _key(problem: Problem) -> str:
+    return problem_key(problem.kind, problem.device.id, problem.interface.id if problem.interface else None,
+                       problem.values.get("ip"))
+
+
+def active_silences(db: Session, now: datetime | None = None) -> dict[str, ProblemSilence]:
+    """Silenziamenti in corso (quelli scaduti si cancellano quando se ne crea uno nuovo)."""
+    now = now or datetime.now(timezone.utc)
+    return {s.key: s for s in db.scalars(select(ProblemSilence)) if s.until is None or _aware(s.until) > now}
+
+
+def silence_problem(db: Session, key: str, note: str | None, days: int | None, username: str | None) -> ProblemSilence:
+    """Silenzia un problema che c'è adesso (ValueError se non c'è); se era già silenziato cambia nota e scadenza."""
+    now = datetime.now(timezone.utc)
+    problem = next((p for p in find_problems(db, now) if _key(p) == key), None)
+    if problem is None:
+        raise ValueError("Il problema non c'è più: ricarica la pagina")
+    for old in db.scalars(select(ProblemSilence).where(ProblemSilence.until <= now)):
+        db.delete(old)
+    silence = db.scalar(select(ProblemSilence).where(ProblemSilence.key == key))
+    if silence is None:
+        silence = ProblemSilence(key=key, kind=problem.kind, device_id=problem.device.id,
+                                 interface_id=problem.interface.id if problem.interface else None)
+        db.add(silence)
+    silence.note = (note or "").strip() or None
+    silence.until = now + timedelta(days=days) if days else None
+    silence.created_by, silence.created_at = username, now
+    db.commit()
+    return silence
+
+
+def _silence(silence: ProblemSilence | None) -> dict | None:
+    if silence is None:
+        return None
+    return {"id": silence.id, "note": silence.note, "until": _aware(silence.until), "created_by": silence.created_by,
+            "created_at": _aware(silence.created_at)}
+
+
+def _row(problem: Problem, sites: dict[int, str], silence: ProblemSilence | None = None) -> dict:
     device, iface = problem.device, problem.interface
     other, other_iface = problem.other_device, problem.other_interface
     return {
+        "key": _key(problem),
         "kind": problem.kind,
         "severity": problem.severity,
         "device_id": device.id,
@@ -250,25 +295,33 @@ def _row(problem: Problem, sites: dict[int, str]) -> dict:
         "since": problem.since,
         "seen_at": problem.seen_at,
         "values": problem.values,
+        "silenced": _silence(silence),
     }
 
 
 def problem_list(db: Session, severity: str | None = None, kind: str | None = None, site_id: int | None = None,
                  device_id: int | None = None) -> dict:
-    """Problemi filtrati, in ordine di priorità, e quanti ce ne sono per priorità (senza il filtro della priorità)."""
+    """Problemi filtrati, in ordine di priorità, e quanti ce ne sono per priorità (senza il filtro della priorità).
+    Quelli silenziati non contano e stanno a parte, in `silenced`."""
     problems = find_problems(db)
+    silences = active_silences(db)
     if kind:
         problems = [p for p in problems if p.kind == kind]
     if site_id is not None:
         problems = [p for p in problems if p.device.site_id == site_id]
     if device_id is not None:
         problems = [p for p in problems if device_id in (p.device.id, p.other_device.id if p.other_device else None)]
+    silenced = [p for p in problems if _key(p) in silences]
+    problems = [p for p in problems if _key(p) not in silences]
     counts = {level: 0 for level in SEVERITIES}
     for p in problems:
         counts[p.severity] += 1
     if severity:
         problems = [p for p in problems if p.severity == severity]
-    problems.sort(key=lambda p: (SEVERITIES.index(p.severity), natural_key(p.device.name),
-                                 natural_key(p.interface.name) if p.interface else [], p.kind))
+    order = lambda p: (SEVERITIES.index(p.severity), natural_key(p.device.name),  # noqa: E731
+                       natural_key(p.interface.name) if p.interface else [], p.kind)
+    problems.sort(key=order)
+    silenced.sort(key=order)
     sites = dict(db.execute(select(Site.id, Site.name)).all())
-    return {"total": len(problems), "counts": counts, "items": [_row(p, sites) for p in problems]}
+    return {"total": len(problems), "counts": counts, "items": [_row(p, sites) for p in problems],
+            "silenced": [_row(p, sites, silences[_key(p)]) for p in silenced]}
