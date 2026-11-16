@@ -44,10 +44,23 @@ CISCO_POE_POWER = "1.3.6.1.4.1.9.9.402.1.2.1.9"        # cpeExtPsePortPwrConsump
 CISCO_POE_ENTITY = "1.3.6.1.4.1.9.9.402.1.2.1.11"      # cpeExtPsePortEntPhyIndex
 HP_POE_POWER = "1.3.6.1.4.1.11.2.14.11.1.9.1.1.1.3"    # hpicfPoePethPsePortPower (mW)
 IF_INDEX = "1.3.6.1.2.1.2.2.1.1"
+STP_TIME_SINCE_CHANGE = "1.3.6.1.2.1.17.2.3.0"          # dot1dStpTimeSinceTopologyChange (centesimi)
+STP_TOP_CHANGES = "1.3.6.1.2.1.17.2.4.0"                # dot1dStpTopChanges
+STP_PORT_STATE = "1.3.6.1.2.1.17.2.15.1.3"              # dot1dStpPortState, indice = porta bridge
+CISCO_ERR_DISABLE = "1.3.6.1.4.1.9.9.548.1.3.1.1.2"    # cErrDisableIfStatusCause, indice = ifIndex.vlan
 ENT_ALIAS_MAPPING = "1.3.6.1.2.1.47.1.3.2.1.2"         # entAliasMappingIdentifier: entità -> OID con l'ifIndex
 ADMIN_STATUS = {1: "up", 2: "down", 3: "testing"}
 DUPLEX = {2: "half", 3: "full"}
 POE_STATUS = {1: "disabled", 2: "searching", 3: "delivering", 4: "fault", 5: "test", 6: "fault"}
+STP_STATE = {1: "disabled", 2: "blocking", 3: "listening", 4: "learning", 5: "forwarding", 6: "broken"}
+# CISCO-ERR-DISABLE-MIB, CErrDisableFeatureID: le cause più comuni (le altre restano col numero)
+ERR_DISABLE_CAUSE = {
+    1: "udld", 2: "bpduGuard", 3: "channelMisconfig", 4: "pagpFlap", 5: "dtpFlap", 6: "linkFlap", 7: "l2ptGuard",
+    8: "dot1xSecurityViolation", 9: "portSecurityViolation", 10: "gbicInvalid", 11: "dhcpRateLimit",
+    12: "unicastFlood", 14: "stormControl", 15: "inlinePower", 16: "arpInspection", 17: "portLoopback",
+    19: "macLimit", 36: "other",
+}
+FLAP_WINDOW = timedelta(hours=24)
 
 
 @dataclass
@@ -64,6 +77,7 @@ class PortDetail:
     duplex: str | None = None
     last_change: datetime | None = None  # dallo switch: ifLastChange rispetto a sysUpTime
     errors: tuple[int | None, int | None, int | None, int | None] | None = None  # errori in/out, scarti in/out
+    last_change_ticks: int | None = None  # ifLastChange così com'è
 
 
 @dataclass
@@ -80,6 +94,10 @@ class Details:
     poe_if_index: dict[tuple[int, int], int] = field(default_factory=dict)  # dalla ENTITY-MIB (Cisco)
     poe_budget_w: int | None = None
     poe_used_w: int | None = None
+    stp_top_changes: int | None = None
+    stp_changed_at: datetime | None = None
+    stp_ports: dict[int, str] = field(default_factory=dict)      # ifIndex -> stato STP
+    err_disabled: dict[int, str] = field(default_factory=dict)   # ifIndex -> causa
 
 
 @dataclass
@@ -158,6 +176,7 @@ async def read_details(session) -> Details:
         # 0 = prima dell'avvio dell'agente: non dice niente (e certi apparati lo danno sempre)
         if isinstance(uptime, int) and ticks and 0 < ticks <= uptime:
             port.last_change = now - timedelta(seconds=(uptime - ticks) / 100)
+            port.last_change_ticks = ticks
         values = tuple(c.get(if_index) for c in counters)
         if any(v is not None for v in values):
             port.errors = values
@@ -191,6 +210,20 @@ async def read_details(session) -> Details:
         if consumed is not None and consumed > details.poe_budget_w >= consumed / 1000:
             consumed = round(consumed / 1000)
         details.poe_used_w = consumed
+
+    stp = (await session.get(STP_TOP_CHANGES, STP_TIME_SINCE_CHANGE)) or {}
+    if isinstance(stp.get(STP_TOP_CHANGES), int):
+        details.stp_top_changes = stp[STP_TOP_CHANGES]
+        if isinstance(stp.get(STP_TIME_SINCE_CHANGE), int) and details.stp_top_changes:
+            details.stp_changed_at = now - timedelta(seconds=stp[STP_TIME_SINCE_CHANGE] / 100)
+        states = _by_index(await session.walk(STP_PORT_STATE))
+        if states:
+            base_ports = _by_index(await session.walk(snmp.DOT1D_BASE_PORT_IF_INDEX))
+            for base_port, state in states.items():
+                details.stp_ports[base_ports.get(base_port, base_port)] = STP_STATE.get(state)
+    for index, cause in (await session.walk(CISCO_ERR_DISABLE)).items():
+        if len(index) == 2 and isinstance(cause, int):
+            details.err_disabled[index[0]] = ERR_DISABLE_CAUSE.get(cause, str(cause))
     return details
 
 
@@ -285,8 +318,17 @@ def _details_due(device: Device) -> bool:
     return last is None or (datetime.now(timezone.utc) - last).total_seconds() >= interval - 30
 
 
+def count_flaps(iface: Interface, now: datetime, changes: int = 1) -> None:
+    """Cambi di stato della porta nelle ultime 24 ore (la finestra riparte al primo cambio dopo 24 ore)."""
+    since = _aware(iface.flaps_since)
+    if since is None or now - since > FLAP_WINDOW:
+        iface.flaps, iface.flaps_since = 0, now
+    iface.flaps = (iface.flaps or 0) + changes
+
+
 def save_details(db: Session, device: Device, details: Details, now: datetime) -> None:
     interfaces = list(db.scalars(select(Interface).where(Interface.device_id == device.id, Interface.if_index.is_not(None))))
+    read_before = device.ports_polled_at is not None
     poe_map = poe_port_map(details.poe, [(i.if_index, i.name) for i in interfaces], details.poe_if_index)
     poe_by_index = {if_index: details.poe[key] for key, if_index in poe_map.items()}
     for iface in interfaces:
@@ -297,6 +339,14 @@ def save_details(db: Session, device: Device, details: Details, now: datetime) -
             # lo switch sa da quando la porta è così anche se NetMap l'ha vista dopo (prima scansione, monitor spento)
             if port.last_change is not None and (changed is None or port.last_change < changed):
                 iface.oper_changed_at = port.last_change
+            # cambiata dopo l'ultima volta che NetMap l'ha vista cambiare, ma lo stato è lo stesso: è scesa e risalita
+            # (o il contrario) tra due controlli. Deve cambiare anche ifLastChange: con sysUpTime fermo (simulatori,
+            # agenti difettosi) l'orario calcolato avanza da solo a ogni lettura
+            elif (read_before and port.last_change is not None and port.last_change - changed > timedelta(minutes=2)
+                  and iface.last_change_ticks is not None and port.last_change_ticks != iface.last_change_ticks):
+                count_flaps(iface, now, 2)
+                iface.oper_changed_at = port.last_change
+            iface.last_change_ticks = port.last_change_ticks
             if port.errors is not None:
                 in_err, out_err = port.errors[0], port.errors[1]
                 grew = (in_err or 0) > (iface.in_errors or 0) or (out_err or 0) > (iface.out_errors or 0)
@@ -308,8 +358,25 @@ def save_details(db: Session, device: Device, details: Details, now: datetime) -
         iface.poe_status = poe.status if poe else None
         iface.poe_class = poe.power_class if poe else None
         iface.poe_power_mw = poe.power_mw if poe else None
+        iface.err_disabled = details.err_disabled.get(iface.if_index)
+        iface.stp_state = details.stp_ports.get(iface.if_index)
     device.poe_budget_w, device.poe_used_w = details.poe_budget_w, details.poe_used_w
+    _save_stp(device, details, now)
     device.ports_polled_at = now
+
+
+# Topologia STP che cambia di continuo: almeno STP_STORM_CHANGES cambi tra due letture, al ritmo di STP_STORM_PER_HOUR
+STP_STORM_CHANGES, STP_STORM_PER_HOUR = 5, 30
+
+
+def _save_stp(device: Device, details: Details, now: datetime) -> None:
+    previous, last = device.stp_top_changes, _aware(device.ports_polled_at)
+    current = details.stp_top_changes
+    if current is not None and previous is not None and last is not None and current >= previous:
+        delta, hours = current - previous, max((now - last).total_seconds() / 3600, 1 / 60)
+        if delta >= STP_STORM_CHANGES and delta / hours >= STP_STORM_PER_HOUR:
+            device.stp_storm_at = now
+    device.stp_top_changes, device.stp_changed_at = current, details.stp_changed_at
 
 
 def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prober | None = None) -> dict:
@@ -332,7 +399,10 @@ def check_devices(db: Session, device_ids: list[int] | None = None, prober: Prob
         if result.oper_status:
             for iface in db.scalars(select(Interface).where(Interface.device_id == device.id, Interface.if_index.is_not(None))):
                 if iface.if_index in result.oper_status:
-                    iface.oper_status = result.oper_status[iface.if_index]
+                    status = result.oper_status[iface.if_index]
+                    if iface.oper_status is not None and status != iface.oper_status:
+                        count_flaps(iface, now)
+                    iface.oper_status = status
         if result.details is not None:
             save_details(db, device, result.details, now)
         up, down = up + result.reachable, down + (not result.reachable)

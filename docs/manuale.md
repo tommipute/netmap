@@ -577,6 +577,46 @@ Le colonne Duplex e Configurazione (accesa o spenta) si mostrano da "Colonne del
 Ogni quanto leggerli si sceglie con `MONITOR_DETAIL_INTERVAL_SECONDS` nel `.env` (predefinito 300; 0 = mai).
 Per ora si vede il valore di adesso: lo storico e i grafici arriveranno dopo.
 
+### Problemi rilevati
+
+**Rete → Problemi rilevati** mette insieme le cose che non vanno, trovate con quello che NetMap legge già: i
+dettagli delle porte (ogni 5 minuti), lo stato STP e le porte err-disabled, le tabelle MAC e ARP delle scansioni e
+i due capi dei cavi documentati. Non serve configurare niente e non c'è niente da chiudere: un problema resta
+finché la causa c'è, poi sparisce da solo.
+
+Ogni problema ha una **priorità**:
+
+| Priorità | Problema | Quando compare |
+|---|---|---|
+| **Critica** | Loop tra due switch | due porte di switch diversi vedono gli stessi MAC (almeno 3) e i due switch sono già collegati da un cavo documentato: c'è un secondo percorso, per esempio un hub o uno switch non gestito attaccato a tutti e due |
+| **Critica** | Topologia STP instabile | il contatore dei cambi di topologia STP sale di almeno 5 tra due letture e di almeno 30 all'ora (scende ad **alta** se non succede più da un'ora, e sparisce dopo 24 ore) |
+| **Alta** | Porta spenta dallo switch | porta err-disabled, con la causa (BPDU guard, port security, UDLD…); per ora solo Cisco |
+| **Alta** | Duplex diversi ai due capi | un capo del cavo in half duplex e l'altro in full |
+| **Alta** | VLAN non taggata diversa ai due capi | la VLAN nativa (PVID) di un trunk non è la stessa dall'altra parte del cavo |
+| **Alta** | IP doppio | lo stesso IP visto nelle ultime 24 ore con due o più MAC diversi |
+| **Alta** | Porta che va giù e su | almeno 4 cambi di stato nelle ultime 24 ore |
+| **Alta** | Guasto PoE | lo switch segnala un guasto sull'alimentazione della porta |
+| **Alta** / **Media** | PoE quasi esaurito | lo switch usa almeno il 95% (alta) o l'80% (media) dei watt disponibili |
+| **Media** | Errori in aumento | errori della porta cresciuti nelle ultime 24 ore |
+| **Media** | Porta in half duplex | porta su in half duplex, senza un cavo documentato verso una porta in full |
+| **Media** | Velocità diverse ai due capi | link su da tutte e due le parti ma a velocità diverse: in mezzo c'è un altro apparato o il cavo documentato è sbagliato |
+| **Media** | Collegamento non documentato tra switch | come il loop, ma i due switch non hanno un cavo documentato tra loro: c'è un collegamento che NetMap non conosce |
+| **Media** | Porta bloccata da STP senza cavo documentato | STP blocca la porta, ma da lì non parte nessun cavo verso un altro switch |
+| **Bassa** | Tanti MAC su una porta di accesso | almeno 8 MAC dietro una porta negli ultimi 7 giorni: uno switch non gestito, un access point, un server con macchine virtuali |
+
+Per ogni problema la pagina dice cosa succede e cosa fare, dove (device e porta, con l'altro capo del cavo) e da
+quando. I pulsanti con i conteggi filtrano per priorità; si filtra anche per tipo e per sede. Gli stessi problemi
+sono nella scheda del device, sopra le porte, e la **Panoramica** ha una scheda con i conteggi e i primi cinque.
+
+Da sapere:
+
+- i problemi che vengono dalle tabelle MAC (loop, collegamento non documentato, tanti MAC, IP doppio) si
+  aggiornano alla scansione, gli altri ogni 5 minuti con il monitor;
+- una porta che va giù e su tra due controlli si vede lo stesso, perché lo switch dice quando è cambiata l'ultima
+  volta;
+- il loop protect degli switch HP/Aruba e un MAC che salta da una porta all'altra tra due scansioni non si vedono
+  ancora.
+
 ### Avvisi
 
 **Avvisi** (Avvisi e integrazioni → Avvisi) manda un messaggio quando un device non risponde da un certo numero di

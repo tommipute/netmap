@@ -33,7 +33,8 @@ DEFAULT_COLOR = "#888780"
 DEFAULT_LEVEL = 2
 # Dettagli delle porte letti dal monitor (services/monitor.py), passati così come sono
 MONITOR_FIELDS = ("oper_changed_at", "admin_status", "duplex", "in_errors", "out_errors", "in_discards", "out_discards",
-                  "errors_at", "poe_status", "poe_class", "poe_power_mw")
+                  "errors_at", "poe_status", "poe_class", "poe_power_mw",
+                  "err_disabled", "stp_state")
 
 
 def natural_key(text: str) -> list:

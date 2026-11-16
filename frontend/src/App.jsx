@@ -5,6 +5,7 @@ import ChangesPage from './pages/ChangesPage'
 import DevicePage from './pages/DevicePage'
 import DiscoveryJobPage from './pages/DiscoveryJobPage'
 import EndpointsPage from './pages/EndpointsPage'
+import ProblemsPage from './pages/ProblemsPage'
 import HistoryPage from './pages/HistoryPage'
 import WhatsChangedPage from './pages/WhatsChangedPage'
 import LoginPage from './pages/LoginPage'
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="racks/:id" element={<RackPage />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="where" element={<EndpointsPage />} />
+        <Route path="problems" element={<ProblemsPage />} />
         <Route path="history" element={<HistoryPage />} />
         <Route path="whats-changed" element={<WhatsChangedPage />} />
         <Route path="discovery-jobs/:id" element={<DiscoveryJobPage />} />

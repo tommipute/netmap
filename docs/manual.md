@@ -571,6 +571,45 @@ The Duplex and Configuration (enabled or shut down) columns can be shown from "T
 How often they are read is set with `MONITOR_DETAIL_INTERVAL_SECONDS` in `.env` (default 300; 0 = never). For now
 you see the current value: history and graphs will come later.
 
+### Detected problems
+
+**Network → Detected problems** collects what is wrong, found from what NetMap already reads: port details (every 5
+minutes), STP state and err-disabled ports, the MAC and ARP tables from the scans and both ends of the documented
+cables. There is nothing to configure and nothing to close: a problem stays as long as its cause is there, then
+it disappears by itself.
+
+Each problem has a **priority**:
+
+| Priority | Problem | When it shows up |
+|---|---|---|
+| **Critical** | Loop between two switches | two ports on different switches see the same MACs (at least 3) and the two switches are already connected by a documented cable: there is a second path, for example a hub or an unmanaged switch plugged into both |
+| **Critical** | Unstable STP topology | the STP topology change counter goes up by at least 5 between two reads and at least 30 per hour (drops to **high** when it has stopped for an hour, and disappears after 24 hours) |
+| **High** | Port shut down by the switch | err-disabled port, with the cause (BPDU guard, port security, UDLD…); Cisco only for now |
+| **High** | Duplex mismatch | one end of the cable in half duplex and the other in full |
+| **High** | Native VLAN mismatch | the native VLAN (PVID) of a trunk is not the same on the other end of the cable |
+| **High** | Duplicate IP | the same IP seen in the last 24 hours with two or more different MACs |
+| **High** | Flapping port | at least 4 state changes in the last 24 hours |
+| **High** | PoE fault | the switch reports a power fault on the port |
+| **High** / **Medium** | PoE budget almost used up | the switch uses at least 95% (high) or 80% (medium) of the available watts |
+| **Medium** | Rising errors | port errors went up in the last 24 hours |
+| **Medium** | Half duplex port | port up in half duplex, without a documented cable to a full duplex port |
+| **Medium** | Speed mismatch | link up on both sides but at different speeds: there is another device in between or the documented cable is wrong |
+| **Medium** | Undocumented link between switches | like the loop, but the two switches have no documented cable between them: there is a link NetMap does not know about |
+| **Medium** | Port blocked by STP with no documented cable | STP blocks the port, but no cable goes from there to another switch |
+| **Low** | Many MACs on an access port | at least 8 MACs behind a port in the last 7 days: an unmanaged switch, an access point, a server with virtual machines |
+
+For each problem the page says what is happening and what to do, where (device and port, with the other end of the
+cable) and since when. The buttons with the counts filter by priority; you can also filter by type and by site.
+The same problems are on the device page, above the ports, and the **Overview** has a card with the counts and the
+first five.
+
+Good to know:
+
+- problems that come from the MAC tables (loop, undocumented link, many MACs, duplicate IP) are updated at each
+  scan, the others every 5 minutes by the monitor;
+- a port that goes down and up between two checks is still seen, because the switch says when it last changed;
+- HP/Aruba loop protect and a MAC jumping from one port to another between two scans are not detected yet.
+
 ### Alerts
 
 **Alerts** (Alerts and integrations → Alerts) sends a message when a device has not responded for a number of minutes and,

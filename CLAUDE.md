@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (185 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (189 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -234,6 +234,7 @@ Stack: Python 3.12, FastAPI, SQLAlchemy 2 (sincrono), Alembic, Pydantic 2, psyco
 | `GET /api/discovery-changes?status=&job_id=&device_id=` · `/discovery-changes/count` | modifiche proposte, contatore |
 | `POST /api/discovery-changes/approve` · `/reject` con `{ids}` | applica (ognuna in un SAVEPOINT) / rifiuta |
 | `GET /api/endpoints?q=&device_id=&interface_id=` | "dov'è collegato": MAC/IP/DNS → switch, porta, VLAN, luogo |
+| `GET /api/problems?severity=&kind=&site_id=&device_id=` | problemi rilevati: `{total, counts, items}` (counts prima del filtro di priorità) |
 | `GET /api/status/summary` · `POST /api/devices/{id}/check` | riepilogo su/giù · controllo immediato di un device |
 | `GET /api/racks/{id}/elevation` | vista frontale: device con unità, altezza, sovrapposizioni |
 | `/api/auth/status` · `/setup` · `/login` · `/logout` · `/me` · `/password` | login (sempre accessibili) |
@@ -438,6 +439,19 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   interfacce: `down_days`, `errors_days` (`monitor.filter_*`). Nel lab: uptime 100 giorni, Gi1/0/3 del core giù da 40
   giorni, porta 24 di p1 half duplex con errori che salgono (snmprec `65:numeric` con `initial=…,rate=…`), PoE Cisco
   sul core e HP su p2. Storico e grafici (passo 2: 5 min per 2 giorni, ora per 30, giorno per un anno) ancora da fare.
+- **Problemi rilevati** (16/11/2026, `services/problems.py`, `GET /api/problems?severity=&kind=&site_id=&device_id=`,
+  `tests/test_problemi.py`): calcolati a ogni richiesta, nessuna tabella; il frontend scrive il testo da `kind` +
+  `values` (components/Problems.jsx). Priorità: critical (loop, stp_storm), high (err_disabled, duplex_mismatch,
+  native_vlan_mismatch, duplicate_ip, flapping ≥4 in 24 h, poe_fault, poe_budget ≥95%), medium (errors_rising,
+  half_duplex, speed_mismatch, undocumented_link, stp_blocked, poe_budget ≥80%), low (many_macs ≥8). Indizi salvati
+  dal monitor: dot1dStpTopChanges (`stp_storm_at` se +5 tra due letture e ≥30/ora), dot1dStpPortState → `stp_state`
+  (basePort → ifIndex), Cisco cErrDisableIfStatusCause → `err_disabled`, `flaps`/`flaps_since` (+1 per ogni cambio
+  visto, +2 se ifLastChange cambia con lo stato uguale: serve anche `last_change_ticks` diverso, perché con sysUpTime
+  fermo l'orario calcolato avanza da solo). Dalla scansione (`endpoints._shared_macs`): porta con ≥3 MAC anche su
+  porte non uplink di un altro switch → `shared_macs`/`shared_device_id`; loop se tra i due c'è un percorso di cavi,
+  altrimenti undocumented_link. VLAN nativa: un trunk letto via SNMP senza untagged vale VLAN 1 (la scansione non
+  salva la 1). Nel lab: hub su p1:20 e p2:20 (loop), LAPTOP con l'IP di PC4, p3 Gi1/0/3 err-disabled bpduGuard,
+  Gi1/0/4 bloccata, STP che sale, 25 half contro il core full, PVID 99 sull'uplink di p2, 8 MAC su p2:10.
 - **Endpoint** (`services/endpoints.py`, tabella `endpoints`): dopo ogni scansione unisce tabelle MAC
   (BRIDGE/Q-BRIDGE), PVID/nomi VLAN e ARP; scarta gli uplink; tiene porta precedente e data dello spostamento.
   Cisco senza Q-BRIDGE (`snmp.py`, `_cisco_vlan_fdb`): con la community normale la BRIDGE-MIB ha solo la VLAN 1, le

@@ -1,5 +1,5 @@
 // Dettagli di una porta letti dal monitor: stato e da quando, duplex, errori, PoE
-import { formatDateTime, formatPower, formatSince, labelOf, POE_STATUS, recentErrors } from '../options'
+import { errDisableCause, formatDateTime, formatPower, formatSince, labelOf, POE_STATUS, recentErrors } from '../options'
 import { t } from '../i18n'
 
 /** Pallino su/giù con "da quando" nel tooltip, e "spenta" se è spenta nella configurazione */
@@ -13,9 +13,21 @@ export function PortDot({ port }) {
   )
 }
 
-export function AdminDownTag({ port }) {
-  if (port.admin_status !== 'down') return null
-  return <span className="tag" title={t('Spenta nella configurazione dello switch (shutdown)')}>{t('spenta')}</span>
+/** Spenta nella configurazione, spenta dallo switch (err-disabled), bloccata da STP */
+export function PortFlags({ port }) {
+  return (
+    <>
+      {port.admin_status === 'down' && <span className="tag" title={t('Spenta nella configurazione dello switch (shutdown)')}>{t('spenta')}</span>}
+      {port.err_disabled && (
+        <span className="badge badge--danger port-flag" title={t('Spenta dallo switch: {cause}', { cause: errDisableCause(port.err_disabled) })}>
+          err-disabled
+        </span>
+      )}
+      {port.stp_state === 'blocking' && (
+        <span className="tag" title={t("STP blocca la porta: c'è un altro percorso verso la stessa rete")}>{t('bloccata da STP')}</span>
+      )}
+    </>
+  )
 }
 
 /** Per l'elenco delle porte: "Su" / "Giù da 40 giorni" */
@@ -27,7 +39,7 @@ export function PortState({ port }) {
       <PortDot port={port} />
       {up ? t('Su') : t('Giù')}
       {!up && port.oper_changed_at && <span className="muted"> {formatSince(port.oper_changed_at)}</span>}
-      <AdminDownTag port={port} />
+      <PortFlags port={port} />
     </span>
   )
 }

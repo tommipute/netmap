@@ -1,7 +1,7 @@
 """Schemi delle risposte "calcolate" (vicini, topologia, utilizzo subnet, ricerca)."""
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Neighbor(BaseModel):
@@ -105,6 +105,8 @@ class Port(BaseModel):
     poe_status: str | None = None
     poe_class: int | None = None
     poe_power_mw: int | None = None
+    err_disabled: str | None = None
+    stp_state: str | None = None
     mode: str | None
     speed_mbps: int | None
     mac_address: str | None
@@ -191,6 +193,32 @@ class StatusSummary(BaseModel):
     unknown: int
     last_check_at: datetime | None = None
     interval_seconds: int
+
+
+class ProblemRead(BaseModel):
+    kind: str = Field(description="loop, stp_storm, err_disabled, duplex_mismatch, native_vlan_mismatch, duplicate_ip, "
+                      "flapping, poe_fault, poe_budget, errors_rising, half_duplex, speed_mismatch, undocumented_link, "
+                      "stp_blocked, many_macs")
+    severity: str = Field(description="critical / high / medium / low")
+    device_id: int
+    device_name: str
+    site_id: int
+    site_name: str | None = None
+    interface_id: int | None = None
+    interface_name: str | None = None
+    other_device_id: int | None = None
+    other_device_name: str | None = None
+    other_interface_id: int | None = None
+    other_interface_name: str | None = None
+    since: datetime | None = None
+    seen_at: datetime | None = None
+    values: dict = {}
+
+
+class ProblemList(BaseModel):
+    total: int
+    counts: dict[str, int]
+    items: list[ProblemRead]
 
 
 class CheckResult(BaseModel):

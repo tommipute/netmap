@@ -4,10 +4,11 @@ import { qs } from '../api'
 import { useAuth } from '../auth'
 import { ErrorBox, Loading, Mono } from '../components/Bits'
 import { Icon } from '../components/Icon'
+import { SeverityBadge } from '../components/Problems'
 import { useApi } from '../hooks'
 import { LOCALE, t, tc, tn } from '../i18n'
 import { CountUp } from '../motion'
-import { formatDateTime, formatSince } from '../options'
+import { formatDateTime, formatSince, labelOf, PROBLEM_KINDS, SEVERITIES } from '../options'
 import { RunStatus } from './DiscoveryJobPage'
 
 /**
@@ -280,6 +281,37 @@ function NetworkCard({ counts, ports, endpoints }) {
   )
 }
 
+function ProblemsCard({ problems }) {
+  const total = SEVERITIES.reduce((n, level) => n + problems.counts[level.value], 0)
+  return (
+    <Card title={t('Problemi rilevati')} icon="alert" link="/problems" linkLabel={tn(total, '1 problema', '{n} problemi')}>
+      <div className="problem-counts problem-counts--small">
+        {SEVERITIES.map((level) => (
+          <Link key={level.value} to={`/problems?severity=${level.value}`} className={`problem-count problem-count--${level.value}`}>
+            <strong>{problems.counts[level.value]}</strong>
+            <span>{level.label}</span>
+          </Link>
+        ))}
+      </div>
+      {total === 0 ? (
+        <p className="muted">{t('Nessun problema rilevato.')}</p>
+      ) : (
+        <ul className="dash-list dash-list--problems">
+          {problems.items.map((p) => (
+            <li key={`${p.kind}-${p.device_id}-${p.interface_id}`}>
+              <SeverityBadge severity={p.severity} />
+              <span>{labelOf(PROBLEM_KINDS, p.kind)}</span>
+              <span className="muted dash-list__end">
+                <Link to={`/devices/${p.device_id}`}>{p.device_name}</Link> {p.interface_name}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
 function ScansCard({ runs, pending }) {
   return (
     <Card title={t('Scansioni SNMP')} icon="radar" link="/discovery-jobs" linkLabel={tn(runs.jobs, '1 scansione', '{n} scansioni')}>
@@ -397,6 +429,7 @@ export default function DashboardPage() {
           </div>
           <div className="dash-grid">
             <LiveCard live={data.live} />
+            {data.problems && <ProblemsCard problems={data.problems} />}
             <ActivityCard days={data.activity} />
             <RolesCard roles={data.roles} />
             <SitesCard sites={data.sites} total={data.counts.sites} />

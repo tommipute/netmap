@@ -30,6 +30,9 @@ PRINTER = ("00:1b:a9:00:00:01", "10.10.10.50")
 PHONE = ("00:04:f2:00:00:01", "10.10.20.11")
 AP = ("00:3a:7d:00:00:01", "10.10.10.60")
 WIFI = [(f"00:50:56:b2:00:0{i}", f"10.10.10.15{i}") for i in range(1, 4)]
+# Portatile con l'IP fisso di PC4 (IP doppio) e switchino non gestito in sala riunioni
+LAPTOP = ("00:50:56:a1:00:99", PC4[1])
+MEETING = [f"00:50:56:c3:00:0{i}" for i in range(1, 9)]
 
 LEARNED, SELF = 3, 4
 VLANS = {1: "DEFAULT_VLAN", 10: "UFFICI", 20: "VOCE", 99: "MGMT"}
@@ -86,7 +89,7 @@ CORE = {
         3: _iface(CORE_MAC, 3, "Gi1/0/3", "GigabitEthernet1/0/3", up=False),
         9: _iface(CORE_MAC, 9, "Te1/1/1", "TenGigabitEthernet1/1/1", mbps=10000, alias="Piano 1"),
         10: _iface(CORE_MAC, 10, "Te1/1/2", "TenGigabitEthernet1/1/2", mbps=10000, alias="Piano 2"),
-        11: _iface(CORE_MAC, 11, "Te1/1/3", "TenGigabitEthernet1/1/3", mbps=10000, alias="Piano 3"),
+        11: _iface(CORE_MAC, 11, "Te1/1/3", "TenGigabitEthernet1/1/3", mbps=1000, alias="Piano 3"),  # SFP da 1G
         110: _iface(CORE_MAC, 110, "Vl10", "Vlan10", if_type=136),
         120: _iface(CORE_MAC, 120, "Vl20", "Vlan20", if_type=136),
         199: _iface(CORE_MAC, 199, "Vl99", "Vlan99", if_type=136),
@@ -171,15 +174,24 @@ def _hpe(name, ip, chassis, serial, core_port, access):
     }
 
 
+# Porte 20 dei piani 1 e 2: un hub le collega, quindi ognuna vede i device dell'altro switch (loop)
 P1 = _hpe("sw-lab-p1", P1_IP, P1_MAC, "SG23LAB001", "Te1/1/1", {
     1: [(10, PC1[0])],
     2: [(10, PC2[0])],
+    3: [(10, LAPTOP[0])],
+    20: [(20, PHONE[0]), (10, PC3[0]), (10, PC4[0])],
     24: [(10, PRINTER[0])],
 })
 P2 = _hpe("sw-lab-p2", P2_IP, P2_MAC, "SG23LAB002", "Te1/1/2", {
     1: [(20, PHONE[0]), (10, PC3[0])],  # telefono IP con un PC collegato dietro
     2: [(10, PC4[0])],
+    10: [(10, mac) for mac in MEETING],
+    20: [(10, PC1[0]), (10, PC2[0]), (10, PRINTER[0])],
 })
+# Piano 2: l'uplink ha la VLAN 99 non taggata, il core la 1
+P2["pvid"][49] = 99
+P2["vlan_ports"][1] = (P2["vlan_ports"][1][0], P2["vlan_ports"][1][1] - {49})
+P2["vlan_ports"][99] = (P2["vlan_ports"][99][0], P2["vlan_ports"][99][1] | {49})
 
 P3 = {
     "system": _system(
@@ -188,7 +200,7 @@ P3 = {
         "1.3.6.1.4.1.9.1.2860",
     ),
     "interfaces": {
-        **{i: _iface(P3_MAC, i, f"Gi1/0/{i}", f"GigabitEthernet1/0/{i}", up=i in (1, 2)) for i in range(1, 5)},
+        **{i: _iface(P3_MAC, i, f"Gi1/0/{i}", f"GigabitEthernet1/0/{i}", up=i in (1, 2, 4)) for i in range(1, 5)},
         25: _iface(P3_MAC, 25, "Gi1/0/25", "GigabitEthernet1/0/25", alias="Uplink core"),
         199: _iface(P3_MAC, 199, "Vl99", "Vlan99", if_type=136),
     },
@@ -208,12 +220,14 @@ P3 = {
         99: [(_port_mac(CORE_MAC, 199), 25, LEARNED)],
     }},
     "qbridge": False,
-    "bridge_ports": {1: 1, 2: 2, 25: 25},
+    "bridge_ports": {1: 1, 2: 2, 4: 4, 25: 25},
     "pvid": {},
     "fdb": [],
     "vlans": {},
     "arp": [],
 }
+# Il firewall vede l'IP di PC4 anche col MAC del portatile
+FW["arp"] = [(1, LAPTOP[1], LAPTOP[0])]
 
 # Dettagli delle porte per il monitor: accesi da 100 giorni (centesimi di secondo)
 UPTIME = 100 * 86400 * 100
@@ -233,6 +247,14 @@ P1["port_counters"] = {24: (UPTIME - 3 * 3600 * 100, {"initial": 1520, "rate": 0
 P2["duplex"] = {i: 3 for i in (1, 2, 49)}
 P2["poe"] = {"vendor": "hp", "groups": {1: (370, 4)},
              "ports": {(1, i): (3, 2, 4300, None) if i == 1 else (4 if i == 3 else 2, None, 0, None) for i in range(1, 25)}}
+
+# Piano 3: qualcuno ha collegato la Gi1/0/4 a una presa che torna in rete. STP la blocca ma la topologia cambia
+# di continuo; sulla Gi1/0/3 il BPDU guard ha spento la porta (c'era uno switch); l'uplink è in half duplex
+P3["stp"] = {"changes": {"initial": 200, "rate": 0.03}, "since": 1500, "ports": {1: 5, 2: 5, 4: 2, 25: 5}}
+P3["err_disabled"] = {3: 2}
+P3["port_counters"] = {3: (UPTIME - 2 * 3600 * 100, 0, 0, 0, 0)}
+P3["duplex"] = {1: 3, 2: 3, 4: 3, 25: 2}
+CORE["stp"] = {"changes": 14, "since": 30 * 86400 * 100, "ports": {1: 5, 2: 5, 9: 5, 10: 5, 11: 5}}
 
 # nome del container (servizio "lab-…") -> (IP, dati)
 LAB_DEVICES = {

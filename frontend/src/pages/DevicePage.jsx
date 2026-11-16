@@ -12,7 +12,8 @@ import { IconButton, IconLink, PageIcon } from '../components/Icon'
 import RefLabel from '../components/RefLabel'
 import ResourceForm from '../components/ResourceForm'
 import SnmpReport from '../components/SnmpReport'
-import { AdminDownTag, DuplexTag, PortDot, PortErrors, PortPoe } from '../components/PortDetails'
+import { DuplexTag, PortDot, PortErrors, PortFlags, PortPoe } from '../components/PortDetails'
+import { ProblemTable } from '../components/Problems'
 import { RescanNotice, useRescan } from '../components/DeviceRescan'
 import { invalidate, useApi } from '../hooks'
 import { DEVICE_STATUS, INTERFACE_TYPES, formatDateTime, formatSpeed, labelOf } from '../options'
@@ -156,6 +157,25 @@ function DeviceHistory({ deviceId }) {
         )}
       </header>
       <HistoryList entries={data.items} />
+    </section>
+  )
+}
+
+/** Problemi rilevati che riguardano il device (anche come altro capo di un cavo) */
+function DeviceProblems({ deviceId }) {
+  const { data } = useApi(`/problems?device_id=${deviceId}`)
+  if (!data || data.total === 0) return null
+  return (
+    <section className="section no-print">
+      <header className="section__head">
+        <h2>
+          {t('Problemi rilevati')} <span className="section__count">{tn(data.total, '1 problema', '{n} problemi')}</span>
+        </h2>
+        <div className="page-head__actions">
+          <Link className="btn btn--sm btn--ghost" to="/problems">{t('Tutti i problemi')}</Link>
+        </div>
+      </header>
+      <ProblemTable items={data.items} deviceId={deviceId} />
     </section>
   )
 }
@@ -332,6 +352,8 @@ export default function DevicePage() {
           onAdd={() => setDialog({ kind: 'member' })} onEdit={(m) => setDialog({ kind: 'editMember', member: m })} />
       )}
 
+      <DeviceProblems key={`problems-${device.id}`} deviceId={device.id} />
+
       <section className="section">
         <header className="section__head">
           <h2>
@@ -376,7 +398,7 @@ export default function DevicePage() {
                       <Mono>{p.name}</Mono>
                       {p.source !== 'manual' && <SourceIcon source={p.source} />}
                       {!p.enabled && <span className="tag">{t('disabilitata')}</span>}
-                      <AdminDownTag port={p} />
+                      <PortFlags port={p} />
                     </td>
                     <td>{labelOf(INTERFACE_TYPES, p.type)}</td>
                     <td><PortVlans port={p} /></td>

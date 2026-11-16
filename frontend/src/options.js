@@ -232,3 +232,53 @@ export function formatSince(value) {
   if (hours < 36) return t('da {n} ore', { n: hours })
   return t('da {n} giorni', { n: Math.round(hours / 24) })
 }
+
+// ---------------------------------------------------------------- problemi rilevati
+export const SEVERITIES = [
+  { value: 'critical', label: t('Critica'), badge: 'badge--critical' },
+  { value: 'high', label: t('Alta'), badge: 'badge--danger' },
+  { value: 'medium', label: t('Media'), badge: 'badge--warn' },
+  { value: 'low', label: t('Bassa'), badge: 'badge--muted' },
+]
+
+export const PROBLEM_KINDS = [
+  { value: 'loop', label: t('Loop tra due switch') },
+  { value: 'stp_storm', label: t('Topologia STP instabile') },
+  { value: 'err_disabled', label: t('Porta spenta dallo switch') },
+  { value: 'duplex_mismatch', label: t('Duplex diversi ai due capi') },
+  { value: 'native_vlan_mismatch', label: t('VLAN non taggata diversa ai due capi') },
+  { value: 'duplicate_ip', label: t('IP doppio') },
+  { value: 'flapping', label: t('Porta che va giù e su') },
+  { value: 'poe_fault', label: t('Guasto PoE') },
+  { value: 'poe_budget', label: t('PoE quasi esaurito') },
+  { value: 'errors_rising', label: t('Errori in aumento') },
+  { value: 'half_duplex', label: t('Porta in half duplex') },
+  { value: 'speed_mismatch', label: t('Velocità diverse ai due capi') },
+  { value: 'undocumented_link', label: t('Collegamento non documentato tra switch') },
+  { value: 'stp_blocked', label: t('Porta bloccata da STP senza cavo documentato') },
+  { value: 'many_macs', label: t('Tanti MAC su una porta di accesso') },
+]
+
+// Cause dell'err-disable (CISCO-ERR-DISABLE-MIB): le altre restano come le dà lo switch
+const ERR_DISABLE_CAUSES = {
+  udld: t('UDLD: il collegamento funziona in una sola direzione'),
+  bpduGuard: t("BPDU guard: dall'altra parte c'è uno switch"),
+  channelMisconfig: t('port-channel configurato in modo diverso ai due capi'),
+  pagpFlap: t('PAgP instabile'),
+  dtpFlap: t('DTP instabile'),
+  linkFlap: t('la porta andava giù e su di continuo'),
+  l2ptGuard: t('L2PT guard'),
+  dot1xSecurityViolation: t('violazione 802.1X'),
+  portSecurityViolation: t('port security: MAC non autorizzato'),
+  gbicInvalid: t('transceiver non valido'),
+  dhcpRateLimit: t('DHCP snooping: troppe richieste DHCP'),
+  unicastFlood: t('unicast flood'),
+  stormControl: t('storm control: troppo traffico broadcast o multicast'),
+  inlinePower: t('errore PoE'),
+  arpInspection: t('ARP inspection: troppi pacchetti ARP'),
+  portLoopback: t('loop sulla porta'),
+  macLimit: t('troppi MAC sulla porta'),
+  other: t('altro'),
+}
+
+export const errDisableCause = (cause) => ERR_DISABLE_CAUSES[cause] || cause

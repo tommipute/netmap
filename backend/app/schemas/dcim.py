@@ -225,6 +225,8 @@ class InterfaceRead(InterfaceCreate, DiscoveryRead, ReadSchema):
     poe_status: str | None = None
     poe_class: int | None = None
     poe_power_mw: int | None = None
+    err_disabled: str | None = None
+    stp_state: str | None = None
 
 
 # ---------- Membri di uno stack ----------

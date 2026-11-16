@@ -61,6 +61,9 @@ IGNORED = {
     # dettagli delle porte e PoE letti dal monitor
     "admin_status", "duplex", "in_errors", "out_errors", "in_discards", "out_discards", "errors_at", "poe_status",
     "poe_class", "poe_power_mw", "ports_polled_at", "poe_budget_w", "poe_used_w",
+    # indizi per i problemi rilevati (monitor e scansione)
+    "stp_top_changes", "stp_changed_at", "stp_storm_at", "err_disabled", "stp_state", "flaps", "flaps_since",
+    "last_change_ticks",     "shared_macs", "shared_device_id", "shared_at",
 }
 # Eccezioni a IGNORED per un modello: l'indirizzo di una destinazione dei backup conta (host degli IP no)
 NOT_IGNORED: dict[type, set[str]] = {BackupTarget: {"host"}}

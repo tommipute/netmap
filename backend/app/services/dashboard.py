@@ -16,6 +16,7 @@ from app.models.enums import ChangeStatus, RunStatus
 from app.services import install, updater
 from app.services.ipam import prefix_utilization
 from app.services.monitor import SKIPPED_STATUS, status_summary
+from app.services.problems import problem_list
 
 TOP = 6
 ACTIVITY_DAYS = 14
@@ -167,6 +168,12 @@ def _system() -> dict:
     }
 
 
+def _problems(db: Session) -> dict:
+    """Quanti problemi per priorità e i primi cinque, i più gravi."""
+    found = problem_list(db)
+    return {"counts": found["counts"], "items": found["items"][:5]}
+
+
 def dashboard(db: Session, admin: bool) -> dict:
     now = datetime.now(timezone.utc)
     statuses = dict(db.execute(select(Device.status, func.count()).group_by(Device.status)).all())
@@ -195,6 +202,7 @@ def dashboard(db: Session, admin: bool) -> dict:
         ) or 0,
         "endpoints": _endpoints(db, now),
         "maps": _maps(db),
+        "problems": _problems(db),
         "system": _system() if admin else None,
     }
 

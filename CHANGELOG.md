@@ -14,6 +14,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   guasto) e per switch (watt usati sul totale, "quasi al limite" oltre l'80%; standard più estensioni Cisco e HP).
   Si vedono nella scheda del device e nell'elenco delle interfacce, con i filtri **Giù da più di N giorni**,
   **Errori** recenti, **Duplex** e **PoE**.
+- **Problemi rilevati** (Rete → Problemi rilevati, `GET /api/problems`): le cose che non vanno nella rete, con
+  quattro priorità (critica, alta, media, bassa). Loop tra due switch e collegamenti non documentati (hub o switch
+  non gestito: le stesse MAC su porte di switch diversi), topologia STP instabile, porte bloccate da STP senza un
+  cavo documentato, porte err-disabled con la causa (Cisco), duplex, velocità e VLAN nativa diversi ai due capi di
+  un cavo, IP doppi, porte che vanno giù e su (anche tra due controlli, dal tempo dello switch), guasti PoE, PoE
+  quasi esaurito, errori in aumento, half duplex, tanti MAC su una porta di accesso. Per ognuno cosa succede e cosa
+  fare; si vedono anche nella scheda del device e in una scheda della Panoramica. Nelle porte i badge
+  **err-disabled** e **bloccata da STP**.
 
 ### Correzioni
 

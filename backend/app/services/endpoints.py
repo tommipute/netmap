@@ -84,6 +84,7 @@ def update_endpoints(db: Session, results: list[HostData], now: datetime) -> int
     macs_per_port: dict[int, set[str]] = defaultdict(set)
     for s in sightings:
         macs_per_port[s.iface.id].add(s.mac)
+    _shared_macs(scanned, sightings, now)
 
     # I MAC delle porte degli switch letti non sono endpoint da cercare: sono gli apparati stessi
     scanned_ids = [device.id for device, _, _ in scanned]
@@ -118,6 +119,34 @@ def update_endpoints(db: Session, results: list[HostData], now: datetime) -> int
             endpoint.ip, endpoint.ip_seen_at = ip, now
     db.flush()
     return len(best)
+
+
+SHARED_MIN_MACS = 3  # sotto questo numero può essere un PC spostato durante la scansione
+
+
+def _shared_macs(scanned, sightings: list[_Sighting], now: datetime) -> None:
+    """Porte di accesso (non uplink) che vedono i MAC delle porte di accesso di un altro switch: in mezzo c'è un
+    collegamento che NetMap non conosce (hub, switchino, cavo senza LLDP). Se i due switch sono già collegati da un
+    altro percorso è un loop. Il risultato resta sulla porta fino alla scansione dopo."""
+    devices_by_mac: dict[str, set[int]] = defaultdict(set)
+    for s in sightings:
+        devices_by_mac[s.mac].add(s.iface.device_id)
+    for _device, hd, ports in scanned:
+        if not hd.fdb:
+            continue
+        for iface in ports.values():
+            iface.shared_macs = iface.shared_device_id = iface.shared_at = None
+    others: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))  # porta -> altro switch -> MAC
+    interfaces: dict[int, Interface] = {}
+    for s in sightings:
+        interfaces[s.iface.id] = s.iface
+        for device_id in devices_by_mac[s.mac] - {s.iface.device_id}:
+            others[s.iface.id][device_id] += 1
+    for iface_id, counts in others.items():
+        device_id, count = max(counts.items(), key=lambda item: (item[1], -item[0]))
+        if count >= SHARED_MIN_MACS:
+            iface = interfaces[iface_id]
+            iface.shared_macs, iface.shared_device_id, iface.shared_at = count, device_id, now
 
 
 # ---------------------------------------------------------------- lettura

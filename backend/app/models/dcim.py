@@ -138,6 +138,10 @@ class Device(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     ports_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     poe_budget_w: Mapped[int | None] = mapped_column(Integer)   # pethMainPsePower, somma dei gruppi (membri dello stack)
     poe_used_w: Mapped[int | None] = mapped_column(Integer)     # pethMainPseConsumptionPower
+    # STP (BRIDGE-MIB): contatore dei cambi di topologia, ultimo cambio, ultima volta che cambiava di continuo
+    stp_top_changes: Mapped[int | None] = mapped_column(BigInteger)
+    stp_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stp_storm_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Profilo SNMP che ha risposto all'ultima scansione: il monitor lo usa per leggere lo stato delle porte
     snmp_profile_id: Mapped[int | None] = mapped_column(ForeignKey("snmp_profiles.id", ondelete="SET NULL"))
 
@@ -204,6 +208,15 @@ class Interface(TimestampMixin, CustomFieldsMixin, DiscoveryMixin, Base):
     poe_status: Mapped[str | None] = mapped_column(String(10))    # delivering / searching / disabled / fault / test
     poe_class: Mapped[int | None] = mapped_column(Integer)        # classe 0-8 del dispositivo alimentato
     poe_power_mw: Mapped[int | None] = mapped_column(Integer)     # consumo, solo con le MIB di Cisco e HP
+    err_disabled: Mapped[str | None] = mapped_column(String(30))  # Cisco: causa dell'err-disable (bpduGuard…)
+    stp_state: Mapped[str | None] = mapped_column(String(10))     # blocking / forwarding / … (dot1dStpPortState)
+    flaps: Mapped[int | None] = mapped_column(Integer)            # cambi di stato da flaps_since (finestra di 24 ore)
+    flaps_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_change_ticks: Mapped[int | None] = mapped_column(BigInteger)  # ifLastChange all'ultima lettura
+    # Dalla scansione: quanti MAC di questa porta compaiono anche su porte di accesso di un altro switch
+    shared_macs: Mapped[int | None] = mapped_column(Integer)
+    shared_device_id: Mapped[int | None] = mapped_column(Integer)  # quello switch (senza FK: è solo un indizio)
+    shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     description: Mapped[str | None] = mapped_column(Text)
 
     device: Mapped["Device"] = relationship(lazy="joined")

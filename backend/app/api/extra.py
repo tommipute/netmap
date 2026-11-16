@@ -23,6 +23,7 @@ from app.schemas.views import (
     Neighbor,
     Port,
     PrefixUtilization,
+    ProblemList,
     RackElevation,
     SearchResult,
     StatusSummary,
@@ -39,6 +40,7 @@ from app.services.device_import_export import (
 from app.services.endpoints import endpoint_query, endpoint_rows
 from app.services.ipam import available_ips, prefix_ip_addresses, prefix_utilization
 from app.services.monitor import check_devices, status_summary
+from app.services.problems import problem_list
 from app.services.topology import (
     build_topology,
     device_neighbors,
@@ -311,6 +313,18 @@ def list_endpoints(
             summary="Quanti device rispondono, quanti no e quando è stato fatto l'ultimo controllo")
 def get_status_summary(db: Session = Depends(get_db)):
     return status_summary(db)
+
+
+@router.get("/problems", response_model=ProblemList, tags=["Problemi rilevati"],
+            summary="Problemi rilevati nella rete (loop, duplex, err-disable, IP doppi…), in ordine di priorità")
+def get_problems(
+    severity: str | None = Query(None, description="critical / high / medium / low"),
+    kind: str | None = Query(None, description="Tipo di problema"),
+    site_id: int | None = Query(None),
+    device_id: int | None = Query(None, description="Device (anche come altro capo)"),
+    db: Session = Depends(get_db),
+):
+    return problem_list(db, severity, kind, site_id, device_id)
 
 
 @router.post("/devices/{device_id}/check", response_model=CheckResult, tags=["Stato live"],

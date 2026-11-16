@@ -1114,7 +1114,7 @@ resources.users = {
 
 /** Voci del menu: chiave di una risorsa oppure pagina speciale { to, title, badge }; admin: solo amministratori */
 export const NAV = [
-  { title: t('Rete'), icon: 'share', items: ['maps', 'devices', { to: 'where', title: t("Dov'è collegato?") }, 'interfaces', 'cables'] },
+  { title: t('Rete'), icon: 'share', items: ['maps', 'devices', { to: 'where', title: t("Dov'è collegato?") }, { to: 'problems', title: t('Problemi rilevati') }, 'interfaces', 'cables'] },
   { title: t('Luoghi'), icon: 'mapPinned', items: ['sites', 'locations', 'racks'] },
   { title: t('Indirizzamento'), icon: 'binary', items: ['prefixes', 'ip-addresses', 'vlans', 'vrfs'] },
   { title: t('Catalogo'), icon: 'library', items: ['device-roles', 'device-types', 'manufacturers'] },
@@ -1133,7 +1133,7 @@ export const HOME = { to: 'dashboard', title: t('Panoramica'), icon: 'dashboard'
 
 /** Icona di ogni pagina del menu (components/Icon.jsx), per percorso */
 const NAV_ICONS = {
-  maps: 'map', devices: 'server', where: 'locate', interfaces: 'ethernetPort', cables: 'cable',
+  maps: 'map', devices: 'server', where: 'locate', problems: 'alert', interfaces: 'ethernetPort', cables: 'cable',
   sites: 'building', locations: 'mapPin', racks: 'stack',
   prefixes: 'network', 'ip-addresses': 'hash', vlans: 'layers', vrfs: 'route',
   'device-roles': 'tag', 'device-types': 'box', manufacturers: 'factory',

@@ -92,6 +92,21 @@ def snmprec(device: dict) -> str:
             elif poe["vendor"] == "hp":  # HP-ICF-POE-MIB, stesso indice
                 add(f"1.3.6.1.4.1.11.2.14.11.1.9.1.1.1.3.{index}", INT, mw)
 
+    # STP: {"changes": contatore (anche dict "numeric"), "since": centesimi dall'ultimo cambio, "ports": {porta bridge: stato}}
+    stp = device.get("stp")
+    if stp:
+        changes = stp["changes"]
+        if isinstance(changes, dict):
+            add("1.3.6.1.2.1.17.2.4.0", f"{COUNTER}:numeric", ",".join(f"{k}={v}" for k, v in changes.items()))
+        else:
+            add("1.3.6.1.2.1.17.2.4.0", COUNTER, changes)
+        add("1.3.6.1.2.1.17.2.3.0", TICKS, stp["since"])
+        for base_port, state in stp.get("ports", {}).items():  # 2 blocking, 5 forwarding
+            add(f"1.3.6.1.2.1.17.2.15.1.3.{base_port}", INT, state)
+    # Cisco err-disable: {ifIndex: causa} (2 = bpduGuard, 9 = portSecurityViolation…), VLAN 0 = tutta la porta
+    for idx, cause in device.get("err_disabled", {}).items():
+        add(f"1.3.6.1.4.1.9.9.548.1.3.1.1.2.{idx}.0", INT, cause)
+
     for address, if_index, mask in device["ipv4"]:
         add(f"1.3.6.1.2.1.4.20.1.1.{address}", IPADDR, address)
         add(f"1.3.6.1.2.1.4.20.1.2.{address}", INT, if_index)
