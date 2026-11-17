@@ -52,6 +52,67 @@ def _uplinks(db: Session, scanned: list[tuple[Device, HostData, dict[int, Interf
     return uplinks
 
 
+NETWORK_KINDS = {"switch", "router", "firewall", "wlc"}
+
+
+def _is_network_neighbor(neighbor) -> bool:
+    """Vicino LLDP/CDP che si dichiara switch o router (non un telefono o un access point, che fanno anche da bridge)."""
+    caps = set(neighbor.caps)
+    return bool(caps & {"bridge", "router"}) and not caps & {"telephone", "wlanAccessPoint"}
+
+
+def _network_devices(db: Session) -> set[int]:
+    """Device di NetMap che sono apparati di rete: dal ruolo (il primo tipo le cui parole sono nel nome, come per
+    i device nuovi) o dalla descrizione SNMP."""
+    from app.models import DeviceRole
+    from app.services.roles import KINDS, _matches, detect_kind
+
+    roles = set()
+    for role in db.scalars(select(DeviceRole)):
+        kind = next((k for k in KINDS if _matches(role.name, k.words)), None)
+        if kind and kind.key in NETWORK_KINDS:
+            roles.add(role.id)
+    ids = set()
+    for device_id, role_id, descr in db.execute(select(Device.id, Device.role_id, Device.sys_descr)):
+        detected = detect_kind(sys_descr=descr) if descr else None
+        if role_id in roles or (detected and detected.kind.key in NETWORK_KINDS):
+            ids.add(device_id)
+    return ids
+
+
+def _network_ports(db: Session, scanned: list[tuple[Device, HostData, dict[int, Interface]]],
+                   results: list[HostData]) -> set[int]:
+    """Porte che portano a un altro apparato di rete, anche se non è in questa scansione o non è ancora approvato:
+    i MAC che si vedono lì passano da un trunk e non dicono niente su hub o loop.
+    Basta un cavo documentato verso uno switch/router di NetMap, o un vicino LLDP/CDP che si dichiara switch o
+    router, oppure che è un altro apparato letto in questa scansione o uno switch/router di NetMap."""
+    network_devices = _network_devices(db)
+    scan_names = {short_name(hd.sys_name) for hd in results if hd.sys_name}
+    port_ids = {iface.id for _, _, ports in scanned for iface in ports.values()}
+    found: set[int] = set()
+    if port_ids:
+        for cable in db.scalars(
+            select(Cable).where(or_(Cable.a_interface_id.in_(port_ids), Cable.b_interface_id.in_(port_ids)))
+        ).unique():
+            for local, remote in ((cable.a_interface, cable.b_interface), (cable.b_interface, cable.a_interface)):
+                if local.id in port_ids and remote.device_id != local.device_id and remote.device_id in network_devices:
+                    found.add(local.id)
+    for device, hd, ports in scanned:
+        for neighbor in hd.neighbors:
+            iface = ports.get(neighbor.local_if_index)
+            if iface is None or iface.id in found:
+                continue
+            if _is_network_neighbor(neighbor) or short_name(neighbor.sys_name) in scan_names - {short_name(hd.sys_name)}:
+                found.add(iface.id)
+                continue
+            remote = find_device(db, sys_name=neighbor.sys_name, ips=neighbor.addresses,
+                                 macs=[neighbor.chassis_mac] if neighbor.chassis_mac else None)
+            if remote is not None and remote.id != device.id and remote.id in network_devices:
+                found.add(iface.id)
+        found |= {iface.lag_id for iface in ports.values() if iface.id in found and iface.lag_id}
+    return found
+
+
 def update_endpoints(db: Session, results: list[HostData], now: datetime) -> int:
     """Aggiorna la tabella endpoints con le tabelle MAC e ARP lette. Ritorna quanti MAC ha localizzato."""
     scanned: list[tuple[Device, HostData, dict[int, Interface]]] = []
@@ -84,7 +145,8 @@ def update_endpoints(db: Session, results: list[HostData], now: datetime) -> int
     macs_per_port: dict[int, set[str]] = defaultdict(set)
     for s in sightings:
         macs_per_port[s.iface.id].add(s.mac)
-    _shared_macs(scanned, sightings, now)
+    network = _network_ports(db, scanned, results)
+    _shared_macs(scanned, [s for s in sightings if s.iface.id not in network], now)
 
     # I MAC delle porte degli switch letti non sono endpoint da cercare: sono gli apparati stessi
     scanned_ids = [device.id for device, _, _ in scanned]

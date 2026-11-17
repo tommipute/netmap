@@ -38,9 +38,9 @@ SW1 = {
     # lldpLocPortNum: (subtype, id, descr)
     "lldp_local": {9: (5, "Te1/1/1", "TenGigabitEthernet1/1/1")},
     # (porta locale, indice): (subtype chassis, chassis id, subtype porta, porta, descr porta, sysName, IP mgmt)
-    "lldp_remote": {(9, 1): (4, SW2_CHASSIS_MAC, 5, "49", "49", "sw-sim-02", "10.99.0.2")},
+    "lldp_remote": {(9, 1): (4, SW2_CHASSIS_MAC, 5, "49", "49", "sw-sim-02", "10.99.0.2", ["bridge"])},
     # (ifIndex locale, indice): (device id, porta, IP)
-    "cdp": {(1, 5): ("phone-01(SEP001122AABB)", "Port 1", "10.99.0.50")},
+    "cdp": {(1, 5): ("phone-01(SEP001122AABB)", "Port 1", "10.99.0.50", 0x90)},  # Host, Phone
     # Tabella MAC: porta bridge -> ifIndex, PVID per porta bridge, righe (VLAN o None, MAC, porta bridge, stato)
     # Cisco senza Q-BRIDGE: solo BRIDGE-MIB, senza VLAN
     "qbridge": False,
@@ -92,7 +92,8 @@ SW2 = {
     "entities": {1: (3, "SGSIM0002", "J9728A")},
     # numerazione LLDP diversa dagli ifIndex: si abbina per nome
     "lldp_local": {101: (7, "49", "49")},
-    "lldp_remote": {(101, 3): (4, SW1_CHASSIS_MAC, 5, "TenGigabitEthernet1/1/1", "", "sw-sim-01.lab.local", None)},
+    "lldp_remote": {(101, 3): (4, SW1_CHASSIS_MAC, 5, "TenGigabitEthernet1/1/1", "", "sw-sim-01.lab.local", None,
+                               ["bridge", "router"])},
     "cdp": {},
     "qbridge": True,
     "bridge_ports": {1: 1, 2: 2, 49: 49},
@@ -109,7 +110,9 @@ SW2 = {
 
 def host_data(device: dict, host: str, profile_id: int | None = None, profile_name: str | None = None):
     """Quello che il collector deve restituire leggendo `device` (serve anche come scansione finta)."""
-    from app.discovery.snmp import OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, MemberData, NeighborData
+    from app.discovery.snmp import (
+        LLDP_CAPS, OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, MemberData, NeighborData, cdp_caps,
+    )
     from app.discovery.vendors import model_from_descr
 
     interfaces = [
@@ -143,12 +146,13 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
         NeighborData(
             protocol="lldp", local_if_index=local_ports.get(port_num), sys_name=sys_name, chassis_mac=chassis_id.upper(),
             port_id=port, port_id_type="local" if p_type == 7 else "name", port_descr=p_descr or None,
-            addresses=[mgmt] if mgmt else [],
+            addresses=[mgmt] if mgmt else [], caps=[c for c in LLDP_CAPS if c in (caps[0] if caps else [])],
         )
-        for (port_num, _i), (_c, chassis_id, p_type, port, p_descr, sys_name, mgmt) in sorted(device["lldp_remote"].items())
+        for (port_num, _i), (_c, chassis_id, p_type, port, p_descr, sys_name, mgmt, *caps) in sorted(device["lldp_remote"].items())
     ] + [
-        NeighborData(protocol="cdp", local_if_index=if_index, sys_name=dev_id.split("(")[0], port_id=port, addresses=[addr])
-        for (if_index, _i), (dev_id, port, addr) in sorted(device["cdp"].items())
+        NeighborData(protocol="cdp", local_if_index=if_index, sys_name=dev_id.split("(")[0], port_id=port, addresses=[addr],
+                     caps=cdp_caps(caps[0].to_bytes(4, "big")) if caps else [])
+        for (if_index, _i), (dev_id, port, addr, *caps) in sorted(device["cdp"].items())
     ]
     bridge, pvid = device["bridge_ports"], device["pvid"]
     cisco = device.get("cisco", {})

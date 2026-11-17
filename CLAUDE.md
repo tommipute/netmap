@@ -18,7 +18,7 @@ Dati inseriti a mano, importati da CSV o trovati dalla **scansione SNMP** (con a
 | 3 | Scansione SNMP con coda di modifiche da approvare | fatta (sezione "Scansione SNMP") |
 | 4 | Stato live, "dov'è collegato?", login e ruoli, vista rack, export mappa, menu con ricerca | fatta, verificata (sezione "Fase 4") |
 
-Test: `docker compose exec api pytest` (198 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
+Test: `docker compose exec api pytest` (199 test, compresi quelli con due switch SNMP simulati). Su GitHub il workflow
 `Test` gira a ogni push (pytest, `alembic check`, build, script, poi `e2e/upgrade-test.sh` = installazione della
 versione pubblicata + aggiornamento al codice nuovo + backup scaricato, ricaricato e ripristinato + test Playwright in `e2e/tests`): non pushare con il workflow
 rosso senza guardare perché. Sul dev i test Playwright girano con il Chromium dello scratchpad (`PW_CHROMIUM`).
@@ -462,7 +462,10 @@ Flusso: job → riga `queued` in `discovery_runs` (la coda è il database, nient
   (basePort → ifIndex), Cisco cErrDisableIfStatusCause → `err_disabled`, `flaps`/`flaps_since` (+1 per ogni cambio
   visto, +2 se ifLastChange cambia con lo stato uguale: serve anche `last_change_ticks` diverso, perché con sysUpTime
   fermo l'orario calcolato avanza da solo). Dalla scansione (`endpoints._shared_macs`): porta con ≥3 MAC anche su
-  porte non uplink di un altro switch → `shared_macs`/`shared_device_id`/`shared_mac_list` (primi 20, in `values.mac_list`); loop se tra i due c'è un percorso di cavi,
+  porte non uplink di un altro switch → `shared_macs`/`shared_device_id`/`shared_mac_list` (primi 20, in `values.mac_list`). Qui
+  non contano anche le porte di `_network_ports`: cavo verso uno switch/router di NetMap (ruolo o sysDescr) o vicino
+  LLDP/CDP switch/router (`NeighborData.caps`, non telefono né AP), della scansione o switch di NetMap: i trunk verso un
+  core non letto davano falsi loop (gli uplink di `_uplinks` restano solo per la localizzazione). Loop se tra i due c'è un percorso di cavi,
   altrimenti undocumented_link. VLAN nativa: un trunk letto via SNMP senza untagged vale VLAN 1 (la scansione non
   salva la 1). Nel lab: hub su p1:20 e p2:20 (loop), LAPTOP con l'IP di PC4, p3 Gi1/0/3 err-disabled bpduGuard,
   Gi1/0/4 bloccata, STP che sale, 25 half contro il core full, PVID 99 sull'uplink di p2, 8 MAC su p2:10.

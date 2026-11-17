@@ -67,7 +67,8 @@ FW = {
     "ipv6": [],
     "entities": {1: (3, "FG100FTK22000001", "FortiGate-100F")},
     "lldp_local": {1: (5, "port1", "port1")},
-    "lldp_remote": {(1, 1): (4, CORE_MAC, 5, "Gi1/0/1", "GigabitEthernet1/0/1", "core-lab-01", CORE_IP)},
+    "lldp_remote": {(1, 1): (4, CORE_MAC, 5, "Gi1/0/1", "GigabitEthernet1/0/1", "core-lab-01", CORE_IP,
+                              ["bridge", "router"])},
     "cdp": {},
     "qbridge": False,
     "bridge_ports": {},
@@ -105,12 +106,12 @@ CORE = {
         10: (5, "Te1/1/2", "TenGigabitEthernet1/1/2"),
     },
     "lldp_remote": {
-        (1, 1): (4, FW_MAC, 5, "port1", "port1", "fw-lab-01", FW_IP),
-        (9, 2): (4, P1_MAC, 5, "49", "49", "sw-lab-p1", P1_IP),
-        (10, 3): (4, P2_MAC, 5, "49", "49", "sw-lab-p2", P2_IP),
+        (1, 1): (4, FW_MAC, 5, "port1", "port1", "fw-lab-01", FW_IP, ["router"]),
+        (9, 2): (4, P1_MAC, 5, "49", "49", "sw-lab-p1", P1_IP, ["bridge"]),
+        (10, 3): (4, P2_MAC, 5, "49", "49", "sw-lab-p2", P2_IP, ["bridge"]),
     },
     # Lo switch Cisco del piano 3 si vede solo via CDP
-    "cdp": {(11, 1): ("sw-lab-p3", "GigabitEthernet1/0/25", P3_IP)},
+    "cdp": {(11, 1): ("sw-lab-p3", "GigabitEthernet1/0/25", P3_IP, 0x28)},  # Switch, IGMP
     # Tabella MAC: con la community normale solo la VLAN 1, le altre con community@VLAN ("fdb" qui sotto)
     "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {9: TRUNK, 10: TRUNK, 11: TRUNK}, "fdb": {
         10: [
@@ -149,7 +150,8 @@ def _hpe(name, ip, chassis, serial, core_port, access):
         "ipv6": [],
         "entities": {1: (3, serial, "J9776A")},
         "lldp_local": {49: (5, "49", "49")},
-        "lldp_remote": {(49, 1): (4, CORE_MAC, 5, core_port, f"TenGigabitEthernet{core_port[2:]}", "core-lab-01.lab.local", CORE_IP)},
+        "lldp_remote": {(49, 1): (4, CORE_MAC, 5, core_port, f"TenGigabitEthernet{core_port[2:]}", "core-lab-01.lab.local", CORE_IP,
+                                     ["bridge", "router"])},
         "cdp": {},
         "qbridge": True,
         "bridge_ports": {p: p for p in ports},
@@ -209,7 +211,7 @@ P3 = {
     "entities": {1: (3, "FOC2422LAB3", "C1000-24T-4G-L")},
     "lldp_local": {},
     "lldp_remote": {},
-    "cdp": {(25, 1): ("core-lab-01.lab.local", "TenGigabitEthernet1/1/3", CORE_IP)},
+    "cdp": {(25, 1): ("core-lab-01.lab.local", "TenGigabitEthernet1/1/3", CORE_IP, 0x29)},  # Router, Switch, IGMP
     "cisco": {"names": CISCO_VLANS, "access": {1: 10, 2: 10}, "trunks": {25: TRUNK}, "fdb": {
         10: [
             (PC5[0], 1, LEARNED),

@@ -641,6 +641,11 @@ Da sapere:
 
 - i problemi che vengono dalle tabelle MAC (loop, collegamento non documentato, tanti MAC, IP doppio) si
   aggiornano alla scansione, gli altri ogni 5 minuti con il monitor;
+- per il loop e il collegamento non documentato non contano le porte che portano a un altro apparato di rete
+  (trunk e uplink): quelle con un cavo documentato verso uno switch o un router di NetMap, e quelle dove il vicino
+  LLDP/CDP si dichiara switch o router, oppure è un altro apparato della scansione o uno switch di NetMap. Vale anche
+  per un core che NetMap non legge o che è ancora da approvare; un telefono o un access point non contano come
+  switch;
 - una porta che va giù e su tra due controlli si vede lo stesso, perché lo switch dice quando è cambiata l'ultima
   volta;
 - il loop protect degli switch HP/Aruba e un MAC che salta da una porta all'altra tra due scansioni non si vedono

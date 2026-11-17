@@ -9,6 +9,12 @@ INT, STR, HEX, OID, IPADDR, COUNTER, GAUGE, TICKS = "2", "4", "4x", "6", "64", "
 COUNTER64 = "70"
 
 
+def lldp_caps_hex(caps) -> str:
+    """lldpRemSysCapEnabled: BITS in due byte, il primo bit è "other"."""
+    from app.discovery.snmp import LLDP_CAPS
+    return f"{sum(0x80 >> LLDP_CAPS.index(c) for c in caps):02x}00"
+
+
 def mac_hex(mac: str) -> str:
     return mac.replace(":", "").lower()
 
@@ -136,8 +142,11 @@ def snmprec(device: dict) -> str:
         add(f"1.0.8802.1.1.2.1.3.7.1.3.{port_num}", STR, port_id)
         add(f"1.0.8802.1.1.2.1.3.7.1.4.{port_num}", STR, descr)
 
-    for (port_num, rem_index), (c_type, chassis, p_type, port, p_descr, sys_name, mgmt) in device["lldp_remote"].items():
+    # In fondo, facoltative: le capacità del vicino (bridge, router…) e, per CDP, il numero di cdpCacheCapabilities
+    for (port_num, rem_index), (c_type, chassis, p_type, port, p_descr, sys_name, mgmt, *caps) in device["lldp_remote"].items():
         index = f"0.{port_num}.{rem_index}"
+        if caps:
+            add(f"1.0.8802.1.1.2.1.4.1.1.12.{index}", HEX, lldp_caps_hex(caps[0]))
         add(f"1.0.8802.1.1.2.1.4.1.1.4.{index}", INT, c_type)
         add(f"1.0.8802.1.1.2.1.4.1.1.5.{index}", HEX, mac_hex(chassis))
         add(f"1.0.8802.1.1.2.1.4.1.1.6.{index}", INT, p_type)
@@ -147,8 +156,10 @@ def snmprec(device: dict) -> str:
         if mgmt:
             add(f"1.0.8802.1.1.2.1.4.2.1.3.{index}.1.4.{mgmt}", INT, 2)
 
-    for (if_index, cdp_index), (device_id, port, address) in device["cdp"].items():
+    for (if_index, cdp_index), (device_id, port, address, *caps) in device["cdp"].items():
         index = f"{if_index}.{cdp_index}"
+        if caps:
+            add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.9.{index}", HEX, f"{caps[0]:08x}")
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.3.{index}", INT, 1)
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.4.{index}", HEX, ipaddress.ip_address(address).packed.hex())
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.6.{index}", STR, device_id)

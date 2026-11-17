@@ -636,6 +636,10 @@ Good to know:
 
 - problems that come from the MAC tables (loop, undocumented link, many MACs, duplicate IP) are updated at each
   scan, the others every 5 minutes by the monitor;
+- for the loop and the undocumented link, ports that lead to another network device (trunks and uplinks) do not
+  count: those with a documented cable to a NetMap switch or router, and those whose LLDP/CDP neighbor declares
+  itself a switch or router, or is another device in the scan or a NetMap switch. This also holds for a core that
+  NetMap does not read or that is still waiting for approval; a phone or an access point does not count as a switch;
 - a port that goes down and up between two checks is still seen, because the switch says when it last changed;
 - HP/Aruba loop protect and a MAC jumping from one port to another between two scans are not detected yet.
 

@@ -6,6 +6,16 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Correzioni
+
+- Problemi rilevati: niente più falsi **loop tra due switch** sui trunk. Prima una porta contava come uplink solo
+  se dall'altra parte c'era uno switch della stessa scansione e già approvato: i trunk verso un core che NetMap non
+  legge, ancora da approvare o in un'altra scansione vedevano i MAC degli altri switch e sembravano un loop. Ora
+  non contano le porte con un cavo documentato verso uno switch o un router di NetMap (riconosciuto dal ruolo o dalla
+  descrizione SNMP) e quelle dove il vicino LLDP/CDP si dichiara switch o router (la scansione legge ora anche le
+  capacità dei vicini: `lldpRemSysCapEnabled`, `cdpCacheCapabilities`), è un altro apparato della scansione o è uno
+  switch di NetMap. Un telefono o un access point, che fanno anche da bridge, non contano.
+
 ## [1.7.1] - 2026-11-17
 
 I problemi di loop e di collegamento non documentato tra due switch mostrano quali MAC vedono le due porte, con il

@@ -184,3 +184,44 @@ def test_hub_tra_due_switch(client, setup, session_factory):
     scan(client, session_factory, job_id, (SW1, SW1_HOST), (SW2, SW2_HOST))
     assert "loop" not in {p["kind"] for p in problems(client)["items"]}
     assert device_named(client, "sw-sim-01")
+
+
+def _verso(device: dict, lldp_num: int, port: str, neighbor: tuple) -> dict:
+    """`device` con un vicino LLDP sulla porta `port` (numerazione LLDP `lldp_num`)."""
+    device = copy.deepcopy(device)
+    device["lldp_local"][lldp_num] = (5, port, port)
+    device["lldp_remote"][(lldp_num, 1)] = neighbor
+    return device
+
+
+def test_trunk_verso_un_altro_switch_non_e_un_loop(client, setup, session_factory):
+    """Gi1/0/2 di sw-sim-01 e 2 di sw-sim-02 sono trunk verso un core che NetMap non legge: vedono gli stessi MAC,
+    ma il vicino LLDP si dichiara switch/router, quindi non è un hub né un loop."""
+    core = (4, "00:AA:BB:CC:DD:00", 5, "Te1/0/1", "", "core-x.lab.local", None)
+    sw1, sw2 = _verso(SW1, 2, "Gi1/0/2", core + (["bridge", "router"],)), _verso(SW2, 102, "2", core + (["bridge", "router"],))
+    sw1["fdb"] += [(None, mac, 2, 3) for mac in HUB]
+    sw2["fdb"] += [(99, mac, 2, 3) for mac in HUB]
+    job_id = setup["job"]["id"]
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    approve_all(client)
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    assert not {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}
+
+    # Un telefono fa anche da bridge, ma non è uno switch: dietro può esserci davvero un hub
+    phone = core[:5] + ("phone-01", None, ["bridge", "telephone"])
+    sw1, sw2 = _verso(SW1, 2, "Gi1/0/2", phone), _verso(SW2, 102, "2", phone)
+    sw1["fdb"] += [(None, mac, 2, 3) for mac in HUB]
+    sw2["fdb"] += [(99, mac, 2, 3) for mac in HUB]
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    assert "undocumented_link" in {p["kind"] for p in problems(client)["items"]}
+
+    # Vicino senza capacità, ma è uno switch già in NetMap (letto da un'altra scansione): trunk anche così
+    from app.models import Device, Site
+    with session_factory() as db:
+        db.add(Device(name="core-x", site_id=db.query(Site).first().id, sys_descr="HPE Comware Platform Software, 5130"))
+        db.commit()
+    sw1, sw2 = _verso(SW1, 2, "Gi1/0/2", core), _verso(SW2, 102, "2", core)
+    sw1["fdb"] += [(None, mac, 2, 3) for mac in HUB]
+    sw2["fdb"] += [(99, mac, 2, 3) for mac in HUB]
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    assert not {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}

@@ -85,12 +85,16 @@ LLDP_REM_PORT_ID_SUBTYPE = "1.0.8802.1.1.2.1.4.1.1.6"
 LLDP_REM_PORT_ID = "1.0.8802.1.1.2.1.4.1.1.7"
 LLDP_REM_PORT_DESC = "1.0.8802.1.1.2.1.4.1.1.8"
 LLDP_REM_SYS_NAME = "1.0.8802.1.1.2.1.4.1.1.9"
+LLDP_REM_SYS_CAP_ENABLED = "1.0.8802.1.1.2.1.4.1.1.12"
 LLDP_REM_MAN_ADDR_IF_SUBTYPE = "1.0.8802.1.1.2.1.4.2.1.3"  # l'indirizzo di management sta nell'indice
 
 CDP_CACHE_ADDRESS_TYPE = "1.3.6.1.4.1.9.9.23.1.2.1.1.3"    # indice: ifIndex locale.indice
 CDP_CACHE_ADDRESS = "1.3.6.1.4.1.9.9.23.1.2.1.1.4"
 CDP_CACHE_DEVICE_ID = "1.3.6.1.4.1.9.9.23.1.2.1.1.6"
 CDP_CACHE_DEVICE_PORT = "1.3.6.1.4.1.9.9.23.1.2.1.1.7"
+CDP_CACHE_CAPABILITIES = "1.3.6.1.4.1.9.9.23.1.2.1.1.9"
+# Bit di cdpCacheCapabilities (gli altri, come Trans-Bridge degli access point, non servono)
+CDP_CAPS = {0x01: "router", 0x08: "bridge", 0x10: "station", 0x80: "telephone"}
 
 # Tabelle MAC (BRIDGE-MIB, Q-BRIDGE-MIB), VLAN e ARP: servono a "dov'è collegato?"
 DOT1D_BASE_PORT_IF_INDEX = "1.3.6.1.2.1.17.1.4.1.2"   # porta bridge -> ifIndex
@@ -192,6 +196,7 @@ class NeighborData:
     port_descr: str | None = None
     addresses: list[str] = field(default_factory=list)  # IP di management del vicino
     rem_index: int | None = field(default=None, compare=False)  # lldpRemIndex (regole SNMP: porta locale da un OID)
+    caps: list[str] = field(default_factory=list)  # capacità che il vicino dichiara (bridge, router, telephone…)
 
 
 @dataclass
@@ -611,6 +616,7 @@ async def _lldp(s: _Session, interfaces: list[IfData]) -> list[NeighborData]:
     port_ids = await s.walk(LLDP_REM_PORT_ID)
     port_descs = await s.walk(LLDP_REM_PORT_DESC)
     sys_names = await s.walk(LLDP_REM_SYS_NAME)
+    rem_caps = await s.walk(LLDP_REM_SYS_CAP_ENABLED)
     man_addrs = await s.walk(LLDP_REM_MAN_ADDR_IF_SUBTYPE)
     local_ports = _lldp_local_ports(
         interfaces,
@@ -652,6 +658,8 @@ async def _lldp(s: _Session, interfaces: list[IfData]) -> list[NeighborData]:
             neighbor.port_id_type = "local" if port_type == LLDP_PORT_LOCAL else "name"
         neighbor.port_descr = _text(port_descs.get(index))
         neighbor.sys_name = _text(sys_names.get(index))
+        caps = rem_caps.get(index)
+        neighbor.caps = lldp_caps(caps) if isinstance(caps, bytes) else []
         neighbor.addresses += addresses.get(index, [])
         result.append(neighbor)
     return result
@@ -664,6 +672,7 @@ async def _cdp(s: _Session) -> list[NeighborData]:
     ports = await s.walk(CDP_CACHE_DEVICE_PORT)
     address_types = await s.walk(CDP_CACHE_ADDRESS_TYPE)
     raw_addresses = await s.walk(CDP_CACHE_ADDRESS)
+    capabilities = await s.walk(CDP_CACHE_CAPABILITIES)
     result = []
     for index, raw in device_ids.items():
         if len(index) != 2:
@@ -674,6 +683,7 @@ async def _cdp(s: _Session) -> list[NeighborData]:
             local_if_index=index[0],
             sys_name=_CDP_SERIAL_SUFFIX.sub("", name) if name else None,
             port_id=_text(ports.get(index)),
+            caps=cdp_caps(capabilities.get(index)),
         )
         address = raw_addresses.get(index)
         if address_types.get(index) == 1 and isinstance(address, bytes):  # 1 = IP
@@ -904,6 +914,13 @@ def lldp_caps(raw: bytes | None) -> list[str]:
     if not raw:
         return []
     return [name for bit, name in enumerate(LLDP_CAPS) if raw[0] & (0x80 >> bit)]
+
+
+def cdp_caps(raw: bytes | None) -> list[str]:
+    if not isinstance(raw, bytes) or not raw:
+        return []
+    value = int.from_bytes(raw[-4:], "big")
+    return [name for bit, name in CDP_CAPS.items() if value & bit]
 
 
 async def _kind_signals(s: _Session) -> tuple[int | None, list[str], list[str]]:
