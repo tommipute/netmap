@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.7.2] - 2026-11-18
+
+Due correzioni della scansione: niente più falsi loop sui trunk verso switch che NetMap non legge, e porte e cavi in
+fibra riconosciuti dal modulo inserito. Nessun cambiamento incompatibile e nessuna migration: tutto si sistema alla
+prima scansione dopo l'aggiornamento.
+
 ### Correzioni
 
 - Problemi rilevati: niente più falsi **loop tra due switch** sui trunk. Prima una porta contava come uplink solo
