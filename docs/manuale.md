@@ -170,7 +170,9 @@ Cliccando un device si apre la sua scheda:
   operativo, VLAN, IP, cavo e cosa c'è dall'altra parte. Con il monitor acceso ci sono anche duplex, errori, PoE e da quando
   la porta è su o giù (vedi [Dettagli delle porte](#dettagli-delle-porte)). Ogni porta ha nome, tipo (rame, fibra, wireless,
   virtuale, LAG), velocità, modalità VLAN (access con una VLAN untagged, trunk con le VLAN tagged), MAC, MTU, LAG di
-  cui fa parte, abilitata sì/no, solo management sì/no.
+  cui fa parte, abilitata sì/no, solo management sì/no. La scansione mette rame o fibra leggendo il modulo inserito
+  nella porta (SFP, SFP+, QSFP: tabelle dei moduli di HPE Comware e Aruba, ENTITY-MIB per gli altri); senza modulo,
+  o se lo switch non lo descrive, una porta Ethernet resta in rame.
 - **Aggiungi porte in blocco**: scrivi un intervallo tra parentesi quadre: `Gi1/0/[1-48]` crea 48 porte,
   `[1-52]` crea le porte da 1 a 52, `Te1/1/[1-4]` le quattro uplink.
 - **Collega** (l'icona sulla riga di una porta libera): scegli il device e la porta dall'altra parte e il tipo di
@@ -194,7 +196,9 @@ Un cavo unisce due porte (lato A e lato B) e ha tipo (Cat5e, Cat6, Cat6a, fibra 
 stato (collegato, pianificato, da dismettere), etichetta, colore e lunghezza. Si crea dalla scheda del device
 (**Collega**), dalla mappa (trascinando da un device all'altro) o dall'elenco **Cavi**. Una porta ha un solo cavo.
 In mappa i colori seguono le convenzioni: rame blu, fibra multimodale acqua, monomodale gialla, DAC grigio scuro;
-i pianificati sono tratteggiati.
+i pianificati sono tratteggiati. I cavi trovati dalla scansione prendono il tipo dal modulo della porta (fibra
+multimodale o monomodale, DAC); un cavo in rame resta senza tipo (Cat5e o Cat6 via SNMP non si sa). Un tipo
+scritto a mano non viene mai cambiato.
 
 ## 8. Indirizzamento: subnet, IP, VLAN, VRF
 

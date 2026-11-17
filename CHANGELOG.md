@@ -15,6 +15,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
   descrizione SNMP) e quelle dove il vicino LLDP/CDP si dichiara switch o router (la scansione legge ora anche le
   capacità dei vicini: `lldpRemSysCapEnabled`, `cdpCacheCapabilities`), è un altro apparato della scansione o è uno
   switch di NetMap. Un telefono o un access point, che fanno anche da bridge, non contano.
+- Le porte in fibra non risultano più **in rame**: la scansione legge il modulo inserito in ogni porta (tabelle dei
+  moduli di HPE Comware/H3C e Aruba/ProCurve, ENTITY-MIB per Cisco e gli altri) e mette rame o fibra. Prima ogni
+  porta Ethernet era "rame", perché l'ifType non lo distingue. Anche i **cavi** trovati dalla scansione prendono il
+  tipo dal modulo (fibra multimodale o monomodale, DAC): quelli già documentati senza tipo lo prendono alla prossima
+  scansione, un tipo scritto a mano non si tocca. Le porte create dalla scansione si correggono da sole; quelle
+  inserite a mano ricevono la proposta di modifica.
 
 ## [1.7.1] - 2026-11-17
 

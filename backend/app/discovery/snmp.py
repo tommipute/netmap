@@ -35,6 +35,8 @@ from pysnmp.hlapi.v3arch.asyncio import (
 
 from app.core.net import normalize_mac
 from app.discovery import snmp_rules
+from app.discovery.matching import norm_ifname
+from app.discovery.media import Media, media_from_text, media_hh3c
 from app.discovery.vendors import model_from_descr, model_from_text
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ UPS_IDENT_MANUFACTURER = "1.3.6.1.2.1.33.1.1.1.0"  # c'è solo sugli UPS (UPS-MI
 # Capacità LLDP (lldpLocSysCapEnabled, BITS: il primo bit è il più alto del primo byte)
 LLDP_CAPS = ["other", "repeater", "bridge", "wlanAccessPoint", "router", "telephone", "docsis", "station"]
 
+IF_INDEX = "1.3.6.1.2.1.2.2.1.1"
 IF_DESCR = "1.3.6.1.2.1.2.2.1.2"
 IF_TYPE = "1.3.6.1.2.1.2.2.1.3"
 IF_MTU = "1.3.6.1.2.1.2.2.1.4"
@@ -62,6 +65,7 @@ IF_NAME = "1.3.6.1.2.1.31.1.1.1.1"
 IF_HIGH_SPEED = "1.3.6.1.2.1.31.1.1.1.15"
 IF_ALIAS = "1.3.6.1.2.1.31.1.1.1.18"
 IF_TYPE_LAG = 161  # ieee8023adLag: port-channel, trunk, MLT
+ETHERNET_IF_TYPES = {6, 62, 117}  # ethernetCsmacd, fastEther, gigabitEthernet
 
 IP_AD_IF_INDEX = "1.3.6.1.2.1.4.20.1.2"      # ipAddrTable (IPv4), indice = indirizzo
 IP_AD_NET_MASK = "1.3.6.1.2.1.4.20.1.3"
@@ -74,7 +78,18 @@ ENT_PHYSICAL_PARENT_REL_POS = "1.3.6.1.2.1.47.1.1.1.1.6"  # per gli chassis di u
 ENT_PHYSICAL_CLASS = "1.3.6.1.2.1.47.1.1.1.1.5"
 ENT_PHYSICAL_SERIAL = "1.3.6.1.2.1.47.1.1.1.1.11"
 ENT_PHYSICAL_MODEL = "1.3.6.1.2.1.47.1.1.1.1.13"
+ENT_PHYSICAL_CONTAINED_IN = "1.3.6.1.2.1.47.1.1.1.1.4"
+ENT_ALIAS_MAPPING = "1.3.6.1.2.1.47.1.3.2.1.2"  # entità -> ifIndex (valore 1.3.6.1.2.1.2.2.1.1.<ifIndex>)
 ENT_CLASS_CHASSIS = 3
+ENT_CLASS_PORT = 10
+
+# Moduli SFP/QSFP inseriti nelle porte, indicizzati per ifIndex: HPE Comware/H3C e Aruba/ProCurve
+HH3C_TRANSCEIVER_HARDWARE = "1.3.6.1.4.1.25506.2.70.1.1.1.1"  # "SM" / "MM"
+HH3C_TRANSCEIVER_TYPE = "1.3.6.1.4.1.25506.2.70.1.1.1.2"      # "10G_BASE_SR_SFP"
+HH3C_TRANSCEIVER_DIAMETER = "1.3.6.1.4.1.25506.2.70.1.1.1.6"  # 1 = 9 µm, 2 = 50 µm, 3 = 62,5 µm, 4 = rame
+HPICF_XCVR_TYPE = "1.3.6.1.4.1.11.2.14.11.5.1.82.1.1.1.1.5"   # "1000LX", "SFP+LR"
+HPICF_XCVR_CONNECTOR = "1.3.6.1.4.1.11.2.14.11.5.1.82.1.1.1.1.6"  # "LC", "RJ45"
+HPICF_XCVR_DISTANCE = "1.3.6.1.4.1.11.2.14.11.5.1.82.1.1.1.1.8"   # "20.0km (9um),"
 
 LLDP_LOC_PORT_ID_SUBTYPE = "1.0.8802.1.1.2.1.3.7.1.2"
 LLDP_LOC_PORT_ID = "1.0.8802.1.1.2.1.3.7.1.3"
@@ -177,6 +192,7 @@ class IfData:
     mac: str | None = None
     admin_up: bool | None = None
     oper_status: str | None = None
+    media: Media | None = None  # rame o fibra dal modulo inserito o dalla descrizione (discovery/media.py)
 
 
 @dataclass
@@ -528,6 +544,56 @@ async def _ips(s: _Session) -> list[IpData]:
         result[host] = IpData(address=f"{host}/{prefixlen}", if_index=_int(value))
 
     return [ip for ip in result.values() if _useful_ip(ip.address)]
+
+
+async def _media(s: _Session, interfaces: list[IfData]) -> None:
+    """Rame o fibra delle porte (IfData.media): prima dalle tabelle dei moduli di HPE Comware e Aruba, poi dalla
+    ENTITY-MIB (descrizione della porta e del modulo che contiene, legati all'ifIndex da entAliasMapping o dal nome)."""
+    by_index = {i.if_index: i for i in interfaces}
+    hardware, kinds = await s.walk(HH3C_TRANSCEIVER_HARDWARE), await s.walk(HH3C_TRANSCEIVER_TYPE)
+    if hardware or kinds:
+        diameters = await s.walk(HH3C_TRANSCEIVER_DIAMETER)
+        for index in set(hardware) | set(kinds):
+            iface = by_index.get(index[0]) if len(index) == 1 else None
+            if iface is not None:
+                iface.media = media_hh3c(_text(hardware.get(index)), _text(kinds.get(index)), _int(diameters.get(index)))
+    xcvr_types = await s.walk(HPICF_XCVR_TYPE)
+    if xcvr_types:
+        connectors, distances = await s.walk(HPICF_XCVR_CONNECTOR), await s.walk(HPICF_XCVR_DISTANCE)
+        for index, value in xcvr_types.items():
+            iface = by_index.get(index[0]) if len(index) == 1 else None
+            if iface is not None and iface.media is None:
+                iface.media = media_from_text(_text(value), _text(distances.get(index)), _text(connectors.get(index)))
+    if all(i.media is not None for i in interfaces if i.if_type in ETHERNET_IF_TYPES):
+        return
+    classes = await s.walk(ENT_PHYSICAL_CLASS)
+    if not classes:
+        return
+    descrs, parents = await s.walk(ENT_PHYSICAL_DESCR), await s.walk(ENT_PHYSICAL_CONTAINED_IN)
+    children: dict[int, list[int]] = {}
+    for index, parent in parents.items():
+        if len(index) == 1 and isinstance(parent, int):
+            children.setdefault(parent, []).append(index[0])
+    mapped: dict[int, int] = {}  # entità -> ifIndex
+    for index, value in (await s.walk(ENT_ALIAS_MAPPING)).items():
+        text = _text(value) or ""
+        if index and text.startswith(IF_INDEX + ".") and text.rsplit(".", 1)[-1].isdigit():
+            mapped.setdefault(index[0], int(text.rsplit(".", 1)[-1]))
+    if not mapped:  # senza entAliasMapping: entità di classe porta con lo stesso nome della porta
+        names = {norm_ifname(i.name): i.if_index for i in interfaces}
+        for index, value in (await s.walk(ENT_PHYSICAL_NAME)).items():
+            if len(index) == 1 and classes.get(index) == ENT_CLASS_PORT and norm_ifname(_text(value)) in names:
+                mapped[index[0]] = names[norm_ifname(_text(value))]
+    for entity, if_index in mapped.items():
+        iface = by_index.get(if_index)
+        if iface is None or iface.media is not None:
+            continue
+        below, queue = [], list(children.get(entity, []))
+        while queue and len(below) < 20:  # il modulo sta sotto la porta (a volte dentro un contenitore)
+            child = queue.pop(0)
+            below.append(_text(descrs.get((child,))))
+            queue.extend(children.get(child, []))
+        iface.media = media_from_text(*below, _text(descrs.get((entity,))))
 
 
 async def _chassis(s: _Session) -> tuple[str | None, str | None, list[MemberData], str | None]:
@@ -966,6 +1032,8 @@ async def _read_host(s: _Session, system: dict[str, Any], rules: list[snmp_rules
     data.sys_services, data.lldp_caps, data.mibs = await _kind_signals(s)
     s.section = "porte"
     data.interfaces = await _interfaces(s)
+    s.section = "moduli delle porte"
+    await _media(s, data.interfaces)
     s.section = "indirizzi IP"
     data.ips = await _ips(s)
     s.section = "seriale e stack"

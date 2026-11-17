@@ -100,6 +100,9 @@ CORE = {
     # Stack di due C9300: (classe, seriale, modello, numero del membro)
     "entities": {1000: (3, "FOC2611LAB1", "C9300-48P", 1), 1001: (9, "FOC2611LAB2", "C9300-NM-8X"),
                  2000: (3, "FOC2611LAB3", "C9300-48P", 2)},
+    # Uplink verso i piani: porte del modulo di rete con dentro un SFP+ multimodale (rame/fibra dalla ENTITY-MIB)
+    "entity_ports": {1110: (10, "TenGigabitEthernet1/1/1", 9, 1001), 1111: (9, "SFP-10GBase-SR", None, 1110),
+                     1120: (10, "TenGigabitEthernet1/1/2", 10, 1001), 1121: (9, "SFP-10GBase-SR", None, 1120)},
     "lldp_local": {
         1: (5, "Gi1/0/1", "GigabitEthernet1/0/1"),
         9: (5, "Te1/1/1", "TenGigabitEthernet1/1/1"),
@@ -149,6 +152,7 @@ def _hpe(name, ip, chassis, serial, core_port, access):
         "ipv4": [(ip, 1099, MASK)],
         "ipv6": [],
         "entities": {1: (3, serial, "J9776A")},
+        "hp_transceivers": {49: ("SFP+SR", "LC", "300m (50um),")},
         "lldp_local": {49: (5, "49", "49")},
         "lldp_remote": {(49, 1): (4, CORE_MAC, 5, core_port, f"TenGigabitEthernet{core_port[2:]}", "core-lab-01.lab.local", CORE_IP,
                                      ["bridge", "router"])},

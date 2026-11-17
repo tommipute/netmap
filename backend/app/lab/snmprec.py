@@ -136,6 +136,22 @@ def snmprec(device: dict) -> str:
         add(f"1.3.6.1.2.1.47.1.1.1.1.5.{idx}", INT, klass)
         add(f"1.3.6.1.2.1.47.1.1.1.1.11.{idx}", STR, serial)
         add(f"1.3.6.1.2.1.47.1.1.1.1.13.{idx}", STR, model)
+    # Porte e moduli nella ENTITY-MIB: indice -> (classe, descrizione, ifIndex della porta o None, entità che la contiene)
+    for idx, (klass, descr, if_index, parent) in device.get("entity_ports", {}).items():
+        add(f"1.3.6.1.2.1.47.1.1.1.1.2.{idx}", STR, descr)
+        add(f"1.3.6.1.2.1.47.1.1.1.1.4.{idx}", INT, parent or 0)
+        add(f"1.3.6.1.2.1.47.1.1.1.1.5.{idx}", INT, klass)
+        if if_index:
+            add(f"1.3.6.1.2.1.47.1.3.2.1.2.{idx}.0", OID, f"1.3.6.1.2.1.2.2.1.1.{if_index}")
+    # Moduli SFP per ifIndex: HPE Comware (fibra, tipo, diametro) e Aruba/ProCurve (tipo, connettore, distanza)
+    for if_index, (hardware, kind, diameter) in device.get("hh3c_transceivers", {}).items():
+        add(f"1.3.6.1.4.1.25506.2.70.1.1.1.1.{if_index}", STR, hardware)
+        add(f"1.3.6.1.4.1.25506.2.70.1.1.1.2.{if_index}", STR, kind)
+        add(f"1.3.6.1.4.1.25506.2.70.1.1.1.6.{if_index}", INT, diameter)
+    for if_index, (kind, connector, distance) in device.get("hp_transceivers", {}).items():
+        add(f"1.3.6.1.4.1.11.2.14.11.5.1.82.1.1.1.1.5.{if_index}", STR, kind)
+        add(f"1.3.6.1.4.1.11.2.14.11.5.1.82.1.1.1.1.6.{if_index}", STR, connector)
+        add(f"1.3.6.1.4.1.11.2.14.11.5.1.82.1.1.1.1.8.{if_index}", STR, distance)
 
     for port_num, (subtype, port_id, descr) in device["lldp_local"].items():
         add(f"1.0.8802.1.1.2.1.3.7.1.2.{port_num}", INT, subtype)

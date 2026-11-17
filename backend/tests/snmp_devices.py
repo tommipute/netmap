@@ -35,6 +35,8 @@ SW1 = {
     # Stack di due switch: (classe, seriale, modello, numero del membro)
     "entities": {1000: (3, "FOCSIM0001", "C9300-48P", 1), 1001: (9, "MODSIM01", "C9300-NM-8X"),
                  2000: (3, "FOCSIM0003", "C9300-48P", 2)},
+    # Porta Te1/1/1 (legata all'ifIndex 9) con dentro il modulo SFP+ multimodale
+    "entity_ports": {1100: (10, "TenGigabitEthernet1/1/1", 9, 1001), 1101: (9, "SFP-10GBase-SR", None, 1100)},
     # lldpLocPortNum: (subtype, id, descr)
     "lldp_local": {9: (5, "Te1/1/1", "TenGigabitEthernet1/1/1")},
     # (porta locale, indice): (subtype chassis, chassis id, subtype porta, porta, descr porta, sysName, IP mgmt)
@@ -90,6 +92,7 @@ SW2 = {
     "ipv4": [("10.99.0.2", 1099, "255.255.255.0")],
     "ipv6": [],
     "entities": {1: (3, "SGSIM0002", "J9728A")},
+    "hp_transceivers": {49: ("SFP+SR", "LC", "300m (50um),")},
     # numerazione LLDP diversa dagli ifIndex: si abbina per nome
     "lldp_local": {101: (7, "49", "49")},
     "lldp_remote": {(101, 3): (4, SW1_CHASSIS_MAC, 5, "TenGigabitEthernet1/1/1", "", "sw-sim-01.lab.local", None,
@@ -113,13 +116,22 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
     from app.discovery.snmp import (
         LLDP_CAPS, OPER_STATUS, ArpEntry, FdbEntry, HostData, IfData, IpData, MemberData, NeighborData, cdp_caps,
     )
+    from app.discovery.media import media_from_text
     from app.discovery.vendors import model_from_descr
 
+    # Moduli: stesse precedenze del collector (tabella dell'HP, poi il modulo sotto la porta nella ENTITY-MIB)
+    media = {idx: media_from_text(kind, distance, connector)
+             for idx, (kind, connector, distance) in device.get("hp_transceivers", {}).items()}
+    entity_ports = device.get("entity_ports", {})
+    for ent, (_k, descr, if_index, _p) in entity_ports.items():
+        if if_index and if_index not in media:
+            below = [d for _k2, d, _i, parent in entity_ports.values() if parent == ent]
+            media[if_index] = media_from_text(*below, descr)
     interfaces = [
         IfData(
             if_index=idx, name=name, descr=descr, alias=alias or None, if_type=if_type, mtu=mtu,
             speed_mbps=mbps or None, mac=mac.upper(), admin_up={1: True, 2: False}.get(admin),
-            oper_status=OPER_STATUS.get(oper),
+            oper_status=OPER_STATUS.get(oper), media=media.get(idx),
         )
         for idx, (name, descr, if_type, mtu, mbps, mac, admin, oper, alias) in sorted(device["interfaces"].items())
     ]

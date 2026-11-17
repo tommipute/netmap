@@ -18,7 +18,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.discovery.matching import find_device, find_port, interface_type, norm_ifname, short_name
-from app.discovery.snmp import HostData, IfData
+from app.discovery.snmp import ETHERNET_IF_TYPES, HostData, IfData
 from app.discovery.vendors import PROVISIONAL_MANUFACTURER, manufacturer_of
 from app.services.roles import detect_for, role_for
 from app.models import (VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, Manufacturer,
@@ -33,6 +33,15 @@ from app.models.enums import (
 )
 
 SNMP = Source.SNMP.value
+# Tipi di porta che il modulo inserito può correggere (rame o fibra); LAG, SVI e Wi-Fi restano come sono
+MEDIA_TYPES = {InterfaceType.COPPER.value, InterfaceType.FIBER.value, InterfaceType.OTHER.value}
+
+
+def port_type(i: IfData) -> str:
+    """Tipo della porta: dall'ifType, e per le porte Ethernet rame o fibra dal modulo inserito (se si sa)."""
+    if i.media is not None and i.if_type in ETHERNET_IF_TYPES:
+        return i.media.port
+    return interface_type(i.if_type)
 
 
 @dataclass
@@ -300,7 +309,7 @@ class Planner:
         return {
             "name": i.name,
             "if_index": i.if_index,
-            "type": interface_type(i.if_type),
+            "type": port_type(i),
             "speed_mbps": i.speed_mbps,
             "mac_address": i.mac,
             "mtu": i.mtu,
@@ -405,6 +414,9 @@ class Planner:
         if detected in (InterfaceType.LAG.value, InterfaceType.VIRTUAL.value, InterfaceType.WIRELESS.value):
             if iface.type != detected and not (cabled and detected in NON_CABLEABLE_TYPES):
                 change("type", "Tipo", detected)
+        elif d.media is not None and d.if_type in ETHERNET_IF_TYPES and iface.type in MEDIA_TYPES \
+                and iface.type != d.media.port:
+            change("type", "Tipo", d.media.port)
         return data, diff
 
     def _cabled_ids(self, interface_ids: list[int]) -> set[int]:
@@ -537,6 +549,7 @@ class Planner:
 
     def _neighbors(self, device: Device, hd: HostData, ports: dict[int, Interface], out: list[Proposal]) -> None:
         seen: set[str] = set()
+        cable_types = {i.if_index: i.media.cable for i in hd.interfaces if i.media is not None and i.media.cable}
         for n in hd.neighbors:
             local = ports.get(n.local_if_index)
             if local is None or local.type in NON_CABLEABLE_TYPES:
@@ -560,14 +573,17 @@ class Planner:
             seen.add(key)
 
             local_cable, remote_cable = self._cable_of(local.id), self._cable_of(remote.id)
+            cable_type = cable_types.get(n.local_if_index)
             if local_cable is not None and local_cable is remote_cable:
                 local_cable.last_seen_at = self.now
+                if local_cable.type is None and cable_type:  # tipo dal modulo, solo se nessuno l'ha indicato
+                    local_cable.type = cable_type
                 continue
 
             # Verso fisso (porta con id minore come lato A): lo stesso cavo visto dai due lati è identico
             (a_dev, a), (b_dev, b) = sorted([(device, local), (remote_device, remote)], key=lambda end: end[1].id)
             link = f"{_port_label(a_dev, a)} ↔ {_port_label(b_dev, b)}"
-            data = {"a_interface_id": a.id, "b_interface_id": b.id}
+            data = {"a_interface_id": a.id, "b_interface_id": b.id, **({"type": cable_type} if cable_type else {})}
             if local_cable is None and remote_cable is None:
                 out.append(Proposal(
                     key=key,

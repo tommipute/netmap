@@ -263,7 +263,8 @@ def _create_vlan(db: Session, data: dict, change: DiscoveryChange) -> None:
 def _new_cable(db: Session, data: dict) -> None:
     for key in ("a_interface_id", "b_interface_id"):
         _get(db, Interface, data[key], "Una delle due porte")
-    cable = Cable(a_interface_id=data["a_interface_id"], b_interface_id=data["b_interface_id"], source=SNMP, last_seen_at=_now())
+    cable = Cable(a_interface_id=data["a_interface_id"], b_interface_id=data["b_interface_id"], type=data.get("type"),
+                  source=SNMP, last_seen_at=_now())
     _hooked(cable_hook, db, cable, data, True)  # porte libere e cablabili
     db.add(cable)
     db.flush()

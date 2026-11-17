@@ -169,7 +169,9 @@ Click a device to open its page:
   VLANs, IPs, cable and what is on the other side. With the monitor on, there are also duplex, errors, PoE and since when the
   port has been up or down (see [Port details](#port-details)). Each port has a name, type (copper, fibre, wireless, virtual,
   LAG), speed, VLAN mode (access with one untagged VLAN, trunk with tagged VLANs), MAC, MTU, the LAG it belongs to,
-  enabled yes/no, management only yes/no.
+  enabled yes/no, management only yes/no. The scan sets copper or fibre by reading the module plugged into the port
+  (SFP, SFP+, QSFP: the module tables of HPE Comware and Aruba, ENTITY-MIB for the others); with no module, or if the
+  switch doesn't describe it, an Ethernet port stays copper.
 - **Add ports in bulk**: write a range in square brackets: `Gi1/0/[1-48]` creates 48 ports, `[1-52]` creates ports
   1 to 52, `Te1/1/[1-4]` the four uplinks.
 - **Connect** (the icon on the row of a free port): choose the device and port on the other side and the cable
@@ -193,7 +195,9 @@ A cable joins two ports (side A and side B) and has a type (Cat5e, Cat6, Cat6a, 
 DAC), status (connected, planned, decommissioning), label, colour and length. Create it from the device page
 (**Connect**), from the map (dragging from one device to another) or from the **Cables** list. A port has only one
 cable. In maps colours follow real conventions: copper blue, multimode fibre aqua, single-mode yellow, DAC dark
-grey; planned cables are dashed.
+grey; planned cables are dashed. Cables found by the scan take their type from the port's module (multimode or
+single-mode fibre, DAC); a copper cable has no type (Cat5e or Cat6 can't be told via SNMP). A type written by hand
+is never changed.
 
 ## 8. Addressing: subnets, IPs, VLANs, VRFs
 
