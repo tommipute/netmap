@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.7.1] - 2026-11-17
+
+I problemi di loop e di collegamento non documentato tra due switch mostrano quali MAC vedono le due porte, con il
+link alla porta dove ognuno sta davvero. Nessun cambiamento incompatibile: l'aggiornamento applica da solo la
+migration del database; l'elenco dei MAC si riempie alla prima scansione dopo l'aggiornamento.
+
 ### Modifiche
 
 - Problemi rilevati: il loop e il collegamento non documentato tra due switch elencano i **MAC in comune**, ognuno
