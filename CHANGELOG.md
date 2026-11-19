@@ -6,6 +6,12 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.7.3] - 2026-11-19
+
+Niente più falsi loop sugli uplink che NetMap non riconosce, sezione dei problemi chiusa nella pagina del device e
+avvio delle scansioni direttamente dall'elenco. Nessun cambiamento incompatibile e nessuna migration: i falsi loop
+spariscono alla prima scansione dopo l'aggiornamento.
+
 ### Modifiche
 
 - Pagina del device: la sezione **Problemi rilevati** si apre chiusa e sulla barra mostra solo quanti sono (e
