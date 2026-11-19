@@ -6,6 +6,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Correzioni
+
+- Problemi rilevati: niente più falsi **loop tra due switch** sugli uplink che NetMap non riconosce (senza LLDP o
+  verso un core non letto). Quella porta vede i MAC di tutti gli altri switch e veniva abbinata a quello con più
+  MAC, sempre lo stesso, senza la porta dall'altra parte. Ora una porta che vede i MAC (almeno 3) di due o più switch
+  conta come uplink e non fa problemi; tolta quella, si ricontano le altre, così un hub vero tra due switch si vede
+  ancora.
+
 ## [1.7.2] - 2026-11-18
 
 Due correzioni della scansione: niente più falsi loop sui trunk verso switch che NetMap non legge, e porte e cavi in

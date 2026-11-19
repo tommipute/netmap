@@ -187,24 +187,45 @@ SHARED_MIN_MACS = 3  # sotto questo numero può essere un PC spostato durante la
 SHARED_LIST_MAX = 20  # MAC salvati sulla porta, da mostrare nel problema
 
 
-def _shared_macs(scanned, sightings: list[_Sighting], now: datetime) -> None:
-    """Porte di accesso (non uplink) che vedono i MAC delle porte di accesso di un altro switch: in mezzo c'è un
-    collegamento che NetMap non conosce (hub, switchino, cavo senza LLDP). Se i due switch sono già collegati da un
-    altro percorso è un loop. Il risultato resta sulla porta fino alla scansione dopo."""
+def _shared_by_port(sightings: list[_Sighting]) -> tuple[dict[int, dict[int, set[str]]], dict[int, Interface]]:
+    """Per ogni porta: gli altri switch che vedono gli stessi MAC sulle loro porte, con quei MAC."""
     devices_by_mac: dict[str, set[int]] = defaultdict(set)
     for s in sightings:
         devices_by_mac[s.mac].add(s.iface.device_id)
-    for _device, hd, ports in scanned:
-        if not hd.fdb:
-            continue
-        for iface in ports.values():
-            iface.shared_macs = iface.shared_device_id = iface.shared_mac_list = iface.shared_at = None
     others: dict[int, dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))  # porta -> altro switch -> MAC
     interfaces: dict[int, Interface] = {}
     for s in sightings:
         interfaces[s.iface.id] = s.iface
         for device_id in devices_by_mac[s.mac] - {s.iface.device_id}:
             others[s.iface.id][device_id].add(s.mac)
+    return others, interfaces
+
+
+def _shared_macs(scanned, sightings: list[_Sighting], now: datetime) -> None:
+    """Porte di accesso (non uplink) che vedono i MAC delle porte di accesso di un altro switch: in mezzo c'è un
+    collegamento che NetMap non conosce (hub, switchino, cavo senza LLDP). Se i due switch sono già collegati da un
+    altro percorso è un loop. Il risultato resta sulla porta fino alla scansione dopo.
+    Una porta che vede i MAC di due o più switch è un uplink che NetMap non ha riconosciuto (niente LLDP, core non
+    letto): dietro c'è il resto della rete, non un hub verso uno switch preciso. Si toglie e si ricontano le altre,
+    perché i MAC visti da quell'uplink facevano sembrare collegate anche le porte di accesso degli altri switch."""
+    for _device, hd, ports in scanned:
+        if not hd.fdb:
+            continue
+        for iface in ports.values():
+            iface.shared_macs = iface.shared_device_id = iface.shared_mac_list = iface.shared_at = None
+    while True:
+        others, interfaces = _shared_by_port(sightings)
+        transit = {
+            iface_id: (switches, sum(len(macs) for macs in by_device.values()))
+            for iface_id, by_device in others.items()
+            if (switches := sum(len(macs) >= SHARED_MIN_MACS for macs in by_device.values())) >= 2
+        }
+        if not transit:
+            break
+        # una alla volta, prima quella che vede più switch e più MAC: tolto l'uplink, la porta di un hub vero
+        # (che vedeva anche i MAC passati da lì) torna a vedere un solo switch
+        uplink = max(transit, key=lambda iface_id: (*transit[iface_id], -iface_id))
+        sightings = [s for s in sightings if s.iface.id != uplink]
     for iface_id, by_device in others.items():
         device_id, macs = max(by_device.items(), key=lambda item: (len(item[1]), -item[0]))
         if len(macs) >= SHARED_MIN_MACS:

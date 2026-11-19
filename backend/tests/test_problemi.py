@@ -225,3 +225,37 @@ def test_trunk_verso_un_altro_switch_non_e_un_loop(client, setup, session_factor
     sw2["fdb"] += [(99, mac, 2, 3) for mac in HUB]
     scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
     assert not {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}
+
+
+def test_uplink_non_riconosciuto_non_e_un_loop(client, setup, session_factory):
+    """La Gi1/0/2 di sw-sim-01 è l'uplink verso il resto della rete, ma senza LLDP: vede i MAC delle porte di accesso
+    di sw-sim-02 e di sw-sim-04 (tre PC per uno, dietro uno switchino). Non è un hub verso uno dei due: niente problemi,
+    né sulla Gi1/0/2 né sulle porte di accesso degli altri due."""
+    sw4 = copy.deepcopy(SW2)
+    sw4["system"]["name"] = "sw-sim-04"
+    sw4["entities"] = {1: (3, "SGSIM0004", "J9728A")}
+    sw4["interfaces"] = {idx: (*row[:5], row[5].replace("00:22:33", "00:44:33"), *row[6:])
+                         for idx, row in sw4["interfaces"].items()}
+    sw4["ipv4"] = [("10.99.0.4", 1099, "255.255.255.0")]
+    sw4["lldp_local"], sw4["lldp_remote"] = {}, {}
+    far2 = ["00:50:56:00:02:01", "00:50:56:00:02:02", "00:50:56:00:02:03"]
+    far4 = ["00:50:56:00:04:01", "00:50:56:00:04:02", "00:50:56:00:04:03"]
+    sw1, sw2 = copy.deepcopy(SW1), copy.deepcopy(SW2)
+    sw1["fdb"] += [(None, mac, 2, 3) for mac in far2 + far4]
+    sw2["fdb"] += [(99, mac, 2, 3) for mac in far2]
+    sw4["fdb"] = [(99, mac, 1, 3) for mac in far4]
+    job_id = setup["job"]["id"]
+    devices = (sw1, SW1_HOST), (sw2, SW2_HOST), (sw4, "10.99.0.4")
+    scan(client, session_factory, job_id, *devices)
+    approve_all(client)
+    scan(client, session_factory, job_id, *devices)
+    assert not {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}
+
+    # Un hub vero tra sw-sim-02 e sw-sim-04 si vede ancora, anche se i suoi MAC passano dall'uplink di sw-sim-01
+    sw1["fdb"] += [(None, mac, 2, 3) for mac in HUB]
+    sw2["fdb"] += [(99, mac, 2, 3) for mac in HUB]
+    sw4["fdb"] += [(99, mac, 2, 3) for mac in HUB]
+    scan(client, session_factory, job_id, *devices)
+    [link] = [p for p in problems(client)["items"] if p["kind"] == "undocumented_link"]
+    assert {link["device_name"], link["other_device_name"]} == {"sw-sim-02", "sw-sim-04"}
+    assert link["values"]["mac_list"] == HUB

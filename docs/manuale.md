@@ -649,7 +649,9 @@ Da sapere:
   (trunk e uplink): quelle con un cavo documentato verso uno switch o un router di NetMap, e quelle dove il vicino
   LLDP/CDP si dichiara switch o router, oppure è un altro apparato della scansione o uno switch di NetMap. Vale anche
   per un core che NetMap non legge o che è ancora da approvare; un telefono o un access point non contano come
-  switch;
+  switch. Non conta neanche una porta che vede i MAC di **due o più switch** (almeno 3 per switch): è un uplink che
+  NetMap non ha riconosciuto (senza LLDP, per esempio), con dietro il resto della rete, non un hub verso uno switch
+  preciso;
 - una porta che va giù e su tra due controlli si vede lo stesso, perché lo switch dice quando è cambiata l'ultima
   volta;
 - il loop protect degli switch HP/Aruba e un MAC che salta da una porta all'altra tra due scansioni non si vedono

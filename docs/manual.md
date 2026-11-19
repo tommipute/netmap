@@ -643,7 +643,9 @@ Good to know:
 - for the loop and the undocumented link, ports that lead to another network device (trunks and uplinks) do not
   count: those with a documented cable to a NetMap switch or router, and those whose LLDP/CDP neighbor declares
   itself a switch or router, or is another device in the scan or a NetMap switch. This also holds for a core that
-  NetMap does not read or that is still waiting for approval; a phone or an access point does not count as a switch;
+  NetMap does not read or that is still waiting for approval; a phone or an access point does not count as a switch.
+  Nor does a port that sees the MACs of **two or more switches** (at least 3 per switch): it is an uplink NetMap did
+  not recognize (no LLDP, for instance), with the rest of the network behind it, not a hub to one specific switch;
 - a port that goes down and up between two checks is still seen, because the switch says when it last changed;
 - HP/Aruba loop protect and a MAC jumping from one port to another between two scans are not detected yet.
 
