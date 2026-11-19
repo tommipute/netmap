@@ -398,7 +398,8 @@ In **Scansioni** crea una scansione con:
   censiti.
 
 Apri la scansione e premi **Avvia scansione**: in pochi secondi (qualche minuto per reti grandi) trovi
-l'esito e il log nello storico delle esecuzioni. Il log dice anche perché gli altri indirizzi non si sono letti:
+l'esito e il log nello storico delle esecuzioni. Si avvia anche dall'elenco delle scansioni, col pulsante ▷ sulla
+riga, oppure se ne selezionano più d'una e si avviano tutte insieme (partono una dopo l'altra). Il log dice anche perché gli altri indirizzi non si sono letti:
 quelli che **rispondono al ping ma non a SNMP** (di solito community o utente sbagliati, SNMP spento o un'ACL che
 non ammette NetMap), quelli che **rispondono con un errore** (SNMP v3: utente sconosciuto, password o protocollo
 sbagliati, con il profilo), quanti non rispondono a niente e, per ogni apparato letto, le tabelle che non si sono
@@ -639,7 +640,8 @@ quando. Per il loop e il collegamento non documentato elenca anche i **MAC in co
 collegato?", che dice su quale porta sta davvero quel PC (su quelle del problema non compare, perché lì arriva solo
 attraverso il secondo percorso). Per **Tanti MAC su una porta di accesso** il link **Vedi i MAC della porta** li
 elenca. I pulsanti con i conteggi filtrano per priorità; si filtra anche per tipo e per sede. Gli stessi problemi
-sono nella scheda del device, sopra le porte, e la **Panoramica** ha una scheda con i conteggi e i primi cinque.
+sono nella scheda del device, sopra le porte, in una sezione chiusa che sulla barra mostra quanti sono (si apre
+con un clic), e la **Panoramica** ha una scheda con i conteggi e i primi cinque.
 
 Da sapere:
 

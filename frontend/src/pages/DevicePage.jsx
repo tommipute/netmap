@@ -162,23 +162,26 @@ function DeviceHistory({ deviceId }) {
   )
 }
 
-/** Problemi rilevati che riguardano il device (anche come altro capo di un cavo) */
+/** Problemi rilevati che riguardano il device (anche come altro capo di un cavo): chiusi, con il conteggio sulla barra */
 function DeviceProblems({ deviceId }) {
   const { data, reload } = useApi(`/problems?device_id=${deviceId}`)
   if (!data || (data.total === 0 && !data.silenced?.length)) return null
+  const silenced = data.silenced?.length || 0
   return (
-    <section className="section no-print">
-      <header className="section__head">
+    <details className="section disclosure no-print">
+      <summary className="section__head">
         <h2>
-          {t('Problemi rilevati')} <span className="section__count">{tn(data.total, '1 problema', '{n} problemi')}</span>
+          {t('Problemi rilevati')}
+          <span className="section__count">
+            {tn(data.total, '1 problema', '{n} problemi')}
+            {silenced > 0 && ` · ${tn(silenced, '1 silenziato', '{n} silenziati')}`}
+          </span>
         </h2>
-        <div className="page-head__actions">
-          <Link className="btn btn--sm btn--ghost" to="/problems">{t('Tutti i problemi')}</Link>
-        </div>
-      </header>
+        <Link className="btn btn--sm btn--ghost disclosure__action" to="/problems">{t('Tutti i problemi')}</Link>
+      </summary>
       {data.total > 0 && <ProblemTable items={data.items} deviceId={deviceId} onChanged={reload} />}
       <SilencedProblems items={data.silenced} deviceId={deviceId} onChanged={reload} />
-    </section>
+    </details>
   )
 }
 

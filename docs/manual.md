@@ -396,7 +396,8 @@ In **Scans** create a scan with:
 - two switches to add **new ports** and **new IPs** of devices already in NetMap without asking.
 
 Open the scan and press **Start scan**: in a few seconds (a few minutes for large networks) you get the result and
-the log in the run history. The log also says why the other addresses were not read: those that **answer ping but
+the log in the run history. You can also start it from the list of scans, with the ▷ button on its row, or select
+several and start them all at once (they run one after the other). The log also says why the other addresses were not read: those that **answer ping but
 not SNMP** (usually a wrong community or user, SNMP disabled or an ACL that doesn't allow NetMap), those that
 **answer with an error** (SNMP v3: unknown user, wrong password or protocol, with the profile), how many answer
 nothing at all and, for each device read, the tables that could not be read (ports, VLANs, MAC table…).
@@ -633,7 +634,8 @@ cable) and since when. For a loop or an undocumented link it also lists the **Sh
 "Where is it connected?", which tells on which port that PC really is (it does not show up on the ports of the
 problem, because it only reaches them through the second path). For **Many MACs on an access port** the **See the
 MACs on the port** link lists them. The buttons with the counts filter by priority; you can also filter by type and by site.
-The same problems are on the device page, above the ports, and the **Overview** has a card with the counts and the
+The same problems are on the device page, above the ports, in a closed section whose bar shows how many there are
+(one click opens it), and the **Overview** has a card with the counts and the
 first five.
 
 Good to know:

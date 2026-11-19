@@ -3,6 +3,7 @@
  * Per aggiungere un'entità basta una voce qui (più il backend).
  */
 import { Link } from 'react-router-dom'
+import { api } from './api'
 import { ROLES, USER_SOURCES } from './auth'
 import { AlertTemplates, DeviceMulti, PortPicker } from './components/AlertFields'
 import AlertTestButton from './components/AlertTestButton'
@@ -15,7 +16,7 @@ import RefLabel from './components/RefLabel'
 import { DuplexTag, PortErrors, PortPoe, PortState } from './components/PortDetails'
 import * as O from './options'
 import { emailError, targetError, targetsSummary } from './targets'
-import { LANGUAGES, t, tc, tServer } from './i18n'
+import { LANGUAGES, t, tc, tn, tServer } from './i18n'
 
 const description = { name: 'description', label: t('Note'), type: 'textarea' }
 const customFields = { name: 'custom_fields', label: t('Campi personalizzati'), type: 'custom', Component: CustomFieldsEditor, empty: {} }
@@ -608,6 +609,14 @@ Object.assign(resources, {
     intro: t('Quali indirizzi interrogare, con quali profili e ogni quanto. Quello che trova finisce in "Da approvare".'),
     label: (o) => o.name,
     detail: (o) => `/discovery-jobs/${o.id}`,
+    // Avvio dall'elenco, una o tutte le selezionate: il worker le esegue una dopo l'altra
+    actions: [{
+      icon: 'play',
+      label: t('Avvia scansione'),
+      bulkLabel: t('Avvia le scansioni selezionate'),
+      run: (o) => api.post(`/discovery-jobs/${o.id}/run`),
+      done: (n) => tn(n, '1 scansione avviata: apri la scansione per seguirla.', '{n} scansioni avviate: apri una scansione per seguirla.'),
+    }],
     filters: [{ name: 'site_id', label: t('Sede'), ref: 'sites' }],
     columns: [
       { name: 'name', label: t('Nome'), render: (o) => <strong>{o.name}</strong> },

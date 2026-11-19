@@ -1132,6 +1132,7 @@ details.directory-test > summary::-webkit-details-marker, details.disclosure > s
 details.directory-test > summary::before, details.disclosure > summary::before { content: '▸'; color: var(--muted); width: 12px; }
 details.directory-test[open] > summary::before, details.disclosure[open] > summary::before { content: '▾'; }
 details.directory-test:not([open]) > summary, details.disclosure:not([open]) > summary { margin-bottom: 0; }
+details.disclosure > summary .disclosure__action { margin-left: auto; }
 
 /* Cosa ho letto via SNMP (pagina del device, prova indirizzi) */
 .snmp-report { display: grid; gap: 12px; }

@@ -185,6 +185,20 @@ export default function ResourcePage({ resourceKey }) {
     bulkDone({ done: chosen.length - failed.length, failed, verb: 'eliminati' })
   }
 
+  // Azioni della risorsa (es. avviare una scansione): pulsante sulla riga e, con una selezione, su tutti i selezionati
+  const runAction = async (action, chosen) => {
+    const failed = []
+    for (let i = 0; i < chosen.length; i++) {
+      if (chosen.length > 1) setBulkBusy(t('{action}: {i} di {n}…', { action: action.label, i: i + 1, n: chosen.length }))
+      try {
+        await action.run(chosen[i])
+      } catch (err) {
+        failed.push({ label: config.label(chosen[i]), error: err.message })
+      }
+    }
+    bulkDone({ done: chosen.length - failed.length, failed, text: action.done })
+  }
+
   const handleExport = async (format = 'csv') => {
     try {
       const url = `/api/devices/export${qs({ format, q, ...filters, ...columnQuery })}`
@@ -287,6 +301,10 @@ export default function ResourcePage({ resourceKey }) {
               <span className="muted">{bulkBusy}</span>
             ) : (
               <>
+                {config.actions?.map((action) => (
+                  <IconButton key={action.label} icon={action.icon} label={action.bulkLabel} small
+                    onClick={() => runAction(action, [...selected.values()])} />
+                ))}
                 {config.bulkFields && (
                   <IconButton icon="edit" label={t('Modifica i selezionati')} small onClick={() => setBulkEditing(true)} />
                 )}
@@ -302,10 +320,10 @@ export default function ResourcePage({ resourceKey }) {
 
       {bulkResult && (
         <div className={`notice${bulkResult.failed.length ? ' notice--warn' : ''}`} role="status">
-          {bulkResult.verb === 'eliminati' ? tn(bulkResult.done, '1 elemento eliminato.', '{n} elementi eliminati.') : tn(bulkResult.done, '1 elemento modificato.', '{n} elementi modificati.')}
+          {bulkResult.text ? (bulkResult.done > 0 || !bulkResult.failed.length) && bulkResult.text(bulkResult.done) : bulkResult.verb === 'eliminati' ? tn(bulkResult.done, '1 elemento eliminato.', '{n} elementi eliminati.') : tn(bulkResult.done, '1 elemento modificato.', '{n} elementi modificati.')}
           {bulkResult.failed.length > 0 && (
             <>
-              {' '}Non riusciti:
+              {' '}{bulkResult.failed.length === 1 ? t('Non riuscito:') : t('Non riusciti:')}
               <ul>
                 {bulkResult.failed.map((f) => <li key={f.label}>{f.label}: {f.error}</li>)}
               </ul>
@@ -401,6 +419,10 @@ export default function ResourcePage({ resourceKey }) {
                   <td className="table__actions" onClick={(e) => e.stopPropagation()}>
                     {canEdit && (
                       <>
+                        {config.actions?.map((action) => (
+                          <IconButton key={action.label} icon={action.icon} label={action.label} small className="btn--ghost"
+                            disabled={Boolean(bulkBusy)} onClick={() => runAction(action, [item])} />
+                        ))}
                         <IconButton icon="edit" label={t('Modifica')} small className="btn--ghost" onClick={() => setEditing(item)} />
                         {config.canDelete?.(item) !== false && (
                           <IconButton icon="trash" label={t('Elimina')} small danger className="btn--ghost" onClick={() => remove(item)} />

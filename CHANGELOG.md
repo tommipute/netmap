@@ -6,6 +6,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Modifiche
+
+- Pagina del device: la sezione **Problemi rilevati** si apre chiusa e sulla barra mostra solo quanti sono (e
+  quanti silenziati); un clic la apre.
+- **Scansioni**: pulsante **Avvia scansione** direttamente nell'elenco, accanto a Modifica ed Elimina, e
+  **avvio di più scansioni insieme** selezionandole (partono una dopo l'altra). Se una è già in coda o in corso il
+  messaggio lo dice e le altre partono lo stesso.
+
 ### Correzioni
 
 - Problemi rilevati: niente più falsi **loop tra due switch** sugli uplink che NetMap non riconosce (senza LLDP o
