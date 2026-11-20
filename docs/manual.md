@@ -523,6 +523,10 @@ disappeared. Approve or reject one change, all changes of a device, or all of th
 - Always to approve: new devices, cables, disappeared ports, changes to data you entered.
 - Without asking: port status, the last time a device was seen and the data of objects created by the scan itself.
 - A rejected change is not proposed again as long as the data stays the same.
+- **Subnets** are created automatically from the IPs read on the switches, which carry the mask (192.0.2.25/24 →
+  192.0.2.0/24): in the device's site and, if the IP is on a VLAN interface (Vlan10, VLAN10, Vlan-interface10,
+  Vlanif10) and that VLAN already exists, with the VLAN. Single hosts (/32), /31 links, loopback and link-local are
+  left out. A subnet that already exists is not touched, and one you delete is not created again.
 - The scan never renames a device.
 - For a **new model** the scan also recognises the kind of device (printer, UPS, PDU, NAS, camera, phone, access
   point, wireless controller, firewall, router, switch, server) and shows it in "Recognised type" with the reason:

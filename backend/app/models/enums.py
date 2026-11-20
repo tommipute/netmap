@@ -118,6 +118,7 @@ class ChangeObject(StrEnum):
     CABLE = "cable"
     VLAN = "vlan"
     STACK_MEMBER = "stack_member"
+    PREFIX = "prefix"
 
 
 # ---------- Login (fase 4) ----------

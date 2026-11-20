@@ -528,6 +528,10 @@ stack, porte sparite. Puoi approvare o rifiutare una modifica alla volta, tutte 
 - Senza chiedere: lo stato delle porte, l'ultima volta che un device è stato visto e i dati di oggetti creati
   dalla scansione stessa.
 - Una modifica rifiutata non viene riproposta finché i dati restano uguali.
+- Le **subnet** si creano da sole dagli IP letti sugli switch, che hanno la maschera (192.0.2.25/24 →
+  192.0.2.0/24): nella sede del device e, se l'IP sta su un'interfaccia VLAN (Vlan10, VLAN10, Vlan-interface10,
+  Vlanif10) e quella VLAN c'è già, con la VLAN. Restano fuori host singoli (/32), link /31, loopback e link-local.
+  Una subnet che esiste già non si tocca, e una che cancelli non viene ricreata.
 - Il nome di un device non viene mai cambiato dalla scansione.
 - Per un **modello nuovo** la scansione riconosce anche il tipo di apparato (stampante, UPS, PDU, NAS, telecamera,
   telefono, access point, controller wireless, firewall, router, switch, server) e lo scrive in "Tipo

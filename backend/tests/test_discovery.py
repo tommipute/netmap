@@ -189,7 +189,7 @@ def test_device_inserito_a_mano(client, setup, session_factory):
     create(client, "/interfaces", {"device_id": core["id"], "name": "GigabitEthernet1/0/1", "speed_mbps": 100})
 
     result = scan(client, session_factory, job_id, (SW1, SW1_HOST))
-    assert result["applied"] == 6  # Gi1/0/2, Te1/1/1, Vl99, Po1 e i due membri dello stack
+    assert result["applied"] == 8  # Gi1/0/2, Te1/1/1, Vl99, Po1, i due membri dello stack e le due subnet
     device = client.get(f"/api/devices/{core['id']}").json()
     assert device["name"] == "core" and device["sys_name"] == "sw-sim-01.lab.local"  # il nome non si tocca
 
@@ -275,7 +275,7 @@ def test_porte_nuove_automatiche_ma_ip_da_approvare(client, setup, session_facto
     bigger = copy.deepcopy(SW1)
     bigger["interfaces"][3] = ("Gi1/0/3", "GigabitEthernet1/0/3", 6, 1500, 1000, "00:11:22:33:44:03", 1, 1, "")
     result = scan(client, session_factory, job_id, (bigger, SW1_HOST))
-    assert result["applied"] == 1 and "Gi1/0/3" in ports_of(client, sw1["id"])
+    assert result["applied"] == 3 and "Gi1/0/3" in ports_of(client, sw1["id"])  # la porta e le due subnet
     applied = client.get("/api/discovery-changes", params={"status": "applied"}).json()["items"]
     assert any(c["auto"] and "Gi1/0/3" in c["summary"] for c in applied)
 

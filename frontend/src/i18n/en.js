@@ -2374,6 +2374,8 @@ const patterns = [
   [/^Nuova VLAN (\d+) (.*)$/, 'New VLAN $1 $2'],
   [/^Porta (.+): VLAN lette dallo switch$/, 'Port $1: VLANs read from the switch'],
   [/^Nuovo IP (.+) su (.+)$/, 'New IP $1 on $2'],
+  [/^Nuova subnet (\S+) \(da (.+)\)$/, 'New subnet $1 (from $2)'],
+  [/^Nuova subnet (\S+)$/, 'New subnet $1'],
   [/^IP (.+): la scansione lo vede su (.+)$/, 'IP $1: the scan sees it on $2'],
   [/^Nuovo collegamento (.+) \(visto via (.+)\)$/, 'New connection $1 (seen via $2)'],
   [/^(.+) \(nuovo modello\)$/, '$1 (new model)'],

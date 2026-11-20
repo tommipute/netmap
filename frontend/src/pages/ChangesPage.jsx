@@ -9,7 +9,7 @@ import { invalidate, useApi } from '../hooks'
 import { CHANGE_ACTIONS, CHANGE_STATUS, formatDateTime } from '../options'
 import { t, tData, tn, tServer } from '../i18n'
 
-const OBJECT_LABELS = { device: t('Device'), interface: t('Porta'), ip: 'IP', cable: t('Cavo'), vlan: 'VLAN', stack_member: t('Membro stack') }
+const OBJECT_LABELS = { device: t('Device'), interface: t('Porta'), ip: 'IP', cable: t('Cavo'), vlan: 'VLAN', stack_member: t('Membro stack'), prefix: t('Subnet') }
 
 function show(value) {
   if (value === null || value === undefined || value === '') return <span className="muted">—</span>

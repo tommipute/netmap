@@ -6,6 +6,14 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Novità
+
+- La scansione crea da sola le **subnet** dagli IP letti sugli switch (l'indirizzo ha la maschera: 192.0.2.25/24
+  → 192.0.2.0/24), senza passare da Da approvare. La subnet prende la sede del device e, se l'IP sta su
+  un'interfaccia VLAN (Vlan10, VLAN10, Vlan-interface10, Vlanif10, irb.10) e quella VLAN esiste già, anche la VLAN.
+  Restano fuori host singoli, link /31, loopback e link-local. Quelle che esistono già non si toccano e quelle
+  cancellate a mano non tornano. Prima le subnet arrivavano solo a mano o da un import.
+
 ## [1.7.3] - 2026-11-19
 
 Niente più falsi loop sugli uplink che NetMap non riconosce, sezione dei problemi chiusa nella pagina del device e

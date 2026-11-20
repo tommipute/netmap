@@ -10,12 +10,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, SnmpProfile,
-    SnmpReport, StackMember,
+    VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryChange, Interface, IPAddress, Manufacturer, Prefix,
+    SnmpProfile, SnmpReport, StackMember,
 )
 from app.models.enums import ChangeAction, ChangeObject, DeviceStatus, Source
 from app.services import roles
-from app.services.rules import cable_hook, interface_hook, ip_hook, vlan_hook
+from app.services.rules import cable_hook, interface_hook, ip_hook, prefix_hook, vlan_hook
 
 SNMP = Source.SNMP.value
 INTERFACE_FIELDS = ("name", "if_index", "type", "speed_mbps", "mac_address", "mtu", "enabled", "description", "oper_status")
@@ -259,6 +259,26 @@ def _create_vlan(db: Session, data: dict, change: DiscoveryChange) -> None:
     db.flush()
 
 
+# ---------------------------------------------------------------- subnet
+def _site_vlan(db: Session, site_id: int | None, vid: int) -> int | None:
+    """VLAN con quel VID nella sede (o globale): quella della sede prima."""
+    return db.scalar(
+        select(VLAN.id).where(VLAN.vid == vid, or_(VLAN.site_id == site_id, VLAN.site_id.is_(None)))
+        .order_by(VLAN.site_id.is_(None))
+    )
+
+
+def _create_prefix(db: Session, data: dict, change: DiscoveryChange) -> None:
+    if db.scalar(select(Prefix.id).where(Prefix.prefix == data["prefix"])):
+        return  # creata nel frattempo (a mano, da un import o da un altro switch)
+    vlan_id = _site_vlan(db, data["site_id"], data["vid"]) if data.get("vid") else None
+    prefix = Prefix(prefix=data["prefix"], site_id=data["site_id"], vlan_id=vlan_id,
+                    description="Trovata dalla scansione SNMP")
+    _hooked(prefix_hook, db, prefix, data, True)
+    db.add(prefix)
+    db.flush()
+
+
 # ---------------------------------------------------------------- cavi
 def _new_cable(db: Session, data: dict) -> None:
     for key in ("a_interface_id", "b_interface_id"):
@@ -294,6 +314,7 @@ HANDLERS = {
     (ChangeObject.CABLE.value, ChangeAction.CREATE.value): _create_cable,
     (ChangeObject.CABLE.value, ChangeAction.UPDATE.value): _update_cable,
     (ChangeObject.VLAN.value, ChangeAction.CREATE.value): _create_vlan,
+    (ChangeObject.PREFIX.value, ChangeAction.CREATE.value): _create_prefix,
     (ChangeObject.STACK_MEMBER.value, ChangeAction.CREATE.value): _create_stack_member,
     (ChangeObject.STACK_MEMBER.value, ChangeAction.UPDATE.value): _update_stack_member,
     (ChangeObject.STACK_MEMBER.value, ChangeAction.STALE.value): _stale_stack_member,
@@ -302,7 +323,8 @@ HANDLERS = {
 # Ordine sicuro per approvazioni in blocco: prima i device, poi porte, IP e cavi
 APPLY_ORDER = {
     ChangeObject.DEVICE.value: 0,
-    ChangeObject.VLAN.value: 1,  # prima delle porte, che le usano
+    ChangeObject.VLAN.value: 1,  # prima delle porte e delle subnet, che le usano
+    ChangeObject.PREFIX.value: 2,
     ChangeObject.INTERFACE.value: 2,
     ChangeObject.IP.value: 3,
     ChangeObject.CABLE.value: 4,

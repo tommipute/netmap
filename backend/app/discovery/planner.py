@@ -13,6 +13,7 @@ Regole (docs/roadmap.md):
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 import ipaddress
+import re
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -21,8 +22,8 @@ from app.discovery.matching import find_device, find_port, interface_type, norm_
 from app.discovery.snmp import ETHERNET_IF_TYPES, HostData, IfData
 from app.discovery.vendors import PROVISIONAL_MANUFACTURER, manufacturer_of
 from app.services.roles import detect_for, role_for
-from app.models import (VLAN, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress, Manufacturer,
-                        StackMember)
+from app.models import (VLAN, AuditEntry, Cable, Device, DeviceRole, DeviceType, DiscoveryJob, Interface, IPAddress,
+                        Manufacturer, Prefix, StackMember)
 from app.models.enums import (
     NON_CABLEABLE_TYPES,
     ChangeAction,
@@ -80,6 +81,10 @@ def _unique_names(interfaces: list[IfData]) -> dict[int, str]:
     return renamed
 
 
+# Interfaccia VLAN (SVI) e il suo VID: Vl10, Vlan10, VLAN 10, Vlan-interface10 (Comware), Vlanif10 (Huawei), irb.10
+_SVI = re.compile(r"^(?:vl|vlan|vlan-interface|vlanif|irb\.|vlan\.)\s*(\d{1,4})$", re.IGNORECASE)
+
+
 class Planner:
     def __init__(self, db: Session, job: DiscoveryJob, now: datetime):
         self.db, self.job, self.now = db, job, now
@@ -119,6 +124,7 @@ class Planner:
         ports = self._interfaces(device, hd, proposals)
         self._port_vlans(device, hd, ports, vlans, proposals)
         self._ips(device, hd, ports, proposals)
+        self._prefixes(device, hd, ports, proposals)
         self._neighbors(device, hd, ports, proposals)
         for p in proposals:
             p.device_id = p.device_id or device.id
@@ -540,6 +546,44 @@ class Planner:
                     diff=diff,
                     auto=ip.source == SNMP,
                 ))
+
+    # ------------------------------------------------------------ subnet
+    def _prefixes(self, device: Device, hd: HostData, ports: dict[int, Interface], out: list[Proposal]) -> None:
+        """Subnet degli IP letti (10.0.0.1/24 -> 10.0.0.0/24) che NetMap non ha: si creano da sole, nella sede del
+        device e con la VLAN dell'interfaccia VLAN che ha l'IP (Vlan10, VLAN10, Vlan-interface10, Vlanif10).
+        Niente host singoli e link /31, loopback e link-local; una subnet cancellata a mano non torna.
+        La VLAN si mette solo se esiste già quando si crea la subnet."""
+        wanted: dict[str, tuple[str | None, int | None]] = {}  # subnet -> (porta, VID)
+        for ip_data in hd.ips:
+            network = ipaddress.ip_interface(ip_data.address).network
+            if (network.prefixlen >= network.max_prefixlen - 1 or network.is_loopback or network.is_link_local
+                    or network.is_multicast or network.is_unspecified):
+                continue
+            iface = ports.get(ip_data.if_index)
+            name = iface.name if iface else next((i.name for i in hd.interfaces if i.if_index == ip_data.if_index), None)
+            match = _SVI.match(name or "")
+            wanted.setdefault(str(network), (name, int(match.group(1)) if match else None))
+        if not wanted:
+            return
+        existing = set(self.db.scalars(select(Prefix.prefix).where(Prefix.prefix.in_(wanted))))
+        deleted = set(self.db.scalars(select(AuditEntry.label).where(
+            AuditEntry.object_type == "prefix", AuditEntry.action == "delete", AuditEntry.label.in_(wanted),
+        )))
+        for prefix, (port, vid) in wanted.items():
+            if prefix in existing or prefix in deleted:
+                continue  # quelle che ci sono già non si toccano: sono documentazione, magari corretta a mano
+            diff = {"Subnet": [None, prefix]}
+            if vid:
+                diff["VLAN"] = [None, vid]
+            out.append(Proposal(
+                key=f"prefix:create:{prefix}",
+                object_type=ChangeObject.PREFIX.value,
+                action=ChangeAction.CREATE.value,
+                summary=f"Nuova subnet {prefix}" + (f" (da {device.name} {port})" if port else ""),
+                data={"prefix": prefix, "site_id": device.site_id, "vid": vid},
+                diff=diff,
+                auto=True,
+            ))
 
     # ------------------------------------------------------------ cavi (LLDP / CDP)
     def _cable_of(self, interface_id: int) -> Cable | None:
