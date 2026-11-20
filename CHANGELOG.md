@@ -6,6 +6,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.7.4] - 2026-11-20
+
+Le subnet arrivano dalla scansione: non serve più inserirle a mano. Nessun cambiamento incompatibile e nessuna
+migration: compaiono alla prima scansione dopo l'aggiornamento.
+
 ### Novità
 
 - La scansione crea da sola le **subnet** dagli IP letti sugli switch (l'indirizzo ha la maschera: 192.0.2.25/24
