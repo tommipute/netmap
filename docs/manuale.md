@@ -172,7 +172,9 @@ Cliccando un device si apre la sua scheda:
   virtuale, LAG), velocità, modalità VLAN (access con una VLAN untagged, trunk con le VLAN tagged), MAC, MTU, LAG di
   cui fa parte, abilitata sì/no, solo management sì/no. La scansione mette rame o fibra leggendo il modulo inserito
   nella porta (SFP, SFP+, QSFP: tabelle dei moduli di HPE Comware e Aruba, ENTITY-MIB per gli altri); senza modulo,
-  o se lo switch non lo descrive, una porta Ethernet resta in rame.
+  o se lo switch non lo descrive, una porta Ethernet resta in rame. Legge anche il LAG di cui fa parte ogni porta
+  (Trk1, Po1, port-channel101), se lo switch lo dice: le porte della scansione lo prendono da sole, quelle inserite a
+  mano lo propongono in Da approvare.
 - **Aggiungi porte in blocco**: scrivi un intervallo tra parentesi quadre: `Gi1/0/[1-48]` crea 48 porte,
   `[1-52]` crea le porte da 1 a 52, `Te1/1/[1-4]` le quattro uplink.
 - **Collega** (l'icona sulla riga di una porta libera): scegli il device e la porta dall'altra parte e il tipo di
@@ -655,7 +657,8 @@ Da sapere:
   (trunk e uplink): quelle con un cavo documentato verso uno switch o un router di NetMap, e quelle dove il vicino
   LLDP/CDP si dichiara switch o router, oppure è un altro apparato della scansione o uno switch di NetMap. Vale anche
   per un core che NetMap non legge o che è ancora da approvare; un telefono o un access point non contano come
-  switch. Non conta neanche una porta che vede i MAC di **due o più switch** (almeno 3 per switch): è un uplink che
+  switch. Il vicino sta sulla porta fisica e i MAC sul LAG (Trk1, port-channel): conta come porta di rete anche il
+  LAG di cui la porta fa parte. Non conta neanche una porta che vede i MAC di **due o più switch** (almeno 3 per switch): è un uplink che
   NetMap non ha riconosciuto (senza LLDP, per esempio), con dietro il resto della rete, non un hub verso uno switch
   preciso;
 - una porta che va giù e su tra due controlli si vede lo stesso, perché lo switch dice quando è cambiata l'ultima

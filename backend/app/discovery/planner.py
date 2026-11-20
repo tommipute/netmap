@@ -42,7 +42,7 @@ def port_type(i: IfData) -> str:
     """Tipo della porta: dall'ifType, e per le porte Ethernet rame o fibra dal modulo inserito (se si sa)."""
     if i.media is not None and i.if_type in ETHERNET_IF_TYPES:
         return i.media.port
-    return interface_type(i.if_type)
+    return interface_type(i.if_type, i.name)
 
 
 @dataclass
@@ -122,6 +122,7 @@ class Planner:
         self._stack(device, hd, proposals)
         vlans = self._vlans(device.site_id, hd, proposals)
         ports = self._interfaces(device, hd, proposals)
+        self._lag_members(device, hd, ports, proposals)
         self._port_vlans(device, hd, ports, vlans, proposals)
         self._ips(device, hd, ports, proposals)
         self._prefixes(device, hd, ports, proposals)
@@ -416,7 +417,7 @@ class Planner:
             change("enabled", "Abilitata", d.admin_up)
         if d.alias and (iface.description or "") != d.alias:
             change("description", "Descrizione", d.alias)
-        detected = interface_type(d.if_type)
+        detected = interface_type(d.if_type, d.name)
         if detected in (InterfaceType.LAG.value, InterfaceType.VIRTUAL.value, InterfaceType.WIRELESS.value):
             if iface.type != detected and not (cabled and detected in NON_CABLEABLE_TYPES):
                 change("type", "Tipo", detected)
@@ -424,6 +425,25 @@ class Planner:
                 and iface.type != d.media.port:
             change("type", "Tipo", d.media.port)
         return data, diff
+
+    def _lag_members(self, device: Device, hd: HostData, ports: dict[int, Interface], out: list[Proposal]) -> None:
+        """Il LAG di cui fa parte ogni porta (Trk1, Po1, Bridge-Aggregation1). Si mette e si cambia, non si toglie:
+        non tutti gli switch dicono i membri, e un LAG scritto a mano resta."""
+        for i in hd.interfaces:
+            member, lag = ports.get(i.if_index), ports.get(i.lag_if_index)
+            if member is None or lag is None or member.lag_id == lag.id or lag.type != InterfaceType.LAG.value:
+                continue  # il LAG diventa di tipo "lag" con la sua modifica: i membri alla scansione dopo
+            current = next((p.name for p in ports.values() if p.id == member.lag_id), None)
+            out.append(Proposal(
+                key=f"interface:lag:{member.id}",
+                object_type=ChangeObject.INTERFACE.value,
+                action=ChangeAction.UPDATE.value,
+                object_id=member.id,
+                summary=f"Porta {_port_label(device, member)}: fa parte di {lag.name}",
+                data={"lag_id": lag.id},
+                diff={"LAG": [current, lag.name]},
+                auto=member.source == SNMP,
+            ))
 
     def _cabled_ids(self, interface_ids: list[int]) -> set[int]:
         if not interface_ids:

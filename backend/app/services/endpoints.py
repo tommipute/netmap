@@ -46,10 +46,19 @@ def _uplinks(db: Session, scanned: list[tuple[Device, HostData, dict[int, Interf
             iface = ports.get(neighbor.local_if_index)
             if iface is not None and short_name(neighbor.sys_name) in switch_names:
                 uplinks.add(iface.id)
-        # Un port-channel è un uplink se lo è una delle sue porte
-        lag_ids = {iface.lag_id for iface in ports.values() if iface.id in uplinks and iface.lag_id}
-        uplinks |= lag_ids
+        uplinks |= _lags_of(uplinks, hd, ports)
     return uplinks
+
+
+def _lags_of(port_ids: set[int], hd: HostData, ports: dict[int, Interface]) -> set[int]:
+    """I LAG (port-channel, Trk) di quelle porte: il vicino LLDP/CDP sta sulle porte fisiche, la tabella MAC sul LAG.
+    Dalla scansione (ifStackTable, IEEE8023-LAG-MIB) e da quello che è documentato in NetMap."""
+    lags = {iface.lag_id for iface in ports.values() if iface.id in port_ids and iface.lag_id}
+    for i in hd.interfaces:
+        member, lag = ports.get(i.if_index), ports.get(i.lag_if_index)
+        if member is not None and lag is not None and member.id in port_ids:
+            lags.add(lag.id)
+    return lags
 
 
 NETWORK_KINDS = {"switch", "router", "firewall", "wlc"}
@@ -109,7 +118,7 @@ def _network_ports(db: Session, scanned: list[tuple[Device, HostData, dict[int, 
                                  macs=[neighbor.chassis_mac] if neighbor.chassis_mac else None)
             if remote is not None and remote.id != device.id and remote.id in network_devices:
                 found.add(iface.id)
-        found |= {iface.lag_id for iface in ports.values() if iface.id in found and iface.lag_id}
+        found |= _lags_of(found, hd, ports)
     return found
 
 

@@ -6,6 +6,17 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+### Correzioni
+
+- Niente più falsi **loop** sui trunk HP/Aruba (Trk1) e sui port-channel: la scansione legge di quale LAG fa parte
+  ogni porta (ifStackTable per HP/Aruba, Aruba CX, Dell, Arista; IEEE8023-LAG-MIB per Cisco NX-OS e gli altri). Il
+  vicino LLDP sta sulla porta fisica (la 23) e la tabella MAC sul trunk (Trk1): prima NetMap non sapeva che erano lo
+  stesso collegamento, e il Trk1 sembrava una porta di accesso con dietro i PC di un altro switch. Le porte delle
+  scansioni prendono da sole il LAG (campo «LAG di cui fa parte»), quelle inserite a mano lo propongono in Da
+  approvare; un LAG messo a mano non si toglie.
+- Il Trk degli HP E2910, che dichiara un tipo SNMP diverso dagli altri (54 invece di 161), ora risulta di tipo LAG e
+  non «Altro».
+
 ## [1.7.4] - 2026-11-20
 
 Le subnet arrivano dalla scansione: non serve più inserirle a mano. Nessun cambiamento incompatibile e nessuna

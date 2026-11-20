@@ -132,6 +132,7 @@ def host_data(device: dict, host: str, profile_id: int | None = None, profile_na
             if_index=idx, name=name, descr=descr, alias=alias or None, if_type=if_type, mtu=mtu,
             speed_mbps=mbps or None, mac=mac.upper(), admin_up={1: True, 2: False}.get(admin),
             oper_status=OPER_STATUS.get(oper), media=media.get(idx),
+            lag_if_index=device.get("lag_members", {}).get(idx),
         )
         for idx, (name, descr, if_type, mtu, mbps, mac, admin, oper, alias) in sorted(device["interfaces"].items())
     ]

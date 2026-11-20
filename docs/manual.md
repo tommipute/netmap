@@ -171,7 +171,9 @@ Click a device to open its page:
   LAG), speed, VLAN mode (access with one untagged VLAN, trunk with tagged VLANs), MAC, MTU, the LAG it belongs to,
   enabled yes/no, management only yes/no. The scan sets copper or fibre by reading the module plugged into the port
   (SFP, SFP+, QSFP: the module tables of HPE Comware and Aruba, ENTITY-MIB for the others); with no module, or if the
-  switch doesn't describe it, an Ethernet port stays copper.
+  switch doesn't describe it, an Ethernet port stays copper. It also reads the LAG each port belongs to (Trk1, Po1,
+  port-channel101), when the switch tells: scanned ports take it by themselves, manually added ones propose it in
+  To approve.
 - **Add ports in bulk**: write a range in square brackets: `Gi1/0/[1-48]` creates 48 ports, `[1-52]` creates ports
   1 to 52, `Te1/1/[1-4]` the four uplinks.
 - **Connect** (the icon on the row of a free port): choose the device and port on the other side and the cable
@@ -650,7 +652,8 @@ Good to know:
   count: those with a documented cable to a NetMap switch or router, and those whose LLDP/CDP neighbor declares
   itself a switch or router, or is another device in the scan or a NetMap switch. This also holds for a core that
   NetMap does not read or that is still waiting for approval; a phone or an access point does not count as a switch.
-  Nor does a port that sees the MACs of **two or more switches** (at least 3 per switch): it is an uplink NetMap did
+  The neighbor is on the physical port and the MACs on the LAG (Trk1, port-channel): the LAG the port belongs to
+  also counts as a network port. Nor does a port that sees the MACs of **two or more switches** (at least 3 per switch): it is an uplink NetMap did
   not recognize (no LLDP, for instance), with the rest of the network behind it, not a hub to one specific switch;
 - a port that goes down and up between two checks is still seen, because the switch says when it last changed;
 - HP/Aruba loop protect and a MAC jumping from one port to another between two scans are not detected yet.

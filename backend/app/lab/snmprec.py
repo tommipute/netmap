@@ -181,6 +181,13 @@ def snmprec(device: dict) -> str:
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.6.{index}", STR, device_id)
         add(f"1.3.6.1.4.1.9.9.23.1.2.1.1.7.{index}", STR, port)
 
+    # Porte dei LAG: {porta: LAG}, nella ifStackTable (HP/Aruba) o con "lag_mib" nella IEEE8023-LAG-MIB (Cisco)
+    for member, lag in device.get("lag_members", {}).items():
+        if device.get("lag_mib"):
+            add(f"1.2.840.10006.300.43.1.2.1.1.13.{member}", INT, lag)
+        else:
+            add(f"1.3.6.1.2.1.31.1.2.1.3.{lag}.{member}", INT, 1)
+
     for base_port, if_index in device["bridge_ports"].items():
         add(f"1.3.6.1.2.1.17.1.4.1.2.{base_port}", INT, if_index)
     for base_port, vid in device["pvid"].items():

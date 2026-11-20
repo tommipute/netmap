@@ -6,7 +6,9 @@ from datetime import datetime, timedelta, timezone
 from app.lab.snmprec import snmprec
 from app.services.monitor import Details, PortDetail, Probe, check_devices, read_details
 from tests.snmp_devices import PC_A_MAC, SW1, SW2
-from tests.test_discovery import SW1_HOST, SW2_HOST, approve_all, create, device_named, scan, setup  # noqa: F401
+from tests.test_discovery import (  # noqa: F401  (setup è una fixture)
+    SW1_HOST, SW2_HOST, approve_all, create, device_named, pending, ports_of, scan, setup,
+)
 from tests.test_porte_dettagli import FakeSession, device_with_ports, set_if_index
 
 HUB = ["00:50:56:00:01:01", "00:50:56:00:01:02", "00:50:56:00:01:03"]
@@ -225,6 +227,36 @@ def test_trunk_verso_un_altro_switch_non_e_un_loop(client, setup, session_factor
     sw2["fdb"] += [(99, mac, 2, 3) for mac in HUB]
     scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
     assert not {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}
+
+
+def test_trunk_hp_non_e_un_loop(client, setup, session_factory):
+    """sw-sim-02 arriva a sw-sim-01 con il Trk1 (porte 49 e 50): il vicino LLDP sta sulla 49, la tabella MAC sul Trk1.
+    Senza sapere che la 49 fa parte del Trk1, i PC della Gi1/0/1 sembravano dietro due porte di accesso: un loop."""
+    sw1, sw2 = copy.deepcopy(SW1), copy.deepcopy(SW2)
+    sw1["fdb"] += [(None, mac, 1, 3) for mac in HUB]
+    sw2["interfaces"][50] = ("50", "50", 6, 1500, 10000, "00:22:33:44:55:32", 1, 1, "")
+    sw2["interfaces"][289] = ("Trk1", "Trk1", 54, 1500, 20000, "00:22:33:44:55:21", 1, 1, "")  # come l'E2910
+    sw2["bridge_ports"] = {1: 1, 2: 2, 289: 289}
+    sw2["pvid"] = {1: 99, 2: 99, 289: 1}
+    sw2["fdb"] = [(vlan, mac, 289 if port == 49 else port, status) for vlan, mac, port, status in sw2["fdb"]]
+    sw2["fdb"] += [(99, mac, 289, 3) for mac in HUB]
+    job_id = setup["job"]["id"]
+
+    # Come prima: membri del trunk non letti
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    approve_all(client)
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    assert {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}
+
+    # Con i membri letti dalla ifStackTable: il Trk1 è un uplink, e le sue porte ne fanno parte da sole
+    sw2["lag_members"] = {49: 289, 50: 289}
+    scan(client, session_factory, job_id, (sw1, SW1_HOST), (sw2, SW2_HOST))
+    assert not {"loop", "undocumented_link"} & {p["kind"] for p in problems(client)["items"]}
+    assert [c["object_type"] for c in pending(client)] == ["cable"]  # i membri del Trk1 si legano da soli
+    ports = ports_of(client, device_named(client, "sw-sim-02")["id"])
+    assert ports["Trk1"]["type"] == "lag"
+    assert ports["49"]["lag_id"] == ports["50"]["lag_id"] == ports["Trk1"]["id"]
+    assert ports["1"]["lag_id"] is None
 
 
 def test_uplink_non_riconosciuto_non_e_un_loop(client, setup, session_factory):

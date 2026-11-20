@@ -188,3 +188,37 @@ def test_porta_locale_lldp_con_l_ifindex_come_id():
     local = snmp._lldp_local_ports(interfaces, {(2083,): 7, (101,): 7}, {(2083,): b"101035", (101,): b"49"}, {}, notes)
     assert local == {2083: 101035, 101: 49}  # "49" è prima di tutto il nome di una porta
     assert notes == {"lldp_local_ifindex": 1}
+
+
+def test_porte_dei_lag():
+    ports = lambda: [  # noqa: E731
+        snmp.IfData(if_index=1, name="1", if_type=6), snmp.IfData(if_index=2, name="2", if_type=6),
+        snmp.IfData(if_index=3, name="3", if_type=6), snmp.IfData(if_index=289, name="Trk1", if_type=54),
+        snmp.IfData(if_index=1099, name="VLAN99", if_type=53),
+    ]
+    # HP E2910: il Trk1 ha ifType 54; nella ifStackTable ci sono anche le VLAN sopra le porte, e una coppia non attiva
+    interfaces = ports()
+    run(snmp._lag_members(FakeSession({snmp.IF_STACK_STATUS: {
+        (289, 1): 1, (289, 2): 1, (289, 3): 2, (1099, 1): 1, (1099, 289): 1, (0, 289): 1,
+    }}), interfaces))
+    assert {i.if_index: i.lag_if_index for i in interfaces} == {1: 289, 2: 289, 3: None, 289: None, 1099: None}
+
+    # Cisco: niente ifStackTable, il port-channel dalla IEEE8023-LAG-MIB (0 = porta non legata)
+    interfaces = ports()
+    interfaces[3] = snmp.IfData(if_index=289, name="Po1", if_type=161)
+    run(snmp._lag_members(FakeSession({
+        snmp.LAG_PORT_ATTACHED: {(1,): 289, (2,): 0, (3,): 0},
+        snmp.LAG_PORT_SELECTED: {(1,): 289, (2,): 289, (3,): 0},
+    }), interfaces))
+    assert [i.lag_if_index for i in interfaces[:3]] == [289, None, None]
+    # Nessuna porta ancora legata: vale il LAG scelto
+    run(snmp._lag_members(FakeSession({
+        snmp.LAG_PORT_ATTACHED: {(1,): 0, (2,): 0}, snmp.LAG_PORT_SELECTED: {(1,): 289, (2,): 289},
+    }), interfaces))
+    assert [i.lag_if_index for i in interfaces[:3]] == [289, 289, None]
+
+    # Una porta chiamata Trk ma di tipo Ethernet non è un LAG
+    interfaces = ports()
+    interfaces[3] = snmp.IfData(if_index=289, name="Trk1", if_type=6)
+    run(snmp._lag_members(FakeSession({snmp.IF_STACK_STATUS: {(289, 1): 1}}), interfaces))
+    assert interfaces[0].lag_if_index is None

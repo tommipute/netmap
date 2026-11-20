@@ -2181,7 +2181,7 @@ const strings = {
 const SNMP_SECTIONS = {
   porte: 'ports', 'indirizzi IP': 'IP addresses', 'seriale e stack': 'serial and stack', 'vicini LLDP': 'LLDP neighbors',
   'vicini CDP': 'CDP neighbors', VLAN: 'VLANs', 'tabella MAC': 'MAC table', 'tabella ARP': 'ARP table',
-  'regole SNMP': 'SNMP rules',
+  'regole SNMP': 'SNMP rules', 'moduli delle porte': 'port modules', 'porte dei LAG': 'LAG ports',
 }
 const hostList = (text) => text.replace(/ e altri (\d+)$/, ' and $1 more')
 const snmpSection = (name) => SNMP_SECTIONS[name] || name.replace(/^tabella MAC della VLAN (\d+)$/, 'MAC table of VLAN $1')
@@ -2200,7 +2200,7 @@ const patterns = [
     (m, time, n, hosts) => `${time || ''}Answer ping but not SNMP (${n}): ${hostList(hosts)}. Check the community or user, that SNMP is enabled and that the ACL allows the NetMap address`],
   [/^(\d\d:\d\d:\d\d )?Non rispondono né al ping né a SNMP: (\d+) indirizzi$/, '$1No answer to ping or SNMP: $2 addresses'],
   [/^(\d\d:\d\d:\d\d )?(\S+): lettura SNMP fallita \((.*)\)$/, '$1$2: SNMP read failed ($3)'],
-  [/^(porte|indirizzi IP|seriale e stack|vicini LLDP|vicini CDP|VLAN|tabella MAC|tabella ARP): (.+)$/, (m) => snmpProblem(m)],
+  [/^(porte|moduli delle porte|porte dei LAG|indirizzi IP|seriale e stack|vicini LLDP|vicini CDP|VLAN|tabella MAC|tabella ARP): (.+)$/, (m) => snmpProblem(m)],
   [/^tabella MAC della VLAN \d+: .+$/, (m) => snmpProblem(m)],
   // import da NetBox (anche le righe del log, che iniziano con l'ora)
   [/^(\d\d:\d\d:\d\d )?Connessione a (\S+) (.+)$/, '$1Connected to $2 $3'],
@@ -2373,6 +2373,7 @@ const patterns = [
   [/^La porta (.+) non risulta più dalla scansione$/, 'Port $1 is no longer seen by the scan'],
   [/^Nuova VLAN (\d+) (.*)$/, 'New VLAN $1 $2'],
   [/^Porta (.+): VLAN lette dallo switch$/, 'Port $1: VLANs read from the switch'],
+  [/^Porta (.+): fa parte di (.+)$/, 'Port $1: part of $2'],
   [/^Nuovo IP (.+) su (.+)$/, 'New IP $1 on $2'],
   [/^Nuova subnet (\S+) \(da (.+)\)$/, 'New subnet $1 (from $2)'],
   [/^Nuova subnet (\S+)$/, 'New subnet $1'],

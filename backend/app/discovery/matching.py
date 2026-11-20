@@ -54,7 +54,13 @@ def norm_ifname(name: str | None) -> str:
     return text
 
 
-def interface_type(if_type: int | None) -> str:
+# Trunk HP ProCurve/Aruba (Trk1): su alcuni modelli (E2910) ha ifType 54 propMultiplexor invece di 161
+_HP_TRUNK = re.compile(r"^trk\d+$", re.IGNORECASE)
+
+
+def interface_type(if_type: int | None, name: str | None = None) -> str:
+    if if_type == 54 and name and _HP_TRUNK.match(name.strip()):
+        return InterfaceType.LAG.value
     return _IF_TYPES.get(if_type, InterfaceType.OTHER.value) if if_type is not None else InterfaceType.OTHER.value
 
 

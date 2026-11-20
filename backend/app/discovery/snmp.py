@@ -35,9 +35,10 @@ from pysnmp.hlapi.v3arch.asyncio import (
 
 from app.core.net import normalize_mac
 from app.discovery import snmp_rules
-from app.discovery.matching import norm_ifname
+from app.discovery.matching import interface_type, norm_ifname
 from app.discovery.media import Media, media_from_text, media_hh3c
 from app.discovery.vendors import model_from_descr, model_from_text
+from app.models.enums import InterfaceType
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,10 @@ IF_OPER_STATUS = "1.3.6.1.2.1.2.2.1.8"
 IF_NAME = "1.3.6.1.2.1.31.1.1.1.1"
 IF_HIGH_SPEED = "1.3.6.1.2.1.31.1.1.1.15"
 IF_ALIAS = "1.3.6.1.2.1.31.1.1.1.18"
-IF_TYPE_LAG = 161  # ieee8023adLag: port-channel, trunk, MLT
+IF_STACK_STATUS = "1.3.6.1.2.1.31.1.2.1.3"  # .{interfaccia sopra}.{interfaccia sotto}: 1 = attiva
+# IEEE8023-LAG-MIB: il LAG a cui è legata ogni porta (Cisco, Comware, NX-OS), quello scelto se non è ancora legata
+LAG_PORT_ATTACHED = "1.2.840.10006.300.43.1.2.1.1.13"
+LAG_PORT_SELECTED = "1.2.840.10006.300.43.1.2.1.1.12"
 ETHERNET_IF_TYPES = {6, 62, 117}  # ethernetCsmacd, fastEther, gigabitEthernet
 
 IP_AD_IF_INDEX = "1.3.6.1.2.1.4.20.1.2"      # ipAddrTable (IPv4), indice = indirizzo
@@ -193,6 +197,7 @@ class IfData:
     admin_up: bool | None = None
     oper_status: str | None = None
     media: Media | None = None  # rame o fibra dal modulo inserito o dalla descrizione (discovery/media.py)
+    lag_if_index: int | None = None  # LAG (port-channel, Trk) di cui la porta fa parte
 
 
 @dataclass
@@ -514,6 +519,28 @@ async def _interfaces(s: _Session) -> list[IfData]:
             oper_status=OPER_STATUS.get(_int(columns[IF_OPER_STATUS].get(index))),
         ))
     return result
+
+
+async def _lag_members(s: _Session, interfaces: list[IfData]) -> None:
+    """Porte che fanno parte di un LAG: ifStackTable (HP/Aruba, Aruba CX, Dell), poi IEEE8023-LAG-MIB (Cisco,
+    Comware, NX-OS). Della ifStackTable valgono solo le coppie LAG sopra / porta Ethernet sotto: la stessa tabella
+    mette anche le VLAN sopra le porte."""
+    lags = {i.if_index for i in interfaces if interface_type(i.if_type, i.name) == InterfaceType.LAG.value}
+    if not lags:
+        return
+    ports = {i.if_index: i for i in interfaces if i.if_type in ETHERNET_IF_TYPES}
+    members: dict[int, int] = {}
+    for index, value in (await s.walk(IF_STACK_STATUS)).items():
+        if len(index) == 2 and index[0] in lags and index[1] in ports and _int(value) == 1:
+            members.setdefault(index[1], index[0])
+    if not members:
+        attached = await s.walk(LAG_PORT_ATTACHED)
+        found = attached if any(_int(v) for v in attached.values()) else await s.walk(LAG_PORT_SELECTED)
+        for index, value in found.items():
+            if len(index) == 1 and index[0] in ports and _int(value) in lags:
+                members[index[0]] = _int(value)
+    for if_index, lag in members.items():
+        ports[if_index].lag_if_index = lag
 
 
 async def _ips(s: _Session) -> list[IpData]:
@@ -1034,6 +1061,8 @@ async def _read_host(s: _Session, system: dict[str, Any], rules: list[snmp_rules
     data.interfaces = await _interfaces(s)
     s.section = "moduli delle porte"
     await _media(s, data.interfaces)
+    s.section = "porte dei LAG"
+    await _lag_members(s, data.interfaces)
     s.section = "indirizzi IP"
     data.ips = await _ips(s)
     s.section = "seriale e stack"
@@ -1051,7 +1080,7 @@ async def _read_host(s: _Session, system: dict[str, Any], rules: list[snmp_rules
     cisco_names, cisco_untagged, cisco_tagged = await _cisco_vlans(s)
     s.section = "tabella MAC"
     base_ports = await _base_ports(s, [i.if_index for i in data.interfaces])
-    lags = {i.if_index for i in data.interfaces if i.if_type == IF_TYPE_LAG}
+    lags = {i.if_index for i in data.interfaces if interface_type(i.if_type, i.name) == InterfaceType.LAG.value}
     data.fdb, pvids, qbridge = await _bridge(s, base_ports, cisco_untagged, lags)
     if cisco_names and base_ports and not qbridge:
         seen = {(e.mac, e.if_index, e.vlan) for e in data.fdb}
