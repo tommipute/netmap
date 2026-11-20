@@ -6,6 +6,11 @@ Novità / Modifiche / Correzioni. Le modifiche non ancora rilasciate vanno sotto
 
 ## [Non rilasciato]
 
+## [1.7.5] - 2026-11-20
+
+Niente più falsi loop sui trunk HP/Aruba e sui port-channel. Nessun cambiamento incompatibile e nessuna migration:
+i falsi loop spariscono alla prima scansione dopo l'aggiornamento, il LAG delle porte si riempie a quella dopo.
+
 ### Correzioni
 
 - Niente più falsi **loop** sui trunk HP/Aruba (Trk1) e sui port-channel: la scansione legge di quale LAG fa parte
